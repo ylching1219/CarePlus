@@ -1,15 +1,16 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CarePlus.API.Models.User.Staff.Admin
 {
-    [Tags("Admins")]
-    [Index(nameof(AdminId), IsUnique = true)]
+    [Table("Admins")]
     public class Admin : Staff
     {
         [Required]
-        public string AdminId { get; set; } = null!;
-        [Required]
         public int AccessLevel { get; set; }
+
+        [StringLength(100)]
+        public string? Department { get; set; }
     }
 }

@@ -12,7 +12,6 @@ namespace CarePlus.API.Models.Leave
 
         [Required]
         public string StaffId { get; set; } = null!;
-
         public Staff Staff { get; set; } = null!;
 
         [Required]
