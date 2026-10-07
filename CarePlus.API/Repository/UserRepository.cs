@@ -21,7 +21,7 @@ namespace CarePlus.API.Repository
             await  _context.Users.AddAsync(user);
             await  _context.SaveChangesAsync();
 
-            return user.Id;
+            return user.UserId;
         }
 
         public async Task<List<User>> GetAllUsersAsync()
@@ -39,7 +39,7 @@ namespace CarePlus.API.Repository
 
         public async Task<User?> GetUserByIdAsync(int id)
         {
-            return await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+            return await _context.Users.FirstOrDefaultAsync(u => u.UserId == id);
         }
 
         public async Task<bool> UpdateUserAsync(User user)

@@ -19,12 +19,14 @@ namespace CarePlus.API.Migrations
                 name: "Users",
                 columns: table => new
                 {
-                    Id = table.Column<long>(type: "bigint", nullable: false)
+                    UserId = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     Username = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false),
                     Name = table.Column<string>(type: "longtext", nullable: true),
-                    Email = table.Column<string>(type: "longtext", nullable: true),
-                    Password = table.Column<string>(type: "longtext", nullable: true),
+                    Email = table.Column<string>(type: "longtext", nullable: false),
+                    PasswordHash = table.Column<string>(type: "longtext", nullable: false),
+                    Phone = table.Column<long>(type: "bigint", nullable: true),
+                    Status = table.Column<string>(type: "longtext", nullable: true),
                     CreateDate = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     CreatedBy = table.Column<string>(type: "longtext", nullable: true),
                     UpdateDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -34,7 +36,7 @@ namespace CarePlus.API.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Users", x => x.Id);
+                    table.PrimaryKey("PK_Users", x => x.UserId);
                 })
                 .Annotation("MySQL:Charset", "utf8mb4");
 
