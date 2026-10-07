@@ -1,10 +1,14 @@
-﻿using CarePlus.API.Models;
+﻿using CarePlus.API.Models.Appointment;
 using CarePlus.API.Models.Common;
+using CarePlus.API.Models.DispenseRec;
 using CarePlus.API.Models.Leave;
 using CarePlus.API.Models.MedicalRecord;
 using CarePlus.API.Models.Medicine;
 using CarePlus.API.Models.MedicineBatch;
+using CarePlus.API.Models.PersonalHealthRec;
 using CarePlus.API.Models.Prescription;
+using CarePlus.API.Models.PrescriptionItem;
+using CarePlus.API.Models.Queue;
 using CarePlus.API.Models.Room;
 using CarePlus.API.Models.RoomAssg;
 using CarePlus.API.Models.User;
@@ -40,26 +44,88 @@ namespace CarePlus.API.Data
         public DbSet<MedRecord> MedicalRecords { get; set; } = null!;
         public DbSet<Prescription> Prescriptions { get; set; } = null!;
         public DbSet<PrescriptionItem> PrescriptionItems { get; set; } = null!;
+        public DbSet<DispenseRec> DispenseRecords { get; set; } = null!;
+
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            //Seperate tables, even though is inheritance, because of the different properties in each class
+            modelBuilder.Entity<Staff>().ToTable("Staffs");
+            modelBuilder.Entity<Doctor>().ToTable("Doctors");
+            modelBuilder.Entity<Pharmacist>().ToTable("Pharmacists");
+            modelBuilder.Entity<Admin>().ToTable("Admins");
+
             modelBuilder.Entity<Patient>()
-                .ToTable("Patients");
+                .HasOne(p => p.User)
+                .WithOne()
+                .HasForeignKey<Patient>(p => p.UserId);
 
             modelBuilder.Entity<Staff>()
-                .ToTable("Staffs");
+                .HasOne(s => s.User)
+                .WithOne()
+                .HasForeignKey<Staff>(s => s.UserId);
 
-            modelBuilder.Entity<Doctor>()
-                .ToTable("Doctors");
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Patient)
+                .WithMany()
+                .HasForeignKey(a => a.PatientId);
 
-            modelBuilder.Entity<Pharmacist>()
-                .ToTable("Pharmacists");
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Doctor)
+                .WithMany()
+                .HasForeignKey(a => a.DoctorId);
 
-            modelBuilder.Entity<Admin>()
-                .ToTable("Admins");
+            modelBuilder.Entity<DispenseRec>()
+                .HasOne(d => d.Pharmacist)
+                .WithMany()
+                .HasForeignKey(d => d.PharmacistId);
+
+            modelBuilder.Entity<Leave>()
+                .HasOne(l => l.Staff)
+                .WithMany()
+                .HasForeignKey(l => l.StaffId);
+
+            modelBuilder.Entity<MedRecord>()
+                .HasOne(m => m.Patient)
+                .WithMany()
+                .HasForeignKey(m => m.PatientId);
+
+            modelBuilder.Entity<MedRecord>()
+                .HasOne(m => m.Doctor)
+                .WithMany()
+                .HasForeignKey(m => m.DoctorId);
+
+            modelBuilder.Entity<PersonalHealthRec>()
+                .HasOne(h => h.Patient)
+                .WithMany()
+                .HasForeignKey(h => h.PatientId);
+
+            modelBuilder.Entity<Prescription>()
+                .HasOne(p => p.Patient)
+                .WithMany()
+                .HasForeignKey(p => p.PatientId);
+
+            modelBuilder.Entity<Prescription>()
+                .HasOne(p => p.Doctor)
+                .WithMany()
+                .HasForeignKey(p => p.DoctorId);
+
+            modelBuilder.Entity<QueueEntry>()
+                .HasOne(q => q.Patient)
+                .WithMany()
+                .HasForeignKey(q => q.PatientId);
+
+            modelBuilder.Entity<RoomAssignment>()
+                .HasOne(r => r.Doctor)
+                .WithMany()
+                .HasForeignKey(r => r.DoctorId);
+
+            modelBuilder.Entity<WorkSchedule>()
+                .HasOne(w => w.Staff)
+                .WithMany()
+                .HasForeignKey(w => w.StaffId);
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

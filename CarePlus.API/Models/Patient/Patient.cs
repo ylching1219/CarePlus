@@ -1,14 +1,19 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CarePlus.API.Models.User.Patient
 {
-    [Tags("Patients")]
-    [Index(nameof(PatientId), IsUnique = true)]
-    public class Patient : User
+    [Table("Patients")]
+    public class Patient
     {
-    
+        [Key]
         public string PatientId { get; set; } = null!;
+
+        [Required]
+        public long UserId { get; set; }
+
+        public User User { get; set; } = null!;
 
         public DateTime? DateOfBirth { get; set; }
 

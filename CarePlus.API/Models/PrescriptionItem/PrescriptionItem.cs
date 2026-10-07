@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CarePlus.API.Models
+namespace CarePlus.API.Models.PrescriptionItem
 {
     [Table("PrescriptionItems")]
     public class PrescriptionItem

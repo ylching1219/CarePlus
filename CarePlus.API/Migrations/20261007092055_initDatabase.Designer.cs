@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CarePlus.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261007044714_medRec_prescrip_prescripItem")]
-    partial class medRec_prescrip_prescripItem
+    [Migration("20261007092055_initDatabase")]
+    partial class initDatabase
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -21,6 +21,71 @@ namespace CarePlus.API.Migrations
             modelBuilder
                 .HasAnnotation("ProductVersion", "9.0.20")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
+
+            modelBuilder.Entity("CarePlus.API.Models.Appointment.Appointment", b =>
+                {
+                    b.Property<string>("AppointmentId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateOnly>("AppointmentDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly>("AppointmentTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("CheckInStatus")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("DoctorId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PatientId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("AppointmentId");
+
+                    b.HasIndex("DoctorId");
+
+                    b.HasIndex("PatientId");
+
+                    b.ToTable("Appointments");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.DispenseRec.DispenseRec", b =>
+                {
+                    b.Property<string>("DispensingId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("DispenseAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PharmacistId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PrescriptionId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("DispensingId");
+
+                    b.HasIndex("PharmacistId");
+
+                    b.HasIndex("PrescriptionId");
+
+                    b.ToTable("DispensingRecords");
+                });
 
             modelBuilder.Entity("CarePlus.API.Models.Leave.Leave", b =>
                 {
@@ -36,10 +101,7 @@ namespace CarePlus.API.Migrations
 
                     b.Property<string>("StaffId")
                         .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<long>("StaffUserId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime(6)");
@@ -50,7 +112,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("LeaveId");
 
-                    b.HasIndex("StaffUserId");
+                    b.HasIndex("StaffId");
 
                     b.ToTable("LeaveApplications");
                 });
@@ -69,20 +131,14 @@ namespace CarePlus.API.Migrations
 
                     b.Property<string>("DoctorId")
                         .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<long>("DoctorUserId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Notes")
                         .HasColumnType("longtext");
 
                     b.Property<string>("PatientId")
                         .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<long>("PatientUserId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Treatment")
                         .IsRequired()
@@ -90,9 +146,9 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("MedicalRecordId");
 
-                    b.HasIndex("DoctorUserId");
+                    b.HasIndex("DoctorId");
 
-                    b.HasIndex("PatientUserId");
+                    b.HasIndex("PatientId");
 
                     b.ToTable("MedicalRecords");
                 });
@@ -146,6 +202,47 @@ namespace CarePlus.API.Migrations
                     b.ToTable("MedicineBatches");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.PersonalHealthRec.PersonalHealthRec", b =>
+                {
+                    b.Property<string>("HealthRecId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Allergies")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("BloodPressure")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("HealthConditions")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("HealthNotes")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("MedicalHistory")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PatientId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("RecordType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Symptoms")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("HealthRecId");
+
+                    b.HasIndex("PatientId");
+
+                    b.ToTable("PersonalHealthRecords");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.Prescription.Prescription", b =>
                 {
                     b.Property<string>("PrescriptionId")
@@ -156,10 +253,7 @@ namespace CarePlus.API.Migrations
 
                     b.Property<string>("DoctorId")
                         .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<long>("DoctorUserId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("MedicalRecordId")
                         .IsRequired()
@@ -167,10 +261,7 @@ namespace CarePlus.API.Migrations
 
                     b.Property<string>("PatientId")
                         .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<long>("PatientUserId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -178,16 +269,16 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("PrescriptionId");
 
-                    b.HasIndex("DoctorUserId");
+                    b.HasIndex("DoctorId");
 
                     b.HasIndex("MedicalRecordId");
 
-                    b.HasIndex("PatientUserId");
+                    b.HasIndex("PatientId");
 
                     b.ToTable("Prescriptions");
                 });
 
-            modelBuilder.Entity("CarePlus.API.Models.PrescriptionItem", b =>
+            modelBuilder.Entity("CarePlus.API.Models.PrescriptionItem.PrescriptionItem", b =>
                 {
                     b.Property<string>("PrescriptionItemId")
                         .HasColumnType("varchar(255)");
@@ -220,6 +311,38 @@ namespace CarePlus.API.Migrations
                     b.ToTable("PrescriptionItems");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.Queue.QueueEntry", b =>
+                {
+                    b.Property<string>("QueueId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("AppointmentId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CheckInTime")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PatientId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("QueueType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("QueueId");
+
+                    b.HasIndex("AppointmentId");
+
+                    b.HasIndex("PatientId");
+
+                    b.ToTable("QueueEntries");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.Room.ClinicRoom", b =>
                 {
                     b.Property<string>("RoomId")
@@ -248,10 +371,7 @@ namespace CarePlus.API.Migrations
 
                     b.Property<string>("DoctorId")
                         .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<long>("DoctorUserId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<TimeOnly>("EndTime")
                         .HasColumnType("time");
@@ -265,11 +385,59 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("AssignmentId");
 
-                    b.HasIndex("DoctorUserId");
+                    b.HasIndex("DoctorId");
 
                     b.HasIndex("RoomId");
 
                     b.ToTable("RoomAssignments");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.User.Patient.Patient", b =>
+                {
+                    b.Property<string>("PatientId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Gender")
+                        .IsRequired()
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("PatientId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("Patients");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.User.Staff.Staff", b =>
+                {
+                    b.Property<string>("StaffId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("StaffId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("Staffs", (string)null);
+
+                    b.UseTptMappingStrategy();
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.User", b =>
@@ -324,8 +492,6 @@ namespace CarePlus.API.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
-
-                    b.UseTptMappingStrategy();
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.WorkSch.WorkSchedule", b =>
@@ -338,10 +504,7 @@ namespace CarePlus.API.Migrations
 
                     b.Property<string>("StaffId")
                         .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<long>("StaffUserId")
-                        .HasColumnType("bigint");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<TimeOnly>("StartTime")
                         .HasColumnType("time");
@@ -355,51 +518,9 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("ScheduleId");
 
-                    b.HasIndex("StaffUserId");
+                    b.HasIndex("StaffId");
 
                     b.ToTable("WorkingSchedules");
-                });
-
-            modelBuilder.Entity("CarePlus.API.Models.User.Patient.Patient", b =>
-                {
-                    b.HasBaseType("CarePlus.API.Models.User.User");
-
-                    b.Property<string>("Address")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Gender")
-                        .IsRequired()
-                        .HasColumnType("varchar(1)");
-
-                    b.Property<string>("PatientId")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.HasIndex("PatientId")
-                        .IsUnique();
-
-                    b.ToTable("Patients", (string)null);
-                });
-
-            modelBuilder.Entity("CarePlus.API.Models.User.Staff.Staff", b =>
-                {
-                    b.HasBaseType("CarePlus.API.Models.User.User");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("StaffId")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.HasIndex("StaffId")
-                        .IsUnique();
-
-                    b.ToTable("Staffs", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.Staff.Admin.Admin", b =>
@@ -409,12 +530,9 @@ namespace CarePlus.API.Migrations
                     b.Property<int>("AccessLevel")
                         .HasColumnType("int");
 
-                    b.Property<string>("AdminId")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.HasIndex("AdminId")
-                        .IsUnique();
+                    b.Property<string>("Department")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.ToTable("Admins", (string)null);
                 });
@@ -423,11 +541,25 @@ namespace CarePlus.API.Migrations
                 {
                     b.HasBaseType("CarePlus.API.Models.User.Staff.Staff");
 
-                    b.Property<string>("DoctorId")
+                    b.Property<string>("LicenseNumber")
                         .IsRequired()
-                        .HasColumnType("varchar(255)");
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
-                    b.HasIndex("DoctorId")
+                    b.Property<string>("Qualification")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Specialization")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("YearsOfExperience")
+                        .HasColumnType("int");
+
+                    b.HasIndex("LicenseNumber")
                         .IsUnique();
 
                     b.ToTable("Doctors", (string)null);
@@ -437,21 +569,72 @@ namespace CarePlus.API.Migrations
                 {
                     b.HasBaseType("CarePlus.API.Models.User.Staff.Staff");
 
-                    b.Property<string>("PharmacistId")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
+                    b.Property<string>("Certification")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
 
-                    b.HasIndex("PharmacistId")
+                    b.Property<string>("LicenseNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Qualification")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<int>("YearsOfExperience")
+                        .HasColumnType("int");
+
+                    b.HasIndex("LicenseNumber")
                         .IsUnique();
 
                     b.ToTable("Pharmacists", (string)null);
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Appointment.Appointment", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.User.Staff.Doctor.Doctor", "Doctor")
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CarePlus.API.Models.User.Patient.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Doctor");
+
+                    b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.DispenseRec.DispenseRec", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.User.Staff.Pharmacist.Pharmacist", "Pharmacist")
+                        .WithMany()
+                        .HasForeignKey("PharmacistId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CarePlus.API.Models.Prescription.Prescription", "Prescription")
+                        .WithMany()
+                        .HasForeignKey("PrescriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pharmacist");
+
+                    b.Navigation("Prescription");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Leave.Leave", b =>
                 {
                     b.HasOne("CarePlus.API.Models.User.Staff.Staff", "Staff")
                         .WithMany()
-                        .HasForeignKey("StaffUserId")
+                        .HasForeignKey("StaffId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -462,13 +645,13 @@ namespace CarePlus.API.Migrations
                 {
                     b.HasOne("CarePlus.API.Models.User.Staff.Doctor.Doctor", "Doctor")
                         .WithMany()
-                        .HasForeignKey("DoctorUserId")
+                        .HasForeignKey("DoctorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("CarePlus.API.Models.User.Patient.Patient", "Patient")
                         .WithMany()
-                        .HasForeignKey("PatientUserId")
+                        .HasForeignKey("PatientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -488,11 +671,22 @@ namespace CarePlus.API.Migrations
                     b.Navigation("Medicine");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.PersonalHealthRec.PersonalHealthRec", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.User.Patient.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.Prescription.Prescription", b =>
                 {
                     b.HasOne("CarePlus.API.Models.User.Staff.Doctor.Doctor", "Doctor")
                         .WithMany()
-                        .HasForeignKey("DoctorUserId")
+                        .HasForeignKey("DoctorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -504,7 +698,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasOne("CarePlus.API.Models.User.Patient.Patient", "Patient")
                         .WithMany()
-                        .HasForeignKey("PatientUserId")
+                        .HasForeignKey("PatientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -515,7 +709,7 @@ namespace CarePlus.API.Migrations
                     b.Navigation("Patient");
                 });
 
-            modelBuilder.Entity("CarePlus.API.Models.PrescriptionItem", b =>
+            modelBuilder.Entity("CarePlus.API.Models.PrescriptionItem.PrescriptionItem", b =>
                 {
                     b.HasOne("CarePlus.API.Models.Medicine.Medicine", "Medicine")
                         .WithMany()
@@ -534,11 +728,28 @@ namespace CarePlus.API.Migrations
                     b.Navigation("Prescription");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.Queue.QueueEntry", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.Appointment.Appointment", "Appointment")
+                        .WithMany()
+                        .HasForeignKey("AppointmentId");
+
+                    b.HasOne("CarePlus.API.Models.User.Patient.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Appointment");
+
+                    b.Navigation("Patient");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.RoomAssg.RoomAssignment", b =>
                 {
                     b.HasOne("CarePlus.API.Models.User.Staff.Doctor.Doctor", "Doctor")
                         .WithMany()
-                        .HasForeignKey("DoctorUserId")
+                        .HasForeignKey("DoctorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -553,40 +764,44 @@ namespace CarePlus.API.Migrations
                     b.Navigation("Room");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.User.Patient.Patient", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.User.User", "User")
+                        .WithOne()
+                        .HasForeignKey("CarePlus.API.Models.User.Patient.Patient", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.User.Staff.Staff", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.User.User", "User")
+                        .WithOne()
+                        .HasForeignKey("CarePlus.API.Models.User.Staff.Staff", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.WorkSch.WorkSchedule", b =>
                 {
                     b.HasOne("CarePlus.API.Models.User.Staff.Staff", "Staff")
                         .WithMany()
-                        .HasForeignKey("StaffUserId")
+                        .HasForeignKey("StaffId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Staff");
                 });
 
-            modelBuilder.Entity("CarePlus.API.Models.User.Patient.Patient", b =>
-                {
-                    b.HasOne("CarePlus.API.Models.User.User", null)
-                        .WithOne()
-                        .HasForeignKey("CarePlus.API.Models.User.Patient.Patient", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("CarePlus.API.Models.User.Staff.Staff", b =>
-                {
-                    b.HasOne("CarePlus.API.Models.User.User", null)
-                        .WithOne()
-                        .HasForeignKey("CarePlus.API.Models.User.Staff.Staff", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("CarePlus.API.Models.User.Staff.Admin.Admin", b =>
                 {
                     b.HasOne("CarePlus.API.Models.User.Staff.Staff", null)
                         .WithOne()
-                        .HasForeignKey("CarePlus.API.Models.User.Staff.Admin.Admin", "UserId")
+                        .HasForeignKey("CarePlus.API.Models.User.Staff.Admin.Admin", "StaffId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -595,7 +810,7 @@ namespace CarePlus.API.Migrations
                 {
                     b.HasOne("CarePlus.API.Models.User.Staff.Staff", null)
                         .WithOne()
-                        .HasForeignKey("CarePlus.API.Models.User.Staff.Doctor.Doctor", "UserId")
+                        .HasForeignKey("CarePlus.API.Models.User.Staff.Doctor.Doctor", "StaffId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -604,7 +819,7 @@ namespace CarePlus.API.Migrations
                 {
                     b.HasOne("CarePlus.API.Models.User.Staff.Staff", null)
                         .WithOne()
-                        .HasForeignKey("CarePlus.API.Models.User.Staff.Pharmacist.Pharmacist", "UserId")
+                        .HasForeignKey("CarePlus.API.Models.User.Staff.Pharmacist.Pharmacist", "StaffId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
