@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CarePlus.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261003052230_InitialCreate")]
+    [Migration("20261005043132_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -24,7 +24,7 @@ namespace CarePlus.API.Migrations
 
             modelBuilder.Entity("CarePlus.API.Models.User.User", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<long>("UserId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
@@ -41,12 +41,20 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("Name")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("Password")
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<long?>("Phone")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
                         .HasColumnType("longtext");
 
                     b.Property<DateTime?>("UpdateDate")
@@ -60,7 +68,7 @@ namespace CarePlus.API.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.HasKey("Id");
+                    b.HasKey("UserId");
 
                     b.HasIndex("Username")
                         .IsUnique();
