@@ -1,10 +1,18 @@
-﻿using CarePlus.API.Models.Appointment;
+﻿using CarePlus.API.Extension;
+using CarePlus.API.Models.Appointment;
+using CarePlus.API.Models.Cart;
+using CarePlus.API.Models.CartItem;
 using CarePlus.API.Models.Common;
 using CarePlus.API.Models.DispenseRec;
+using CarePlus.API.Models.FamilyGroup;
+using CarePlus.API.Models.FamilyMember;
 using CarePlus.API.Models.Leave;
 using CarePlus.API.Models.MedicalRecord;
 using CarePlus.API.Models.Medicine;
 using CarePlus.API.Models.MedicineBatch;
+using CarePlus.API.Models.MedicineOrder;
+using CarePlus.API.Models.Notification;
+using CarePlus.API.Models.OrderItem;
 using CarePlus.API.Models.PersonalHealthRec;
 using CarePlus.API.Models.Prescription;
 using CarePlus.API.Models.PrescriptionItem;
@@ -45,7 +53,16 @@ namespace CarePlus.API.Data
         public DbSet<Prescription> Prescriptions { get; set; } = null!;
         public DbSet<PrescriptionItem> PrescriptionItems { get; set; } = null!;
         public DbSet<DispenseRec> DispenseRecords { get; set; } = null!;
-
+        public DbSet<Appointment> Appointments { get; set; } = null!;
+        public DbSet<PersonalHealthRec> PersonalHealthRecords { get; set; } = null!;
+        public DbSet<QueueEntry> QueueEntries { get; set; } = null!;
+        public DbSet<Notification> Notifications { get; set; } = null!;
+        public DbSet<FamilyGroup> FamilyGroups { get; set; } = null!;
+        public DbSet<FamilyMember> FamilyMembers { get; set; } = null!;
+        public DbSet<Cart> Carts { get; set; } = null!;
+        public DbSet<CartItem> CartItems { get; set; } = null!;
+        public DbSet<MedicineOrder> MedicineOrders { get; set; } = null!;
+        public DbSet<OrderItem> OrderItems { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -126,6 +143,60 @@ namespace CarePlus.API.Data
                 .HasOne(w => w.Staff)
                 .WithMany()
                 .HasForeignKey(w => w.StaffId);
+
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId);
+
+            modelBuilder.Entity<Medicine>()
+                .Property(m => m.Price)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<FamilyGroup>()
+                .HasOne(f => f.Patient)
+                .WithMany()
+                .HasForeignKey(f => f.CreatedBy);
+
+            modelBuilder.Entity<FamilyMember>()
+                .HasOne(f=> f.FamilyGroup)
+                .WithMany()
+                .HasForeignKey(f => f.FamilyGroupId);
+
+            modelBuilder.Entity<FamilyMember>()
+                .HasOne(f => f.Patient)
+                .WithMany()
+                .HasForeignKey(f => f.PatientId);
+
+            modelBuilder.Entity<Cart>()
+                .HasOne(c => c.Patient)
+                .WithOne()
+                .HasForeignKey<Cart>(c => c.PatientId);
+
+            modelBuilder.Entity<CartItem>()
+                .HasOne(c=> c.Cart)
+                .WithMany()
+                .HasForeignKey(c=> c.CartId);
+
+            modelBuilder.Entity<CartItem>()
+                .HasOne(c=> c.Medicine)
+                .WithMany()
+                .HasForeignKey(c=>c.MedicineId);
+
+            modelBuilder.Entity<MedicineOrder>()
+                .HasOne(m=>m.Patient)
+                .WithMany()
+                .HasForeignKey(m=>m.PatientId);
+
+            modelBuilder.Entity<OrderItem>()
+                .HasOne(m=>m.Order)
+                .WithMany()
+                .HasForeignKey(m=>m.OrderId);
+
+            modelBuilder.Entity<OrderItem>()
+                .HasOne(m=>m.Medicine)
+                .WithMany()
+                .HasForeignKey(m=>m.MedicineId);
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -147,17 +218,17 @@ namespace CarePlus.API.Data
             {
                 if (entry.State == EntityState.Added)
                 {
-                    entry.Entity.CreateDate = DateTime.UtcNow;
+                    entry.Entity.CreateDate = DateTimeHelper.MalaysiaNow();
                     entry.Entity.CreatedBy = "System"; 
                 }
                 else if (entry.State == EntityState.Modified)
                 {
-                    entry.Entity.UpdateDate = DateTime.UtcNow;
+                    entry.Entity.UpdateDate = DateTimeHelper.MalaysiaNow();
                     entry.Entity.UpdatedBy = "System"; 
                 }
                 else if (entry.State == EntityState.Deleted)
                 {
-                    entry.Entity.DeleteDate = DateTime.UtcNow;
+                    entry.Entity.DeleteDate = DateTimeHelper.MalaysiaNow();
                     entry.Entity.DeletedBy = "System";
                 }
             }
