@@ -17,7 +17,7 @@ namespace CarePlus.API.Models.MedicineOrder
 
         public decimal TotalAmount { get; set; } = 0;
         public DateTime OrderDate { get; set; } = DateTimeHelper.MalaysiaNow();
-        public string Status { get; set; } = "pending";
+        public string Status { get; set; } = "Pending";
 
     }
 }
