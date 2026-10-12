@@ -1,4 +1,5 @@
-﻿using CarePlus.API.Models.User;
+﻿using CarePlus.API.DTO.UserDTO;
+using CarePlus.API.Models.User;
 using System.Linq.Expressions;
 
 namespace CarePlus.API.Repository.Interface

@@ -23,5 +23,17 @@ namespace CarePlus.API.Controllers
 
             return Ok(await _userServices.RegisterUserAsync(request));
         }
+
+        [HttpGet("Retreive")]
+        public async Task<IActionResult> UserRetrieve()
+        {
+            return Ok(await _userServices.RetreiveAllUserAsync());
+        }
+
+        [HttpGet("RetreiveById")]
+        public async Task<IActionResult> UserRetreiveById(int userId)
+        {
+            return Ok(await _userServices.RetreiveUserByIdAsync(userId));
+        }
     }
 }

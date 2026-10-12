@@ -16,7 +16,7 @@ namespace CarePlus.API.Services.UserServices
             _userRepo = userRepo;
         }
 
-        public  async Task<ApiResponse<Object>> RegisterUserAsync(UserRegisterRequest request)
+        public async Task<ApiResponse<Object>> RegisterUserAsync(UserRegisterRequest request)
         {
             try
             {
@@ -51,6 +51,67 @@ namespace CarePlus.API.Services.UserServices
             catch (Exception ex)
             {
                 return ApiResponse<Object>.Fail($"An error occurred: {ex.Message}", 500);
+            }
+        }
+
+        public async Task<ApiResponse<object>> RetreiveAllUserAsync()
+        {
+            try
+            {
+                List<User> users = await _userRepo.GetAllUsersAsync();
+
+                if (users.Count > 0)
+                {
+                    var result = users.Select(u => new UserRetrieveResponse
+                    {
+                        userId = u.UserId,
+                        username = u.Username,
+                        name = u.Name!,
+                        email = u.Email,
+                        phone = u.Phone,
+                        status = u.Status!
+                    }).ToList();
+
+                    return ApiResponse<object>.Ok(result);
+                }
+
+                return ApiResponse<object>.Fail("No user found", 409);
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+            }
+        }
+
+
+        public async Task<ApiResponse<object>> RetreiveUserByIdAsync(int id)
+        {
+            try
+            {
+                var user = await _userRepo.GetUserByIdAsync(id);
+
+                if (user == null)
+                {
+                    return ApiResponse<object>.Fail(
+                        $"No user found with id {id}", 404);
+                }
+
+                var result = new UserRetrieveResponse
+                {
+                    userId = user.UserId,
+                    username = user.Username,
+                    name = user.Name!,
+                    email = user.Email,
+                    phone = user.Phone,
+                    status = user.Status!
+                };
+
+                return ApiResponse<object>.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<object>.Fail(
+                    $"An error occurred: {ex.Message}", 500);
             }
         }
     }
