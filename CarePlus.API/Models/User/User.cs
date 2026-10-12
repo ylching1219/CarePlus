@@ -11,16 +11,21 @@ namespace CarePlus.API.Models.User
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public long Id { get; set; }
+        public long UserId { get; set; }
 
         [Required]
         [MaxLength(100)]
-        public String Username { get; set; } = null!;
+        public string Username { get; set; } = null!;
 
-        public String? Name { get; set; } = null;
+        public string? Name { get; set; } = null;
 
-        public String? Email { get; set; }
-        public String? Password { get; set;}
+        [Required]
+        public string Email { get; set; } = null!;
+
+        [Required]
+        public string? PasswordHash { get; set;}
+        public long? Phone { get; set; }
+        public string? Status { get; set; } = "Active";
 
 
 

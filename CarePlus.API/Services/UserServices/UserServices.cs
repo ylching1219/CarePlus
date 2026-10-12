@@ -31,7 +31,7 @@ namespace CarePlus.API.Services.UserServices
                     Username = request.Username,
                     Name = request.Name,
                     Email = request.Email,
-                    Password = request.Password
+                    PasswordHash = request.Password
                 };
 
                 long userId = await _userRepo.CreateUserAsync(createdUser);
