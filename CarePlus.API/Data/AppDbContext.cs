@@ -6,6 +6,7 @@ using CarePlus.API.Models.Common;
 using CarePlus.API.Models.DispenseRec;
 using CarePlus.API.Models.FamilyGroup;
 using CarePlus.API.Models.FamilyMember;
+using CarePlus.API.Models.Invoice;
 using CarePlus.API.Models.Leave;
 using CarePlus.API.Models.MedicalRecord;
 using CarePlus.API.Models.Medicine;
@@ -13,6 +14,7 @@ using CarePlus.API.Models.MedicineBatch;
 using CarePlus.API.Models.MedicineOrder;
 using CarePlus.API.Models.Notification;
 using CarePlus.API.Models.OrderItem;
+using CarePlus.API.Models.Payment;
 using CarePlus.API.Models.PersonalHealthRec;
 using CarePlus.API.Models.Prescription;
 using CarePlus.API.Models.PrescriptionItem;
@@ -63,6 +65,9 @@ namespace CarePlus.API.Data
         public DbSet<CartItem> CartItems { get; set; } = null!;
         public DbSet<MedicineOrder> MedicineOrders { get; set; } = null!;
         public DbSet<OrderItem> OrderItems { get; set; } = null!;
+        public DbSet<Invoice> Invoices { get; set; } = null!;
+        public DbSet<Payment> Payments { get; set; } = null!;
+
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -197,6 +202,14 @@ namespace CarePlus.API.Data
                 .HasOne(m=>m.Medicine)
                 .WithMany()
                 .HasForeignKey(m=>m.MedicineId);
+
+            modelBuilder.Entity<Invoice>()
+                .HasOne(i => i.Patient)
+                .WithMany()
+                .HasForeignKey(i=>i.PatientId);
+
+            
+                
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
