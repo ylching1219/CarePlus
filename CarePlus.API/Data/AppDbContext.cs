@@ -208,8 +208,18 @@ namespace CarePlus.API.Data
                 .WithMany()
                 .HasForeignKey(i=>i.PatientId);
 
-            
-                
+            modelBuilder.Entity<Invoice>()
+                .HasOne(i => i.MedicineOrder)
+                .WithMany()
+                .HasForeignKey(i => i.OrderId)
+                .IsRequired(false);
+
+            modelBuilder.Entity<Invoice>()
+                .HasOne(i => i.MedicalRecord)
+                .WithMany()
+                .HasForeignKey(i => i.MedicalRecordId)
+                .IsRequired(false);
+
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

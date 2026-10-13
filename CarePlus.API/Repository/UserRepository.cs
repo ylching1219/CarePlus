@@ -37,7 +37,7 @@ namespace CarePlus.API.Repository
             return await _context.Users.Where(predicate).ToListAsync();
         }
 
-        public async Task<User?> GetUserByIdAsync(int id)
+        public async Task<User?> GetUserByIdAsync(long id)
         {
             return await _context.Users.FirstOrDefaultAsync(u => u.UserId == id);
         }
