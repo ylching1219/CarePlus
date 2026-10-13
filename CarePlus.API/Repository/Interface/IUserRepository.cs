@@ -6,7 +6,7 @@ namespace CarePlus.API.Repository.Interface
 {
     public interface IUserRepository
     {
-        Task<User?> GetUserByIdAsync(int id);
+        Task<User?> GetUserByIdAsync(long id);
         Task<long> CreateUserAsync(User user);
         Task<bool> UpdateUserAsync(User user);
         Task<List<User>> GetAllUsersAsync();
