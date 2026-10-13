@@ -1,4 +1,4 @@
-﻿using CarePlus.API.Models.User.Patient;
+﻿
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -12,7 +12,7 @@ namespace CarePlus.API.Models.Cart
 
         [Required]
         public string PatientId { get; set; } = null!;
-        public Patient Patient { get; set; } = null!;
+        public Patient.Patient Patient { get; set; } = null!;
 
         public decimal TotalAmount { get; set; } = 0;
 

@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CarePlus.API.Models.User.Patient
+namespace CarePlus.API.Models.Patient
 {
     [Table("Patients")]
     public class Patient
@@ -13,7 +13,7 @@ namespace CarePlus.API.Models.User.Patient
         [Required]
         public long UserId { get; set; }
 
-        public User User { get; set; } = null!;
+        public User.User User { get; set; } = null!;
 
         public DateTime? DateOfBirth { get; set; }
 

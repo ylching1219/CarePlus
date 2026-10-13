@@ -1,6 +1,5 @@
 ﻿using CarePlus.API.Extension;
 using CarePlus.API.Models.MedicalRecord;
-using CarePlus.API.Models.User.Patient;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -14,7 +13,7 @@ namespace CarePlus.API.Models.Invoice
 
         [Required]
         public string PatientId { get; set; } = null!;
-        public Patient Patient { get; set; } = null!;
+        public Patient.Patient Patient { get; set; } = null!;
 
         public string? MedicalRecordId { get; set; }
         public MedRecord? MedicalRecord { get; set; }
