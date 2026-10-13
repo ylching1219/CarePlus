@@ -197,6 +197,42 @@ namespace CarePlus.API.Migrations
                     b.ToTable("FamilyMembers");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.Invoice.Invoice", b =>
+                {
+                    b.Property<string>("InvoiceId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("IssueAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("MedicalRecordId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("OrderId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PatientId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("InvoiceId");
+
+                    b.HasIndex("MedicalRecordId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("PatientId");
+
+                    b.ToTable("Invoices");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.Leave.Leave", b =>
                 {
                     b.Property<string>("LeaveId")
@@ -399,6 +435,36 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("OrderItems");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Payment.Payment", b =>
+                {
+                    b.Property<string>("PaymentId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("InvoiceId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("PaymentId");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.PersonalHealthRec.PersonalHealthRec", b =>
@@ -668,11 +734,14 @@ namespace CarePlus.API.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<long?>("Phone")
-                        .HasColumnType("bigint");
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("Status")
-                        .HasColumnType("longtext");
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("datetime(6)");
@@ -889,6 +958,29 @@ namespace CarePlus.API.Migrations
                     b.Navigation("Patient");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.Invoice.Invoice", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.MedicalRecord.MedRecord", "MedicalRecord")
+                        .WithMany()
+                        .HasForeignKey("MedicalRecordId");
+
+                    b.HasOne("CarePlus.API.Models.MedicineOrder.MedicineOrder", "MedicineOrder")
+                        .WithMany()
+                        .HasForeignKey("OrderId");
+
+                    b.HasOne("CarePlus.API.Models.User.Patient.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MedicalRecord");
+
+                    b.Navigation("MedicineOrder");
+
+                    b.Navigation("Patient");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.Leave.Leave", b =>
                 {
                     b.HasOne("CarePlus.API.Models.User.Staff.Staff", "Staff")
@@ -969,6 +1061,17 @@ namespace CarePlus.API.Migrations
                     b.Navigation("Medicine");
 
                     b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Payment.Payment", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.Invoice.Invoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.PersonalHealthRec.PersonalHealthRec", b =>
