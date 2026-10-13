@@ -1,6 +1,5 @@
 ﻿using CarePlus.API.Extension;
 using CarePlus.API.Models.MedicalRecord;
-using CarePlus.API.Models.User.Patient;
 using CarePlus.API.Models.User.Staff.Doctor;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -15,7 +14,7 @@ namespace CarePlus.API.Models.Prescription
 
         [Required]
         public string PatientId { get; set; } = null!;
-        public Patient Patient { get; set; } = null!;
+        public Patient.Patient Patient { get; set; } = null!;
 
         [Required]
         public string DoctorId { get; set; } = null!;

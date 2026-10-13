@@ -2,7 +2,7 @@
 
 namespace CarePlus.API.DTO.UserDTO
 {
-    public class UserUpdateRequest
+    public record UserUpdateRequest
     {
         [Required(ErrorMessage = "User Id is required")]
         public long Id { get; set; }

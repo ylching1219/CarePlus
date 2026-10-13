@@ -1,5 +1,4 @@
-﻿using CarePlus.API.Models.User.Patient;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CarePlus.API.Models.Queue
@@ -12,7 +11,7 @@ namespace CarePlus.API.Models.Queue
 
         [Required]
         public string PatientId { get; set; } = null!;
-        public Patient Patient { get; set; } = null!;
+        public Patient.Patient Patient { get; set; } = null!;
 
         
         public string? AppointmentId { get; set; }

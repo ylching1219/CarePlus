@@ -22,7 +22,7 @@ using CarePlus.API.Models.Queue;
 using CarePlus.API.Models.Room;
 using CarePlus.API.Models.RoomAssg;
 using CarePlus.API.Models.User;
-using CarePlus.API.Models.User.Patient;
+using CarePlus.API.Models.Patient;
 using CarePlus.API.Models.User.Staff;
 using CarePlus.API.Models.User.Staff.Admin;
 using CarePlus.API.Models.User.Staff.Doctor;

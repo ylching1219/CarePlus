@@ -52,7 +52,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("Appointments");
+                    b.ToTable("Appointments", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Cart.Cart", b =>
@@ -72,7 +72,7 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("PatientId")
                         .IsUnique();
 
-                    b.ToTable("ShoppingCarts");
+                    b.ToTable("ShoppingCarts", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.CartItem.CartItem", b =>
@@ -100,7 +100,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("MedicineId");
 
-                    b.ToTable("CartItems");
+                    b.ToTable("CartItems", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.DispenseRec.DispenseRec", b =>
@@ -129,7 +129,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PrescriptionId");
 
-                    b.ToTable("DispensingRecords");
+                    b.ToTable("DispensingRecords", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.FamilyGroup.FamilyGroup", b =>
@@ -157,7 +157,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("CreatedBy");
 
-                    b.ToTable("FamilyGroups");
+                    b.ToTable("FamilyGroups", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.FamilyMember.FamilyMember", b =>
@@ -194,7 +194,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("FamilyMembers");
+                    b.ToTable("FamilyMembers", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Invoice.Invoice", b =>
@@ -230,7 +230,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("Invoices");
+                    b.ToTable("Invoices", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Leave.Leave", b =>
@@ -260,7 +260,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("StaffId");
 
-                    b.ToTable("LeaveApplications");
+                    b.ToTable("LeaveApplications", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.MedicalRecord.MedRecord", b =>
@@ -296,7 +296,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("MedicalRecords");
+                    b.ToTable("MedicalRecords", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Medicine.Medicine", b =>
@@ -324,7 +324,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("MedicineId");
 
-                    b.ToTable("Medicines");
+                    b.ToTable("Medicines", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.MedicineBatch.MedicineBatch", b =>
@@ -346,7 +346,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("MedicineId");
 
-                    b.ToTable("MedicineBatches");
+                    b.ToTable("MedicineBatches", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.MedicineOrder.MedicineOrder", b =>
@@ -372,7 +372,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("MedicineOrders");
+                    b.ToTable("MedicineOrders", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Notification.Notification", b =>
@@ -406,7 +406,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.OrderItem.OrderItem", b =>
@@ -434,7 +434,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems");
+                    b.ToTable("OrderItems", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Payment.Payment", b =>
@@ -464,7 +464,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("InvoiceId");
 
-                    b.ToTable("Payments");
+                    b.ToTable("Payments", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.PersonalHealthRec.PersonalHealthRec", b =>
@@ -505,7 +505,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("PersonalHealthRecords");
+                    b.ToTable("PersonalHealthRecords", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Prescription.Prescription", b =>
@@ -540,7 +540,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("Prescriptions");
+                    b.ToTable("Prescriptions", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.PrescriptionItem.PrescriptionItem", b =>
@@ -573,7 +573,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PrescriptionId");
 
-                    b.ToTable("PrescriptionItems");
+                    b.ToTable("PrescriptionItems", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Queue.QueueEntry", b =>
@@ -605,7 +605,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("QueueEntries");
+                    b.ToTable("QueueEntries", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Room.ClinicRoom", b =>
@@ -623,7 +623,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("RoomId");
 
-                    b.ToTable("ClinicRooms");
+                    b.ToTable("ClinicRooms", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.RoomAssg.RoomAssignment", b =>
@@ -654,7 +654,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("RoomId");
 
-                    b.ToTable("RoomAssignments");
+                    b.ToTable("RoomAssignments", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.Patient.Patient", b =>
@@ -680,7 +680,7 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Patients");
+                    b.ToTable("Patients", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.Staff.Staff", b =>
@@ -759,7 +759,7 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.WorkSch.WorkSchedule", b =>
@@ -788,7 +788,7 @@ namespace CarePlus.API.Migrations
 
                     b.HasIndex("StaffId");
 
-                    b.ToTable("WorkingSchedules");
+                    b.ToTable("WorkingSchedules", (string)null);
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.Staff.Admin.Admin", b =>
