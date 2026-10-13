@@ -24,8 +24,12 @@ namespace CarePlus.API.Models.User
 
         [Required]
         public string? PasswordHash { get; set;}
-        public long? Phone { get; set; }
-        public string? Status { get; set; } = "Active";
+
+        [MaxLength(20)]
+        public string? Phone { get; set; }
+
+        [MaxLength(20)]
+        public string Status { get; set; } = "Active";
 
 
 
