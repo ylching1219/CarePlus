@@ -4,7 +4,6 @@ using CarePlus.API.Models.Patient;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.CounterServices.Interface;
 using CarePlus.API.Services.PatientServices.Interface;
-using CarePlus.API.Services.UserServices;
 using CarePlus.API.Services.UserServices.Interface;
 
 namespace CarePlus.API.Services.PatientServices
@@ -69,9 +68,35 @@ namespace CarePlus.API.Services.PatientServices
             }
         }
 
-        public Task<ApiResponse<object>> RetreiveAllPatientAsync()
+        public async Task<ApiResponse<object>> RetreiveAllPatientAsync()
         {
-            throw new NotImplementedException();
+            try
+            {
+                List<Patient> patients = await _patientRepo.GetAllPatientsAsync();
+
+                if (patients.Count > 0)
+                {
+                    var result = patients.Select(patient => new PatientRetrieveResponse
+                    {
+                        PatientId = patient.PatientId,
+                        userId = patient.UserId,
+                        username = patient.User.Username,
+                        name = patient.User.Name ?? string.Empty,
+                        email = patient.User.Email,
+                        phone = patient.User.Phone ?? string.Empty,
+                        status = patient.User.Status ?? string.Empty,
+                        Gender = patient.Gender == 'M' ? "Male" : "Female",
+                        DateOfBirth = patient.DateOfBirth,
+                        Address = patient.Address ?? string.Empty,
+                    }).ToList();
+
+                    return ApiResponse<object>.Ok(result);
+                }
+                return ApiResponse<object>.Fail("No patients found", 404);
+            }catch(Exception ex)
+            {
+                return ApiResponse<object>.Fail($"{ex.Message}", 500);
+            }
         }
 
         public Task<ApiResponse<object>> RetreivePatientByIdAsync(string id)
