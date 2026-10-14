@@ -1,11 +1,12 @@
 ﻿using CarePlus.API.Data;
 using CarePlus.API.Models.Patient;
+using CarePlus.API.Repository.Interface;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
 namespace CarePlus.API.Repository
 {
-    public class PatientRepository
+    public class PatientRepository : IPatientRepository
     {
         private readonly AppDbContext _context;
 

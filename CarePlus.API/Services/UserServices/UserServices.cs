@@ -23,7 +23,7 @@ namespace CarePlus.API.Services.UserServices
                 var user = await _userRepo.GetAllUsersByAsync(u => u.Email == request.Email);
                 if (user != null && user.Count > 0)
                 {
-                    return ApiResponse<Object>.Fail("User already exists", 409);
+                    return ApiResponse<object>.Fail("User already exists", 409);
                 }
 
                 var createdUser = new User
