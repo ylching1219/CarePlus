@@ -7,7 +7,7 @@ namespace CarePlus.API.DTO.PatientDTO
     {
        
         [Required(ErrorMessage = "Gender is required.")]
-        public string Gender {  get; init; } = string.Empty;
+        public char Gender {  get; init; }
 
     }
 }

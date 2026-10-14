@@ -7,10 +7,10 @@ namespace CarePlus.API.Repository.Interface
 {
     public interface IPatientRepository
     {
-        Task<User?> GetPatientByIdAsync(string id);
-        Task<long> CreatePatientAsync(Patient patient);
+        Task<Patient?> GetPatientByIdAsync(string id);
+        Task<string> CreatePatientAsync(Patient patient);
         Task<bool> UpdatePatientAsync(Patient patient);
-        Task<List<User>> GetAllPatientsAsync();
-        Task<List<User>> GetAllPatientsByAsync(Expression<Func<User, bool>> predicate);
+        Task<List<Patient>> GetAllPatientsAsync();
+        Task<List<Patient>> GetAllPatientsByAsync(Expression<Func<Patient, bool>> predicate);
     }
 }

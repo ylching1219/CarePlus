@@ -1,6 +1,10 @@
 ﻿using CarePlus.API.Data;
 using CarePlus.API.Repository;
 using CarePlus.API.Repository.Interface;
+using CarePlus.API.Services.CounterServices;
+using CarePlus.API.Services.CounterServices.Interface;
+using CarePlus.API.Services.PatientServices;
+using CarePlus.API.Services.PatientServices.Interface;
 using CarePlus.API.Services.UserServices;
 using CarePlus.API.Services.UserServices.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -18,9 +22,13 @@ namespace CarePlus.API.Extension
 
             //services
             services.AddScoped<IUserServices, UserServices>();
+            services.AddScoped<IPatientServices, PatientServices>();
+            services.AddScoped<ICounterServices, CounterServices>();
 
             //repository
             services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IPatientRepository, PatientRepository>();
+            services.AddScoped<ICounterRepository, CounterRepository>();
             return services;
         }
     }
