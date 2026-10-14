@@ -26,19 +26,19 @@ namespace CarePlus.API.Repository
         public async Task<List<Patient>> GetAllPatientsAsync()
         {
             List<Patient> patients = new List<Patient>();
-            patients = await _context.Patients.ToListAsync();
+            patients = await _context.Patients.Include(p=>p.User).ToListAsync();
 
             return patients;
         }
 
         public async Task<List<Patient>> GetAllPatientsByAsync(Expression<Func<Patient, bool>> predicate)
         {
-            return await _context.Patients.Where(predicate).ToListAsync();
+            return await _context.Patients.Include(p => p.User).Where(predicate).ToListAsync();
         }
 
         public async Task<Patient?> GetPatientByIdAsync(string id)
         {
-            return await _context.Patients.FirstOrDefaultAsync(p => p.PatientId == id);
+            return await _context.Patients.Include(p => p.User).FirstOrDefaultAsync(p => p.PatientId == id);
         }
 
         public async Task<bool> UpdatePatientAsync(Patient patient)

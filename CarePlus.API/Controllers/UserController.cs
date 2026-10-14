@@ -30,7 +30,7 @@ namespace CarePlus.API.Controllers
             return Ok(await _userServices.RetreiveAllUserAsync());
         }
 
-        [HttpGet("RetreiveById")]
+        [HttpGet("RetreiveById/{userId}")]
         public async Task<IActionResult> UserRetreiveById(int userId)
         {
             return Ok(await _userServices.RetreiveUserByIdAsync(userId));
