@@ -29,7 +29,7 @@ namespace CarePlus.API.Middleware
             context.Response.ContentType = "application/json";
             int statusCode;
             object? resData = null;
-            string message = exception.Message ?? "An unexpected error occured.";
+            string message = exception.Message ?? "An unexpected error occurred.";
 
             switch (exception)
             {

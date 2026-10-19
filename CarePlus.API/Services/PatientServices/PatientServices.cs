@@ -30,7 +30,7 @@ namespace CarePlus.API.Services.PatientServices
 
                 if(request.Gender != 'F' && request.Gender != 'M')
                 {
-                    return ApiResponse<object>.Fail("Invalid Gender Type.",400);
+                    return ApiResponse<object>.Fail("Invalid gender type.", 400);
                 }
 
                 var userResponse = await _userService.RegisterUserAsync(request);
@@ -49,7 +49,7 @@ namespace CarePlus.API.Services.PatientServices
                 var patient = new Patient
                 {
                     PatientId = await _counterService.GenerateNextIdAsync("PatientId"),
-                    UserId = user.userId,
+                    UserId = user.UserId,
                     Gender = request.Gender
                 };
 
@@ -57,9 +57,9 @@ namespace CarePlus.API.Services.PatientServices
 
                 return ApiResponse<object>.Ok(new PatientRegisterResponse
                 {
-                    userId = user.userId,
-                    name = request.Name,
-                    patientId = patientId
+                    UserId = user.UserId,
+                    Name = request.Name,
+                    PatientId = patientId
                 });
             }
             catch(Exception ex) 
@@ -68,7 +68,7 @@ namespace CarePlus.API.Services.PatientServices
             }
         }
 
-        public async Task<ApiResponse<object>> RetreiveAllPatientAsync()
+        public async Task<ApiResponse<object>> RetrieveAllPatientAsync()
         {
             try
             {
@@ -79,12 +79,12 @@ namespace CarePlus.API.Services.PatientServices
                     var result = patients.Select(patient => new PatientRetrieveResponse
                     {
                         PatientId = patient.PatientId,
-                        userId = patient.UserId,
-                        username = patient.User.Username,
-                        name = patient.User.Name ?? string.Empty,
-                        email = patient.User.Email,
-                        phone = patient.User.Phone ?? string.Empty,
-                        status = patient.User.Status ?? string.Empty,
+                        UserId = patient.UserId,
+                        Username = patient.User.Username,
+                        Name = patient.User.Name ?? string.Empty,
+                        Email = patient.User.Email,
+                        Phone = patient.User.Phone ?? string.Empty,
+                        Status = patient.User.Status ?? string.Empty,
                         Gender = patient.Gender == 'M' ? "Male" : "Female",
                         DateOfBirth = patient.DateOfBirth,
                         Address = patient.Address ?? string.Empty,
@@ -99,7 +99,7 @@ namespace CarePlus.API.Services.PatientServices
             }
         }
 
-        public Task<ApiResponse<object>> RetreivePatientByIdAsync(string id)
+        public Task<ApiResponse<object>> RetrievePatientByIdAsync(string id)
         {
             throw new NotImplementedException();
         }

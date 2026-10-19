@@ -3,8 +3,12 @@ using CarePlus.API.Repository;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.CounterServices;
 using CarePlus.API.Services.CounterServices.Interface;
+using CarePlus.API.Services.JwtServices;
+using CarePlus.API.Services.JWTServices.Interface;
 using CarePlus.API.Services.PatientServices;
 using CarePlus.API.Services.PatientServices.Interface;
+using CarePlus.API.Services.StaffService;
+using CarePlus.API.Services.StaffService.Interface;
 using CarePlus.API.Services.UserServices;
 using CarePlus.API.Services.UserServices.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -24,10 +28,19 @@ namespace CarePlus.API.Extension
             services.AddScoped<IUserServices, UserServices>();
             services.AddScoped<IPatientServices, PatientServices>();
             services.AddScoped<ICounterServices, CounterServices>();
+            services.AddScoped<IStaffServices, StaffServices>();
+            services.AddScoped<IAdminServices, AdminServices>();
+            services.AddScoped<IDoctorServices, DoctorServices>();
+            services.AddScoped<IPharmacistServices, PharmacistServices>();
+            services.AddScoped<IJWTServices, JWTServices>();
 
             //repository
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IPatientRepository, PatientRepository>();
+            services.AddScoped<IStaffRepository, StaffRepository>();
+            services.AddScoped<IAdminRepository, AdminRepository>();
+            services.AddScoped<IDoctorRepository, DoctorRepository>();
+            services.AddScoped<IPharmacistRepository, PharmacistRepository>();
             services.AddScoped<ICounterRepository, CounterRepository>();
             return services;
         }

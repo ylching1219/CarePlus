@@ -7,9 +7,9 @@ namespace CarePlus.API.Services.PatientServices.Interface
     {
         Task<ApiResponse<object>> RegisterPatientAsync(PatientRegisterRequest request);
 
-        Task<ApiResponse<object>> RetreiveAllPatientAsync();
+        Task<ApiResponse<object>> RetrieveAllPatientAsync();
 
-        Task<ApiResponse<object>> RetreivePatientByIdAsync(string id);
+        Task<ApiResponse<object>> RetrievePatientByIdAsync(string id);
 
         Task<ApiResponse<object>> RetrieveAllActivePatientAsync();
 

@@ -24,20 +24,26 @@ namespace CarePlus.API.Controllers
             return Ok(await _userServices.RegisterUserAsync(request));
         }
 
-        [HttpGet("Retreive")]
+        [HttpPost("Login")]
+        public async Task<IActionResult> UserLogin(UserLoginRequest request)
+        {
+            return Ok(await _userServices.UserLoginAsync(request));
+        }
+
+        [HttpGet("Retrieve")]
         public async Task<IActionResult> UserRetrieve()
         {
-            return Ok(await _userServices.RetreiveAllUserAsync());
+            return Ok(await _userServices.RetrieveAllUserAsync());
         }
 
-        [HttpGet("RetreiveById/{userId}")]
-        public async Task<IActionResult> UserRetreiveById(int userId)
+        [HttpGet("RetrieveById/{userId}")]
+        public async Task<IActionResult> UserRetrieveById(int userId)
         {
-            return Ok(await _userServices.RetreiveUserByIdAsync(userId));
+            return Ok(await _userServices.RetrieveUserByIdAsync(userId));
         }
 
-        [HttpGet("RetreiveActiveUser")]
-        public async Task<IActionResult> ActiveUserRetreive()
+        [HttpGet("RetrieveActiveUser")]
+        public async Task<IActionResult> ActiveUserRetrieve()
         {
             return Ok(await _userServices.RetrieveAllActiveUserAsync());
         }
