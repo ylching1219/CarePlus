@@ -25,7 +25,7 @@ namespace CarePlus.API.Controllers
         [HttpGet("Retrieve")]
         public async Task<IActionResult> PatientRetrieve()
         {
-            return Ok(await _patientServices.RetreiveAllPatientAsync());
+            return Ok(await _patientServices.RetrieveAllPatientAsync());
         }
     }
 }

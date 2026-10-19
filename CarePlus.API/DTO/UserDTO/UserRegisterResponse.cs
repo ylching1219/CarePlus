@@ -2,7 +2,7 @@
 {
     public class UserRegisterResponse
     {
-        public long userId { get; set; }
-        public string name { get; set; } = string.Empty;
+        public long UserId { get; set; }
+        public string Name { get; set; } = string.Empty;
     }
 }
