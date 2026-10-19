@@ -4,6 +4,6 @@ namespace CarePlus.API.DTO.PatientDTO
 {
     public class PatientRegisterResponse : UserRegisterResponse
     {
-        public string patientId { get; set; } = string.Empty;
+        public string PatientId { get; set; } = string.Empty;
     }
 }

@@ -8,6 +8,7 @@ namespace CarePlus.API.Repository.Interface
     public interface IPatientRepository
     {
         Task<Patient?> GetPatientByIdAsync(string id);
+        Task<Patient?> GetPatientByUserIdAsync(long id);
         Task<string> CreatePatientAsync(Patient patient);
         Task<bool> UpdatePatientAsync(Patient patient);
         Task<List<Patient>> GetAllPatientsAsync();

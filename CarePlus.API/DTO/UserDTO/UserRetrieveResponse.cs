@@ -2,12 +2,12 @@
 {
     public class UserRetrieveResponse
     {
-        public long userId { get; set; }
-        public string username { get; set; } = string.Empty;
-        public string name { get; set; } = string.Empty;
-        public string email { get; set; } = string.Empty;
-        public string phone { get; set; } = string.Empty;
-        public string status { get; set; } = string.Empty;
+        public long UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
 
     }
 }
