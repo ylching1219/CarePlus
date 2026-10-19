@@ -6,12 +6,12 @@ namespace CarePlus.API.Services.StaffService.Interface
     {
         Task<ApiResponse<object>> RegisterStaffAsync(StaffRegisterRequest request);
 
-        Task<ApiResponse<object>> RetreiveAllStaffAsync();
+        Task<ApiResponse<object>> RetrieveAllStaffAsync();
 
-        Task<ApiResponse<object>> RetreiveStaffByIdAsync(long id);
+        Task<ApiResponse<object>> RetrieveStaffByIdAsync(string id);
 
-        Task<ApiResponse<object>> RetrieveAllActiveStaffAsync();
+        Task<ApiResponse<object>> RetrieveStaffByRoleAsync(string role);
 
-        Task<ApiResponse<object>> UpdateStaffAsync();
+        Task<ApiResponse<object>> UpdateStaffAsync(StaffUpdateRequest request);
     }
 }

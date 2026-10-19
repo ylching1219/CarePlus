@@ -6,12 +6,15 @@ namespace CarePlus.API.Services.UserServices.Interface
     {
         Task<ApiResponse<object>> RegisterUserAsync(UserRegisterRequest request);
 
-        Task<ApiResponse<object>> RetreiveAllUserAsync();
+        Task<ApiResponse<object>> UserLoginAsync(UserLoginRequest request);
+        Task<ApiResponse<object>> RetrieveAllUserAsync();
 
-        Task<ApiResponse<object>> RetreiveUserByIdAsync(long id);
+        Task<ApiResponse<object>> RetrieveUserByIdAsync(long id);
 
         Task<ApiResponse<object>> RetrieveAllActiveUserAsync();
 
         Task<ApiResponse<object>> UpdateUserAsync(UserUpdateRequest request);
+
+        Task<List<string>> ValidateUserAsync(UserRegisterRequest request);
     }
 }

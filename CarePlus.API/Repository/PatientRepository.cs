@@ -1,5 +1,6 @@
 ﻿using CarePlus.API.Data;
 using CarePlus.API.Models.Patient;
+using CarePlus.API.Models.User;
 using CarePlus.API.Repository.Interface;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -23,6 +24,10 @@ namespace CarePlus.API.Repository
             return patient.PatientId;
         }
 
+        public async Task<Patient?> GetPatientByUserIdAsync(long id)
+        {
+            return await _context.Patients.FirstOrDefaultAsync(p => p.UserId == id);
+        }
         public async Task<List<Patient>> GetAllPatientsAsync()
         {
             List<Patient> patients = new List<Patient>();

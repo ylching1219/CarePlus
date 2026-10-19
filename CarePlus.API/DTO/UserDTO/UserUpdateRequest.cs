@@ -8,10 +8,10 @@ namespace CarePlus.API.DTO.UserDTO
         public long Id { get; set; }
 
         [StringLength(100, MinimumLength = 3, ErrorMessage = "Name cannot exceed 100 characters.")]
-        public string? name { get; set; } 
+        public string? Name { get; set; } 
 
-        public string? phone { get; set; }
+        public string? Phone { get; set; }
 
-        public string status { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
     }
 }

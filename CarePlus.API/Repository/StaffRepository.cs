@@ -23,6 +23,11 @@ namespace CarePlus.API.Repository
             return staff.StaffId;
         }
 
+        public async Task<Staff?> GetStaffByUserIdAsync(long id)
+        {
+            return await _context.Staffs.FirstOrDefaultAsync(s => s.UserId == id);
+        }
+
         public async Task<List<Staff>> GetAllStaffsAsync()
         {
             return await _context.Staffs.Include(s => s.User).ToListAsync();
