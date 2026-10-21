@@ -180,32 +180,42 @@ namespace CarePlus.API.Services.StaffService
                     return ApiResponse<object>.Fail("Staff not found", 404);
                 }
 
-                staff.User.Name = request.Name ?? staff.User.Name;
-                staff.User.Phone = request.Phone ?? staff.User.Phone;
-
-                if (request.Status != null)
+                if (!string.IsNullOrWhiteSpace(request.Name))
                 {
+                    staff.User.Name = request.Name.Trim();
+                }
 
-                    if (request.Status != "Active" &&
-                        request.Status != "Inactive" &&
-                        request.Status != "Suspended")
+                if (!string.IsNullOrWhiteSpace(request.Phone))
+                {
+                    staff.User.Phone = request.Phone.Trim();
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Status))
+                {
+                    var status = request.Status.Trim();
+
+                    if (status != "Active" &&
+                        status != "Inactive" &&
+                        status != "Suspended")
                     {
                         return ApiResponse<object>.Fail("Invalid status input", 400);
                     }
 
-                    staff.User.Status = request.Status;
+                    staff.User.Status = status;
                 }
 
-                if (request.Role != null)
+                if (!string.IsNullOrWhiteSpace(request.Role))
                 {
-                    if (request.Role != "Pharmacist" &&
-                        request.Role != "Doctor" &&
-                        request.Role != "Admin")
+                    var role = request.Role.Trim();
+
+                    if (role != "Pharmacist" &&
+                        role != "Doctor" &&
+                        role != "Admin")
                     {
                         return ApiResponse<object>.Fail("Invalid staff role.", 400);
                     }
 
-                    staff.Role = request.Role;
+                    staff.Role = role;
                 }
 
                 var success = await _staffRepo.UpdateStaffAsync(staff);
