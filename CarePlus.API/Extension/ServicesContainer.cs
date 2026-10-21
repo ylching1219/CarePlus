@@ -5,6 +5,10 @@ using CarePlus.API.Services.CounterServices;
 using CarePlus.API.Services.CounterServices.Interface;
 using CarePlus.API.Services.JwtServices;
 using CarePlus.API.Services.JWTServices.Interface;
+using CarePlus.API.Services.MedicineServices;
+using CarePlus.API.Services.MedicineServices.Interface;
+using CarePlus.API.Services.MedicineBatchServices;
+using CarePlus.API.Services.MedicineBatchServices.Interface;
 using CarePlus.API.Services.PatientServices;
 using CarePlus.API.Services.PatientServices.Interface;
 using CarePlus.API.Services.StaffService;
@@ -32,6 +36,8 @@ namespace CarePlus.API.Extension
             services.AddScoped<IAdminServices, AdminServices>();
             services.AddScoped<IDoctorServices, DoctorServices>();
             services.AddScoped<IPharmacistServices, PharmacistServices>();
+            services.AddScoped<IMedicineServices, MedicineServices>();
+            services.AddScoped<IMedicineBatchServices, MedicineBatchServices>();
             services.AddScoped<IJWTServices, JWTServices>();
 
             //repository
@@ -41,6 +47,8 @@ namespace CarePlus.API.Extension
             services.AddScoped<IAdminRepository, AdminRepository>();
             services.AddScoped<IDoctorRepository, DoctorRepository>();
             services.AddScoped<IPharmacistRepository, PharmacistRepository>();
+            services.AddScoped<IMedicineRepository, MedicineRepository>();
+            services.AddScoped<IMedicineBatchRepository, MedicineBatchRepository>();
             services.AddScoped<ICounterRepository, CounterRepository>();
             return services;
         }

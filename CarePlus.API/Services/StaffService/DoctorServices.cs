@@ -145,19 +145,19 @@ namespace CarePlus.API.Services.StaffService
                     return ApiResponse<object>.Fail("Doctor not found", 404);
                 }
 
-                if (request.LicenseNumber != null)
+                if (!string.IsNullOrWhiteSpace(request.LicenseNumber))
                 {
-                    doctor.LicenseNumber = request.LicenseNumber;
+                    doctor.LicenseNumber = request.LicenseNumber.Trim();
                 }
 
-                if (request.Specialization != null)
+                if (!string.IsNullOrWhiteSpace(request.Specialization))
                 {
-                    doctor.Specialization = request.Specialization;
+                    doctor.Specialization = request.Specialization.Trim();
                 }
 
-                if (request.Qualification != null)
+                if (!string.IsNullOrWhiteSpace(request.Qualification))
                 {
-                    doctor.Qualification = request.Qualification;
+                    doctor.Qualification = request.Qualification.Trim();
                 }
 
                 if (request.YearsOfExperience != null)

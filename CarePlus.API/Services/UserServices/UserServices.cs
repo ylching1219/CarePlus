@@ -83,7 +83,17 @@ namespace CarePlus.API.Services.UserServices
             }
         }
 
-        public async Task<ApiResponse<object>> UserLoginAsync(UserLoginRequest request)
+        public Task<ApiResponse<object>> PatientLoginAsync(UserLoginRequest request)
+        {
+            return LoginAsync(request, "Patient");
+        }
+
+        public Task<ApiResponse<object>> StaffLoginAsync(UserLoginRequest request)
+        {
+            return LoginAsync(request, "Staff");
+        }
+
+        private async Task<ApiResponse<object>> LoginAsync(UserLoginRequest request, string expectedAccountType)
         {
             try
             {
@@ -115,11 +125,19 @@ namespace CarePlus.API.Services.UserServices
                         "User profile was not found.", 404);
                 }
 
-                var accountType = patient != null && staff != null
-                    ? "Unknown"
-                    : staff != null
-                        ? "Staff"
-                        : "Patient";
+                if (patient != null && staff != null)
+                {
+                    return ApiResponse<object>.Fail(
+                        "This account has multiple profiles.", 409);
+                }
+
+                var accountType = staff != null ? "Staff" : "Patient";
+
+                if (accountType != expectedAccountType)
+                {
+                    return ApiResponse<object>.Fail(
+                        $"This account is not a {expectedAccountType.ToLowerInvariant()} account.", 403);
+                }
 
                 var role = staff?.Role ?? "Patient";
 
@@ -202,6 +220,52 @@ namespace CarePlus.API.Services.UserServices
             }
         }
 
+        public async Task<ApiResponse<object>> RetrieveCurrentUserAsync(long id)
+        {
+            try
+            {
+                var user = await _userRepo.GetUserByIdAsync(id);
+
+                if (user == null)
+                {
+                    return ApiResponse<object>.Fail("Current user was not found", 404);
+                }
+
+                var patient = await _patientRepo.GetPatientByUserIdAsync(user.UserId);
+                var staff = await _staffRepo.GetStaffByUserIdAsync(user.UserId);
+
+                if (patient == null && staff == null)
+                {
+                    return ApiResponse<object>.Fail("User profile was not found", 404);
+                }
+
+                if (patient != null && staff != null)
+                {
+                    return ApiResponse<object>.Fail("This account has multiple profiles", 409);
+                }
+
+                var result = new CurrentUserResponse
+                {
+                    UserId = user.UserId,
+                    Username = user.Username,
+                    Name = user.Name ?? string.Empty,
+                    Email = user.Email,
+                    Phone = user.Phone ?? string.Empty,
+                    Status = user.Status,
+                    AccountType = staff != null ? "Staff" : "Patient",
+                    Role = staff?.Role ?? "Patient",
+                    PatientId = patient?.PatientId,
+                    StaffId = staff?.StaffId
+                };
+
+                return ApiResponse<object>.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+            }
+        }
+
         public async Task<ApiResponse<object>> RetrieveAllActiveUserAsync()
         {
             try
@@ -238,13 +302,29 @@ namespace CarePlus.API.Services.UserServices
                 var user = await _userRepo.GetUserByIdAsync(request.Id);
                 if (user != null)
                 {
-                    if(request.Status != "Active" && request.Status != "Inactive" && request.Status != "Suspended")
+                    if (!string.IsNullOrWhiteSpace(request.Status))
                     {
-                        return ApiResponse<object>.Fail("Invalid status input", 400);
+                        var status = request.Status.Trim();
+
+                        if (status != "Active" &&
+                            status != "Inactive" &&
+                            status != "Suspended")
+                        {
+                            return ApiResponse<object>.Fail("Invalid status input", 400);
+                        }
+
+                        user.Status = status;
                     }
-                    user.Name = request.Name ?? user.Name;
-                    user.Phone = request.Phone ?? user.Phone;
-                    user.Status = request.Status;
+
+                    if (!string.IsNullOrWhiteSpace(request.Name))
+                    {
+                        user.Name = request.Name.Trim();
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(request.Phone))
+                    {
+                        user.Phone = request.Phone.Trim();
+                    }
 
                     bool success = await _userRepo.UpdateUserAsync(user);
                     if (!success)

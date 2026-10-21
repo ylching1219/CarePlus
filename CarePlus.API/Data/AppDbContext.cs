@@ -158,6 +158,11 @@ namespace CarePlus.API.Data
                 .Property(m => m.Price)
                 .HasPrecision(18, 2);
 
+            modelBuilder.Entity<MedicineBatch>()
+                .HasOne(batch => batch.Medicine)
+                .WithMany()
+                .HasForeignKey(batch => batch.MedicineId);
+
             modelBuilder.Entity<FamilyGroup>()
                 .HasOne(f => f.Patient)
                 .WithMany()
