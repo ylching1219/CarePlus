@@ -146,19 +146,19 @@ namespace CarePlus.API.Services.StaffService
                     return ApiResponse<object>.Fail("Pharmacist not found", 404);
                 }
 
-                if (request.LicenseNumber != null)
+                if (!string.IsNullOrWhiteSpace(request.LicenseNumber))
                 {
-                    pharmacist.LicenseNumber = request.LicenseNumber;
+                    pharmacist.LicenseNumber = request.LicenseNumber.Trim();
                 }
 
-                if (request.Qualification != null)
+                if (!string.IsNullOrWhiteSpace(request.Qualification))
                 {
-                    pharmacist.Qualification = request.Qualification;
+                    pharmacist.Qualification = request.Qualification.Trim();
                 }
 
-                if (request.Certification != null)
+                if (!string.IsNullOrWhiteSpace(request.Certification))
                 {
-                    pharmacist.Certification = request.Certification;
+                    pharmacist.Certification = request.Certification.Trim();
                 }
 
                 if (request.YearsOfExperience != null)

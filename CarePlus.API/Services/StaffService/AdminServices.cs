@@ -185,9 +185,9 @@ namespace CarePlus.API.Services.StaffService
                     admin.AccessLevel = request.AccessLevel.Value;
                 }
 
-                if (request.Department != null)
+                if (!string.IsNullOrWhiteSpace(request.Department))
                 {
-                    admin.Department = request.Department;
+                    admin.Department = request.Department.Trim();
                 }
 
                 var success = await _adminRepo.UpdateAdminAsync(admin);

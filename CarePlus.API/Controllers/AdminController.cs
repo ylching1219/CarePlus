@@ -1,11 +1,13 @@
 using CarePlus.API.DTO.StaffDTO;
 using CarePlus.API.Services.StaffService.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CarePlus.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Admin")]
     public class AdminController : ControllerBase
     {
         private readonly IAdminServices _adminServices;

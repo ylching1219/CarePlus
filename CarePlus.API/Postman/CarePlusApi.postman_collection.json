@@ -1,0 +1,521 @@
+{
+  "info": {
+    "_postman_id": "d7cca389-3ce3-47f2-af19-99a60c917146",
+    "name": "CarePlusApi",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "58956141"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Staff Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Parse the response body\nlet jsonData = pm.response.json();\n\n// Check if login was successful\nif (pm.response.code === 200 && jsonData.data && jsonData.data.token) {\n    // Save the access token into a collection variable\n    pm.collectionVariables.set(\"token\", jsonData.data.token);\n\n    // Keep this for future refresh-token support\n    if (jsonData.data.refreshToken) {\n        pm.collectionVariables.set(\"refreshToken\", jsonData.data.refreshToken);\n    }\n\n    console.log(\"Tokens saved to collection variables\");\n} else {\n    console.warn(\"Login failed or token not found in response\");\n}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"identifier\": \"admin001\",\r\n  \"password\": \"admin123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseUrl}}/Staff/Login",
+              "host": [
+                "{{BaseUrl}}"
+              ],
+              "path": [
+                "Staff",
+                "Login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Patient",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"identifier\": \"string\",\r\n  \"password\": \"string\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseUrl}}/Patient/Login",
+              "host": [
+                "{{BaseUrl}}"
+              ],
+              "path": [
+                "Patient",
+                "Login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Staff",
+      "item": [
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "Register",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"username\": \"admin002\",\r\n  \"name\": \"Admin Two\",\r\n  \"email\": \"admin2@gmail.com\",\r\n  \"password\": \"admin123\",\r\n  \"accessLevel\": 1,\r\n  \"department\": \"Administration\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{BaseUrl}}/Admin/Register",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Admin",
+                    "Register"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"staffId\": \"STF000004\",\r\n  \"accessLevel\": 2,\r\n  \"department\": \"IT\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{BaseUrl}}/Admin/Update",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Admin",
+                    "Update"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Retrieve",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BaseUrl}}/Admin/Retrieve",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Admin",
+                    "Retrieve"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "RetrieveById",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BaseUrl}}/Admin/RetrieveById/STF000004",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Admin",
+                    "RetrieveById",
+                    "STF000004"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Doctor",
+          "item": [
+            {
+              "name": "Register",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"username\": \"string\",\r\n  \"name\": \"string\",\r\n  \"email\": \"user@example.com\",\r\n  \"password\": \"stringst\",\r\n  \"licenseNumber\": \"string\",\r\n  \"specialization\": \"string\",\r\n  \"qualification\": \"string\",\r\n  \"yearsOfExperience\": 80\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{BaseUrl}}/Doctor/Register",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Doctor",
+                    "Register"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"staffId\": \"STF000005\",\r\n  \"licenseNumber\": \"0123456\",\r\n  \"specialization\": \"Head\",\r\n  \"qualification\": \"No\",\r\n  \"yearsOfExperience\": 2\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{BaseUrl}}/Doctor/Update",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Doctor",
+                    "Update"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Retrieve",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BaseUrl}}/Doctor/Retrieve",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Doctor",
+                    "Retrieve"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "RetrieveById",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BaseUrl}}/Doctor/RetrieveById/STF000005",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Doctor",
+                    "RetrieveById",
+                    "STF000005"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pharmacist",
+          "item": [
+            {
+              "name": "Register",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"username\": \"pharmacist1\",\r\n  \"name\": \"string\",\r\n  \"email\": \"user12@example.com\",\r\n  \"password\": \"stringst\",\r\n  \"licenseNumber\": \"string\",\r\n  \"qualification\": \"string\",\r\n  \"certification\": \"string\",\r\n  \"yearsOfExperience\": 80\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{BaseUrl}}/Pharmacist/Register",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Pharmacist",
+                    "Register"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"staffId\": \"string\",\r\n  \"licenseNumber\": \"string\",\r\n  \"qualification\": \"string\",\r\n  \"certification\": \"string\",\r\n  \"yearsOfExperience\": 80\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{BaseUrl}}/Pharmacist/Update",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Pharmacist",
+                    "Update"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Retrieve",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BaseUrl}}/Pharmacist/Retrieve",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Pharmacist",
+                    "Retrieve"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "RetrieveById",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BaseUrl}}/Pharmacist/RetrieveById/STF000001",
+                  "host": [
+                    "{{BaseUrl}}"
+                  ],
+                  "path": [
+                    "Pharmacist",
+                    "RetrieveById",
+                    "STF000001"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Medicine",
+      "item": [
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"medicineName\": \"Med One\",\r\n  \"description\": \"Use to fix\",\r\n  \"price\": 20.50\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseUrl}}/Medicine/Create",
+              "host": [
+                "{{BaseUrl}}"
+              ],
+              "path": [
+                "Medicine",
+                "Create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Retrieve",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BaseUrl}}/Medicine/Retrieve",
+              "host": [
+                "{{BaseUrl}}"
+              ],
+              "path": [
+                "Medicine",
+                "Retrieve"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"medicineId\": \"MED000001\",\r\n  \"medicineName\": \" \",\r\n  \"description\": \" \",\r\n  \"price\": 50.00,\r\n  \"status\": \"Unavailable\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseUrl}}/Medicine/Update",
+              "host": [
+                "{{BaseUrl}}"
+              ],
+              "path": [
+                "Medicine",
+                "Update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "RetrieveById",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BaseUrl}}/Medicine/RetrieveById/MED000001",
+              "host": [
+                "{{BaseUrl}}"
+              ],
+              "path": [
+                "Medicine",
+                "RetrieveById",
+                "MED000001"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "MedicineBatch",
+      "item": [
+        {
+          "name": "New Request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"medicineId\": \"MED000001\",\r\n  \"stockQuantity\": 1000,\r\n  \"expiryDate\": \"2027-10-19\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseUrl}}/MedicineBatch/Create",
+              "host": [
+                "{{BaseUrl}}"
+              ],
+              "path": [
+                "MedicineBatch",
+                "Create"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    }
+  ]
+}

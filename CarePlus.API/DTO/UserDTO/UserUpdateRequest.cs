@@ -12,6 +12,6 @@ namespace CarePlus.API.DTO.UserDTO
 
         public string? Phone { get; set; }
 
-        public string Status { get; set; } = string.Empty;
+        public string? Status { get; set; }
     }
 }

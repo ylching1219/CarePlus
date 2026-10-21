@@ -1,6 +1,8 @@
 ﻿using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Services.UserServices.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace CarePlus.API.Controllers
@@ -24,12 +26,6 @@ namespace CarePlus.API.Controllers
             return Ok(await _userServices.RegisterUserAsync(request));
         }
 
-        [HttpPost("Login")]
-        public async Task<IActionResult> UserLogin(UserLoginRequest request)
-        {
-            return Ok(await _userServices.UserLoginAsync(request));
-        }
-
         [HttpGet("Retrieve")]
         public async Task<IActionResult> UserRetrieve()
         {
@@ -41,6 +37,24 @@ namespace CarePlus.API.Controllers
         {
             return Ok(await _userServices.RetrieveUserByIdAsync(userId));
         }
+
+        [Authorize]
+        [HttpGet("Me")]
+        public async Task<IActionResult> CurrentUserRetrieve()
+        {
+            string? userIdClaim =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!long.TryParse(userIdClaim, out long userId))
+            {
+                return Unauthorized(
+                    ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(
+                await _userServices.RetrieveCurrentUserAsync(userId));
+        }
+
 
         [HttpGet("RetrieveActiveUser")]
         public async Task<IActionResult> ActiveUserRetrieve()

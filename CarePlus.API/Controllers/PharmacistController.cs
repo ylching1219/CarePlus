@@ -1,11 +1,13 @@
 using CarePlus.API.DTO.StaffDTO;
 using CarePlus.API.Services.StaffService.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CarePlus.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Admin,Pharmacist")]
     public class PharmacistController : ControllerBase
     {
         private readonly IPharmacistServices _pharmacistServices;
@@ -15,6 +17,7 @@ namespace CarePlus.API.Controllers
             _pharmacistServices = pharmacistServices;
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("Register")]
         public async Task<IActionResult> RegisterPharmacist(
             PharmacistRegisterRequest request)
