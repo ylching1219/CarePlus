@@ -225,6 +225,44 @@ namespace CarePlus.API.Data
                 .HasForeignKey(i => i.MedicalRecordId)
                 .IsRequired(false);
 
+            modelBuilder.Entity<Counter>().HasData(
+                new Counter
+                {
+                    Id = 1,
+                    Key = "PatientId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "PAT",
+                    Length = 6,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0
+                },
+                new Counter
+                {
+                    Id = 2,
+                    Key = "StaffId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "STF",
+                    Length = 6,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0
+                },
+                new Counter
+                {
+                    Id = 3,
+                    Key = "MedicineId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "MED",
+                    Length = 6,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0
+                });
+
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
