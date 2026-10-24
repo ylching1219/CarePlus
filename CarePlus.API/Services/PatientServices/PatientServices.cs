@@ -1,4 +1,4 @@
-﻿using CarePlus.API.DTO.PatientDTO;
+using CarePlus.API.DTO.PatientDTO;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Models.Patient;
 using CarePlus.API.Repository.Interface;
@@ -27,17 +27,27 @@ namespace CarePlus.API.Services.PatientServices
         public async Task<ApiResponse<object>> RegisterPatientAsync(PatientRegisterRequest request)
         {
             try {
-
-                if(request.Gender != 'F' && request.Gender != 'M')
+                if (!TryReadIdentityCard(request.IdentityCardNumber, out var identityCard, out var dateOfBirth, out var gender))
                 {
-                    return ApiResponse<object>.Fail("Invalid gender type.", 400);
+                    return ApiResponse<object>.Fail("Identity card number is invalid.", 400);
+                }
+
+                var errors = await _userService.ValidateUserAsync(request);
+                if (await _patientRepo.IdentityCardExistsAsync(identityCard))
+                {
+                    errors.Add("Identity card number already exists.");
+                }
+
+                if (errors.Count > 0)
+                {
+                    return ApiResponse<object>.Fail(string.Join("\n", errors), 400, errors);
                 }
 
                 var userResponse = await _userService.RegisterUserAsync(request);
 
                 if (!userResponse.IsSuccess)
                 {
-                    return ApiResponse<object>.Fail(userResponse.RespMessage,userResponse.RespCode);
+                    return userResponse;
                 }
 
                 var user = userResponse.Data as UserRegisterResponse;
@@ -50,10 +60,13 @@ namespace CarePlus.API.Services.PatientServices
                 {
                     PatientId = await _counterService.GenerateNextIdAsync("PatientId"),
                     UserId = user.UserId,
-                    Gender = request.Gender
+                    IdentityCardNumber = identityCard,
+                    DateOfBirth = dateOfBirth.ToDateTime(TimeOnly.MinValue),
+                    Gender = gender
                 };
 
                 var patientId = await _patientRepo.CreatePatientAsync(patient);
+                await _userService.EnsureAppSettingAsync(user.UserId, false);
 
                 return ApiResponse<object>.Ok(new PatientRegisterResponse
                 {
@@ -85,8 +98,8 @@ namespace CarePlus.API.Services.PatientServices
                         Email = patient.User.Email,
                         Phone = patient.User.Phone ?? string.Empty,
                         Status = patient.User.Status ?? string.Empty,
-                        Gender = patient.Gender == 'M' ? "Male" : "Female",
-                        DateOfBirth = patient.DateOfBirth,
+                        Gender = patient.Gender == 'M' ? "Male" : patient.Gender == 'F' ? "Female" : "Other",
+                        DateOfBirth = patient.DateOfBirth.HasValue ? DateOnly.FromDateTime(patient.DateOfBirth.Value) : null,
                         Address = patient.Address ?? string.Empty,
                     }).ToList();
 
@@ -112,6 +125,34 @@ namespace CarePlus.API.Services.PatientServices
         public Task<ApiResponse<object>> UpdatePatientAsync()
         {
             throw new NotImplementedException();
+        }
+
+        private static bool TryReadIdentityCard(string value, out string digits, out DateOnly dateOfBirth, out char gender)
+        {
+            digits = new string(value.Where(char.IsDigit).ToArray());
+            dateOfBirth = default;
+            gender = 'M';
+            if (digits.Length != 12)
+            {
+                return false;
+            }
+
+            if (!int.TryParse(digits[..2], out var year) || !int.TryParse(digits[2..4], out var month) || !int.TryParse(digits[4..6], out var day))
+            {
+                return false;
+            }
+
+            var fullYear = year <= 29 ? 2000 + year : 1900 + year;
+            try
+            {
+                dateOfBirth = new DateOnly(fullYear, month, day);
+                gender = (digits[^1] - '0') % 2 == 1 ? 'M' : 'F';
+                return true;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return false;
+            }
         }
     }
 

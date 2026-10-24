@@ -17,13 +17,15 @@ namespace CarePlus.API.Models.User
         [MaxLength(100)]
         public string Username { get; set; } = null!;
 
-        public string? Name { get; set; } = null;
+        [Required]  
+        [MaxLength(100)]
+        public string Name { get; set; } = null!;
 
         [Required]
         public string Email { get; set; } = null!;
 
         [Required]
-        public string? PasswordHash { get; set;}
+        public string PasswordHash { get; set; } = null!;
 
         [MaxLength(20)]
         public string? Phone { get; set; }
