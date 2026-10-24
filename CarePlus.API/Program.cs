@@ -3,6 +3,7 @@ using CarePlus.API.Extension;
 using CarePlus.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -33,7 +34,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("Client", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -55,8 +56,18 @@ if (app.Environment.IsDevelopment())
 
 }
 
-app.UseHttpsRedirection();
 app.UseCors("Client");
+var profileFolder = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "profiles");
+Directory.CreateDirectory(profileFolder);
+app.UseStaticFiles(new StaticFileOptions
+{
+    RequestPath = "/api/profiles",
+    FileProvider = new PhysicalFileProvider(profileFolder)
+});
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

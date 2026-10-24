@@ -25,6 +25,17 @@ namespace CarePlus.API.Models.Invoice
 
         public DateTime IssueAt { get; set; } = DateTimeHelper.MalaysiaNow();
 
+        public DateTime? DueDate { get; set; }
+
+        [MaxLength(120)]
+        public string? DoctorName { get; set; }
+
+        [MaxLength(80)]
+        public string? VisitType { get; set; }
+
+        [MaxLength(40)]
+        public string? RecordRef { get; set; }
+
         public string PaymentStatus { get; set; } = "Pending";
 
 
