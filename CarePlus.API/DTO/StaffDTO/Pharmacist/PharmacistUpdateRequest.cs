@@ -2,11 +2,8 @@ using System.ComponentModel.DataAnnotations;
 
 namespace CarePlus.API.DTO.StaffDTO
 {
-    public record PharmacistUpdateRequest
+    public record PharmacistUpdateRequest : StaffUserUpdateRequest
     {
-        [Required(ErrorMessage = "Staff Id is required.")]
-        public string StaffId { get; init; } = string.Empty;
-
         [StringLength(50)]
         public string? LicenseNumber { get; init; }
 

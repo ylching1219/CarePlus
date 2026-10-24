@@ -11,15 +11,18 @@ namespace CarePlus.API.Services.StaffService
     public class DoctorServices : IDoctorServices
     {
         private readonly IDoctorRepository _doctorRepo;
+        private readonly IUserRepository _userRepo;
         private readonly IUserServices _userService;
         private readonly ICounterServices _counterService;
 
         public DoctorServices(
             IDoctorRepository doctorRepo,
+            IUserRepository userRepo,
             IUserServices userService,
             ICounterServices counterService)
         {
             _doctorRepo = doctorRepo;
+            _userRepo = userRepo;
             _userService = userService;
             _counterService = counterService;
         }
@@ -143,6 +146,20 @@ namespace CarePlus.API.Services.StaffService
                 if (doctor == null)
                 {
                     return ApiResponse<object>.Fail("Doctor not found", 404);
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Username))
+                {
+                    var username = request.Username.Trim();
+                    var existingUsername = await _userRepo.GetAllUsersByAsync(
+                        u => u.Username == username && u.UserId != doctor.UserId);
+
+                    if (existingUsername.Any())
+                    {
+                        return ApiResponse<object>.Fail("Username already exists", 400);
+                    }
+
+                    doctor.User.Username = username;
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.LicenseNumber))

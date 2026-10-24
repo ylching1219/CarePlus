@@ -302,6 +302,22 @@ namespace CarePlus.API.Services.UserServices
                 var user = await _userRepo.GetUserByIdAsync(request.Id);
                 if (user != null)
                 {
+                    if (!string.IsNullOrWhiteSpace(request.Username))
+                    {
+                        var username = request.Username.Trim();
+
+                        var existingUsername = await _userRepo.GetAllUsersByAsync(
+                            u => u.Username == username && u.UserId != request.Id);
+
+                        if (existingUsername.Any())
+                        {
+                            return ApiResponse<object>.Fail(
+                                "Username already exists", 400);
+                        }
+
+                        user.Username = username;
+                    }
+
                     if (!string.IsNullOrWhiteSpace(request.Status))
                     {
                         var status = request.Status.Trim();
