@@ -1,13 +1,12 @@
-﻿using CarePlus.API.DTO.UserDTO;
+using CarePlus.API.DTO.UserDTO;
 using System.ComponentModel.DataAnnotations;
 
 namespace CarePlus.API.DTO.PatientDTO
 {
     public record PatientRegisterRequest : UserRegisterRequest
     {
-       
-        [Required(ErrorMessage = "Gender is required.")]
-        public char Gender {  get; init; }
+        [Required(ErrorMessage = "Identity card number is required.")]
+        public string IdentityCardNumber { get; init; } = string.Empty;
 
     }
 }

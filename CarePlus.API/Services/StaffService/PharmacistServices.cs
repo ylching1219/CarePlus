@@ -62,6 +62,7 @@ namespace CarePlus.API.Services.StaffService
                 };
 
                 var staffId = await _pharmacistRepo.CreatePharmacistAsync(pharmacist);
+                await _userService.EnsureAppSettingAsync(user.UserId, true);
 
                 return ApiResponse<object>.Ok(new PharmacistRegisterResponse
                 {
