@@ -30,19 +30,17 @@ namespace CarePlus.API.Services.MedicineServices
                     MedicineName = request.MedicineName,
                     Description = request.Description,
                     Price = request.Price,
-                    Status = "Available"
+                    Status = "Available",
+                    Pack = "",
+                    Form = "tablet",
+                    Kind = "analgesic",
+                    Method = "",
+                    ImageKey = "para"
                 };
 
                 await _medicineRepo.CreateMedicineAsync(medicine);
 
-                return ApiResponse<object>.Ok(new MedicineRegisterResponse
-                {
-                    MedicineId = medicine.MedicineId,
-                    MedicineName = medicine.MedicineName,
-                    Description = medicine.Description,
-                    Price = medicine.Price,
-                    Status = medicine.Status
-                });
+                return ApiResponse<object>.Ok(Map(medicine));
             }
             catch (Exception ex)
             {
@@ -62,14 +60,7 @@ namespace CarePlus.API.Services.MedicineServices
                     return ApiResponse<object>.Fail("No medicine found", 404);
                 }
 
-                var result = medicines.Select(medicine => new MedicineRetrieveResponse
-                {
-                    MedicineId = medicine.MedicineId,
-                    MedicineName = medicine.MedicineName,
-                    Description = medicine.Description,
-                    Price = medicine.Price,
-                    Status = medicine.Status
-                }).ToList();
+                var result = medicines.Select(Map).ToList();
 
                 return ApiResponse<object>.Ok(result);
             }
@@ -93,14 +84,7 @@ namespace CarePlus.API.Services.MedicineServices
                     return ApiResponse<object>.Fail("Medicine not found", 404);
                 }
 
-                return ApiResponse<object>.Ok(new MedicineRetrieveResponse
-                {
-                    MedicineId = medicine.MedicineId,
-                    MedicineName = medicine.MedicineName,
-                    Description = medicine.Description,
-                    Price = medicine.Price,
-                    Status = medicine.Status
-                });
+                return ApiResponse<object>.Ok(Map(medicine));
             }
             catch (Exception ex)
             {
@@ -158,5 +142,23 @@ namespace CarePlus.API.Services.MedicineServices
                     $"An error occurred: {ex.Message}", 500);
             }
         }
+
+        private static MedicineRetrieveResponse Map(Medicine medicine) => new()
+        {
+            MedicineId = medicine.MedicineId,
+            MedicineName = medicine.MedicineName,
+            NameZh = medicine.NameZh,
+            Description = medicine.Description,
+            DescriptionZh = medicine.DescriptionZh,
+            Pack = medicine.Pack,
+            PackZh = medicine.PackZh,
+            Form = medicine.Form,
+            Kind = medicine.Kind,
+            Method = medicine.Method,
+            MethodZh = medicine.MethodZh,
+            ImageKey = medicine.ImageKey,
+            Price = medicine.Price,
+            Status = medicine.Status
+        };
     }
 }

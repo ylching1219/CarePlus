@@ -18,5 +18,8 @@ namespace CarePlus.API.DTO.UserDTO
         [Required(ErrorMessage = "Password is required.")]
         [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters long.")]
         public string Password { get; init; } = string.Empty;
+
+        [MaxLength(20)]
+        public string? Phone { get; init; }
     }
 }

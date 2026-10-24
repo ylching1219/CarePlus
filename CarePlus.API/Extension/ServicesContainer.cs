@@ -1,4 +1,4 @@
-﻿using CarePlus.API.Data;
+using CarePlus.API.Data;
 using CarePlus.API.Repository;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.CounterServices;
@@ -9,6 +9,12 @@ using CarePlus.API.Services.MedicineServices;
 using CarePlus.API.Services.MedicineServices.Interface;
 using CarePlus.API.Services.MedicineBatchServices;
 using CarePlus.API.Services.MedicineBatchServices.Interface;
+using CarePlus.API.Services.CartServices;
+using CarePlus.API.Services.CartServices.Interface;
+using CarePlus.API.Services.InvoiceServices;
+using CarePlus.API.Services.InvoiceServices.Interface;
+using CarePlus.API.Services.MedicineOrderServices;
+using CarePlus.API.Services.MedicineOrderServices.Interface;
 using CarePlus.API.Services.PatientServices;
 using CarePlus.API.Services.PatientServices.Interface;
 using CarePlus.API.Services.StaffService;
@@ -38,6 +44,17 @@ namespace CarePlus.API.Extension
             services.AddScoped<IPharmacistServices, PharmacistServices>();
             services.AddScoped<IMedicineServices, MedicineServices>();
             services.AddScoped<IMedicineBatchServices, MedicineBatchServices>();
+            services.AddScoped<IMedicineOrderServices, MedicineOrderServices>();
+            services.AddScoped<IInvoiceServices, InvoiceServices>();
+            services.AddScoped<ICartServices, CartServices>();
+            services.AddScoped<AddressGeocoder>();
+            services.AddHttpClient("nominatim", client =>
+            {
+                client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+                client.Timeout = TimeSpan.FromSeconds(8);
+                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "CarePlus-FYP/1.0 (student clinic portal)");
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
+            });
             services.AddScoped<IJWTServices, JWTServices>();
 
             //repository
@@ -50,6 +67,7 @@ namespace CarePlus.API.Extension
             services.AddScoped<IMedicineRepository, MedicineRepository>();
             services.AddScoped<IMedicineBatchRepository, MedicineBatchRepository>();
             services.AddScoped<ICounterRepository, CounterRepository>();
+            services.AddHttpContextAccessor();
             return services;
         }
     }

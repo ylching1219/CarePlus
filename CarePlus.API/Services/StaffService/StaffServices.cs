@@ -1,4 +1,4 @@
-﻿using CarePlus.API.Data;
+using CarePlus.API.Data;
 using CarePlus.API.DTO.StaffDTO;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Models.Patient;
@@ -66,7 +66,7 @@ namespace CarePlus.API.Services.StaffService
                 };
 
                 var staffId = await _staffRepo.CreateStaffAsync(createStaff);
-
+                await _userService.EnsureAppSettingAsync(createUser.UserId, true);
 
                 return ApiResponse<object>.Ok(new StaffRegisterResponse { 
                     StaffId = staffId,

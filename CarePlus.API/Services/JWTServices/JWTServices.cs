@@ -1,4 +1,4 @@
-﻿using CarePlus.API.Services.JWTServices.Interface;
+using CarePlus.API.Services.JWTServices.Interface;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
