@@ -1,4 +1,5 @@
-﻿using CarePlus.API.Models.User.Staff;
+using CarePlus.API.Extension;
+using CarePlus.API.Models.User.Staff;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -21,8 +22,14 @@ namespace CarePlus.API.Models.Leave
         public DateTime EndDate { get; set; }
 
         [Required]
-        public string Reason { get; set; } = null!; 
+        public string Reason { get; set; } = null!;
 
-        public string Status { get; set; } = "Pending"; 
+        [Required]
+        [MaxLength(500)]
+        public string SupportDocument { get; set; } = null!;
+
+        public DateTime CreatedAt { get; set; } = DateTimeHelper.MalaysiaNow();
+
+        public string Status { get; set; } = "Pending";
     }
 }

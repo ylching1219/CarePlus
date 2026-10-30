@@ -9,8 +9,14 @@ using CarePlus.API.Services.MedicineServices;
 using CarePlus.API.Services.MedicineServices.Interface;
 using CarePlus.API.Services.MedicineBatchServices;
 using CarePlus.API.Services.MedicineBatchServices.Interface;
+using CarePlus.API.Services.WorkScheduleServices;
+using CarePlus.API.Services.WorkScheduleServices.Interface;
+using CarePlus.API.Services.LeaveServices;
+using CarePlus.API.Services.LeaveServices.Interface;
 using CarePlus.API.Services.CartServices;
 using CarePlus.API.Services.CartServices.Interface;
+using CarePlus.API.Services.AuditLogServices;
+using CarePlus.API.Services.AuditLogServices.Interface;
 using CarePlus.API.Services.InvoiceServices;
 using CarePlus.API.Services.InvoiceServices.Interface;
 using CarePlus.API.Services.MedicineOrderServices;
@@ -44,9 +50,12 @@ namespace CarePlus.API.Extension
             services.AddScoped<IPharmacistServices, PharmacistServices>();
             services.AddScoped<IMedicineServices, MedicineServices>();
             services.AddScoped<IMedicineBatchServices, MedicineBatchServices>();
+            services.AddScoped<IWorkScheduleServices, WorkScheduleServices>();
+            services.AddScoped<ILeaveServices, LeaveServices>();
             services.AddScoped<IMedicineOrderServices, MedicineOrderServices>();
             services.AddScoped<IInvoiceServices, InvoiceServices>();
             services.AddScoped<ICartServices, CartServices>();
+            services.AddScoped<IAuditLogServices, AuditLogServices>();
             services.AddScoped<AddressGeocoder>();
             services.AddHttpClient("nominatim", client =>
             {
@@ -66,6 +75,8 @@ namespace CarePlus.API.Extension
             services.AddScoped<IPharmacistRepository, PharmacistRepository>();
             services.AddScoped<IMedicineRepository, MedicineRepository>();
             services.AddScoped<IMedicineBatchRepository, MedicineBatchRepository>();
+            services.AddScoped<IWorkScheduleRepository, WorkScheduleRepository>();
+            services.AddScoped<ILeaveRepository, LeaveRepository>();
             services.AddScoped<ICounterRepository, CounterRepository>();
             services.AddHttpContextAccessor();
             return services;

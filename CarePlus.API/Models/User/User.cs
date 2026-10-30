@@ -7,7 +7,7 @@ namespace CarePlus.API.Models.User
 {
     [Table("Users")]
     [Index(nameof(Username), IsUnique = true)]
-    public class User : AuditTrail
+    public class User
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
