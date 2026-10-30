@@ -67,6 +67,32 @@ namespace CarePlus.API.Repository
                 (excludedScheduleId == null || schedule.ScheduleId != excludedScheduleId));
         }
 
+        public async Task<int> DeactivateActiveSchedulesAsync(
+            string staffId,
+            DateOnly startDate,
+            DateOnly endDate)
+        {
+            var schedules = await _context.WorkSchedules
+                .Where(schedule => schedule.StaffId == staffId
+                    && schedule.Status == "Active"
+                    && schedule.WorkingDate >= startDate
+                    && schedule.WorkingDate <= endDate)
+                .ToListAsync();
+
+            if (schedules.Count == 0)
+            {
+                return 0;
+            }
+
+            foreach (var schedule in schedules)
+            {
+                schedule.Status = "Inactive";
+            }
+
+            await _context.SaveChangesAsync();
+            return schedules.Count;
+        }
+
         public async Task<bool> UpdateWorkScheduleAsync(WorkSchedule workSchedule)
         {
             _context.WorkSchedules.Update(workSchedule);

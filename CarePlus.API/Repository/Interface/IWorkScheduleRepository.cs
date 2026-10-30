@@ -12,6 +12,10 @@ namespace CarePlus.API.Repository.Interface
             string staffId,
             DateOnly workingDate,
             string? excludedScheduleId = null);
+        Task<int> DeactivateActiveSchedulesAsync(
+            string staffId,
+            DateOnly startDate,
+            DateOnly endDate);
         Task<bool> UpdateWorkScheduleAsync(WorkSchedule workSchedule);
     }
 }
