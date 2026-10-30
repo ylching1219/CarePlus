@@ -154,7 +154,7 @@ namespace CarePlus.API.Migrations
                     b.HasData(
                         new
                         {
-                            VisitTypeId = "general",
+                            VisitTypeId = "VT01",
                             Description = "Cough, fever, skin, or a usual GP visit.",
                             IsActive = true,
                             Name = "General consultation",
@@ -162,19 +162,19 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            VisitTypeId = "mental",
-                            Description = "Stress, sleep, mood, or a quiet talk with a doctor.",
-                            IsActive = true,
-                            Name = "Mental wellness",
-                            Price = 60m
-                        },
-                        new
-                        {
-                            VisitTypeId = "screening",
+                            VisitTypeId = "VT02",
                             Description = "Health screening and routine checks.",
                             IsActive = true,
                             Name = "Body check",
                             Price = 55m
+                        },
+                        new
+                        {
+                            VisitTypeId = "VT03",
+                            Description = "Stress, sleep, mood, or a quiet talk with a doctor.",
+                            IsActive = true,
+                            Name = "Mental wellness",
+                            Price = 60m
                         });
                 });
 

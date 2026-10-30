@@ -9,7 +9,7 @@ namespace CarePlus.API.DTO.ClinicRecordDTO
         public string DoctorName { get; set; } = "";
         public string DoctorPhoto { get; set; } = "";
         public string Specialty { get; set; } = "";
-        public string VisitTypeId { get; set; } = "general";
+        public string VisitTypeId { get; set; } = "VT01";
         public string VisitType { get; set; } = "";
         public string VisitedAt { get; set; } = "";
         public string Status { get; set; } = "completed";

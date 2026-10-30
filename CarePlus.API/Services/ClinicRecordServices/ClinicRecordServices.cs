@@ -93,10 +93,10 @@ namespace CarePlus.API.Services.ClinicRecordServices
         {
             var visitTypeId = NormalizeVisitTypeId(appointment?.VisitType, invoice?.VisitType, visitTypes);
             var visitType = visitTypes.GetValueOrDefault(visitTypeId)
-                ?? visitTypes.GetValueOrDefault("general")
+                ?? visitTypes.GetValueOrDefault("VT01")
                 ?? new VisitType
                 {
-                    VisitTypeId = "general",
+                    VisitTypeId = "VT01",
                     Name = "General consultation",
                     Description = "General clinic consultation.",
                     Price = 50m,
@@ -179,7 +179,7 @@ namespace CarePlus.API.Services.ClinicRecordServices
                 }
             }
 
-            return "general";
+            return "VT01";
         }
 
         private static string LocalizedVisitName(string id, string fallback, bool isChinese)
@@ -191,9 +191,9 @@ namespace CarePlus.API.Services.ClinicRecordServices
 
             return id.ToLowerInvariant() switch
             {
-                "general" => "普通门诊",
-                "mental" => "心理健康咨询",
-                "screening" => "身体检查",
+                "vt01" => "普通门诊",
+                "vt02" => "身体检查",
+                "vt03" => "心理健康咨询",
                 _ => fallback,
             };
         }
