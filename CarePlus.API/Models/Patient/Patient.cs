@@ -16,7 +16,8 @@ namespace CarePlus.API.Models.Patient
         public User.User User { get; set; } = null!;
 
         [Required]
-        public string IdentityCardNumber { get; set; }
+        [MaxLength(20)]
+        public string IdentityCardNumber { get; set; } = null!;
 
         public DateTime? DateOfBirth { get; set; }
 

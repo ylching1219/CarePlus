@@ -94,7 +94,8 @@ namespace CarePlus.API.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "IdentityCardNumber",
                 table: "Patients",
-                type: "longtext",
+                type: "varchar(20)",
+                maxLength: 20,
                 nullable: false,
                 defaultValue: "");
 

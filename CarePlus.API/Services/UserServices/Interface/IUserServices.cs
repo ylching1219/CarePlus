@@ -6,7 +6,9 @@ namespace CarePlus.API.Services.UserServices.Interface
 {
     public interface IUserServices
     {
-        Task<ApiResponse<object>> RegisterUserAsync(UserRegisterRequest request);
+        Task<ApiResponse<object>> RegisterUserAsync(UserRegisterRequest request, bool emailVerified = true);
+
+        Task<ApiResponse<object>> CheckUsernameAvailabilityAsync(string username);
 
         Task EnsureAppSettingAsync(long userId, bool staff);
 
@@ -28,6 +30,8 @@ namespace CarePlus.API.Services.UserServices.Interface
         Task<ApiResponse<object>> UpdateCurrentProfileAsync(long userId, ProfileUpdateRequest request);
 
         Task<ApiResponse<object>> ChangePasswordAsync(long userId, PasswordChangeRequest request);
+
+        Task<ApiResponse<object>> DeleteCurrentAccountAsync(long userId, AccountDeleteRequest request);
 
         Task<ApiResponse<object>> RetrieveDeliveryAddressesAsync(long userId);
 

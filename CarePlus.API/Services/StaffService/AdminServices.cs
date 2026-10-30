@@ -11,18 +11,15 @@ namespace CarePlus.API.Services.StaffService
     public class AdminServices : IAdminServices
     {
         private readonly IAdminRepository _adminRepo;
-        private readonly IUserRepository _userRepo;
         private readonly IUserServices _userService;
         private readonly ICounterServices _counterService;
 
         public AdminServices(
             IAdminRepository adminRepo,
-            IUserRepository userRepo,
             IUserServices userService,
             ICounterServices counterService)
         {
             _adminRepo = adminRepo;
-            _userRepo = userRepo;
             _userService = userService;
             _counterService = counterService;
         }
@@ -176,20 +173,6 @@ namespace CarePlus.API.Services.StaffService
                 if (admin == null)
                 {
                     return ApiResponse<object>.Fail("Admin not found", 404);
-                }
-
-                if (!string.IsNullOrWhiteSpace(request.Username))
-                {
-                    var username = request.Username.Trim();
-                    var existingUsername = await _userRepo.GetAllUsersByAsync(
-                        u => u.Username == username && u.UserId != admin.UserId);
-
-                    if (existingUsername.Any())
-                    {
-                        return ApiResponse<object>.Fail("Username already exists", 400);
-                    }
-
-                    admin.User.Username = username;
                 }
 
                 if (request.AccessLevel != null)

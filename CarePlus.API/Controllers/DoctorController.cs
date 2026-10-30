@@ -30,6 +30,20 @@ namespace CarePlus.API.Controllers
             return Ok(await _doctorServices.RetrieveAllDoctorsAsync());
         }
 
+        [AllowAnonymous]
+        [HttpGet("Public")]
+        public async Task<IActionResult> RetrievePublicDoctors()
+        {
+            return Ok(await _doctorServices.RetrievePublicDoctorsAsync());
+        }
+
+        [AllowAnonymous]
+        [HttpGet("Public/{staffId}")]
+        public async Task<IActionResult> RetrievePublicDoctor(string staffId)
+        {
+            return Ok(await _doctorServices.RetrievePublicDoctorByIdAsync(staffId));
+        }
+
         [HttpGet("RetrieveById/{staffId}")]
         public async Task<IActionResult> RetrieveDoctorById(string staffId)
         {

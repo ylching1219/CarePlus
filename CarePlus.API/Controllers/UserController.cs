@@ -2,6 +2,7 @@ using CarePlus.API.DTO.DeliveryAddressDTO;
 using CarePlus.API.DTO.PaymentCardDTO;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Services.UserServices.Interface;
+using CarePlus.API.Services.TwoFactorServices.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -15,10 +16,12 @@ namespace CarePlus.API.Controllers
     {
 
         private readonly IUserServices _userServices;
+        private readonly ITwoFactorServices _twoFactorServices;
 
-        public UserController(IUserServices userServices)
+        public UserController(IUserServices userServices, ITwoFactorServices twoFactorServices)
         {
             _userServices = userServices;
+            _twoFactorServices = twoFactorServices;
         }
 
         [HttpPost("Register")]
@@ -122,6 +125,18 @@ namespace CarePlus.API.Controllers
         }
 
         [Authorize]
+        [HttpDelete("Me")]
+        public async Task<IActionResult> CurrentAccountDelete(AccountDeleteRequest request)
+        {
+            if (!TryGetUserId(out long userId))
+            {
+                return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _userServices.DeleteCurrentAccountAsync(userId, request));
+        }
+
+        [Authorize]
         [HttpGet("DeliveryAddress")]
         public async Task<IActionResult> DeliveryAddressRetrieve()
         {
@@ -203,6 +218,30 @@ namespace CarePlus.API.Controllers
             }
 
             return Ok(await _userServices.SaveAppSettingAsync(userId, request));
+        }
+
+        [Authorize]
+        [HttpPost("TwoFactor/SendCode")]
+        public async Task<IActionResult> TwoFactorCodeSend(TwoFactorSendCodeRequest request)
+        {
+            if (!TryGetUserId(out long userId))
+            {
+                return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _twoFactorServices.SendCodeAsync(userId, request));
+        }
+
+        [Authorize]
+        [HttpPost("TwoFactor/Verify")]
+        public async Task<IActionResult> TwoFactorCodeVerify(TwoFactorVerifyRequest request)
+        {
+            if (!TryGetUserId(out long userId))
+            {
+                return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _twoFactorServices.VerifyCodeAsync(userId, request));
         }
 
         [Authorize]

@@ -2,6 +2,7 @@ using CarePlus.API.DTO;
 using CarePlus.API.DTO.DeliveryAddressDTO;
 using CarePlus.API.DTO.PaymentCardDTO;
 using CarePlus.API.DTO.UserDTO;
+using CarePlus.API.Data;
 using CarePlus.API.Models.DeliveryAddress;
 using CarePlus.API.Models.Payment;
 using CarePlus.API.Extension;
@@ -25,7 +26,8 @@ namespace CarePlus.API.Services.UserServices
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IWebHostEnvironment _environment;
         private readonly AddressGeocoder _geocoder;
-        public UserServices(IUserRepository userRepo,IPatientRepository patientRepo , IStaffRepository staffRepo , IJWTServices jwtService, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment environment, AddressGeocoder geocoder)
+        private readonly AppDbContext _db;
+        public UserServices(IUserRepository userRepo,IPatientRepository patientRepo , IStaffRepository staffRepo , IJWTServices jwtService, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment environment, AddressGeocoder geocoder, AppDbContext db)
         {
             _userRepo = userRepo;
             _patientRepo = patientRepo;
@@ -34,6 +36,23 @@ namespace CarePlus.API.Services.UserServices
             _httpContextAccessor = httpContextAccessor;
             _environment = environment;
             _geocoder = geocoder;
+            _db = db;
+        }
+
+        public async Task<ApiResponse<object>> CheckUsernameAvailabilityAsync(string username)
+        {
+            var normalizedUsername = username?.Trim() ?? string.Empty;
+
+            if (normalizedUsername.Length == 0)
+            {
+                return ApiResponse<object>.Ok(new { available = false });
+            }
+
+            var normalizedUsernameKey = normalizedUsername.ToUpperInvariant();
+            var existingUsers = await _userRepo.GetAllUsersByAsync(user =>
+                user.Username.ToUpper() == normalizedUsernameKey);
+
+            return ApiResponse<object>.Ok(new { available = existingUsers.Count == 0 });
         }
 
         public async Task<List<string>> ValidateUserAsync(UserRegisterRequest request)
@@ -46,7 +65,10 @@ namespace CarePlus.API.Services.UserServices
                 errors.Add("Email already exists");
             }
 
-            var checkUsername = await _userRepo.GetAllUsersByAsync(u => u.Username == request.Username);
+            var normalizedUsername = request.Username?.Trim() ?? string.Empty;
+            var normalizedUsernameKey = normalizedUsername.ToUpperInvariant();
+            var checkUsername = await _userRepo.GetAllUsersByAsync(u =>
+                u.Username.ToUpper() == normalizedUsernameKey);
             if (checkUsername != null && checkUsername.Count > 0)
             {
                 errors.Add("Username already exists");
@@ -55,7 +77,7 @@ namespace CarePlus.API.Services.UserServices
             return errors;
         }
 
-        public async Task<ApiResponse<object>> RegisterUserAsync(UserRegisterRequest request)
+        public async Task<ApiResponse<object>> RegisterUserAsync(UserRegisterRequest request, bool emailVerified = true)
         {
             try
             {
@@ -68,10 +90,11 @@ namespace CarePlus.API.Services.UserServices
 
             var createdUser = new User
             {
-                Username = request.Username,
+                Username = request.Username.Trim(),
                 Name = request.Name,
                 Email = request.Email,
                 Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+                EmailVerified = emailVerified,
             };
 
                 createdUser.PasswordHash = HashPassword(createdUser, request.Password);
@@ -127,6 +150,11 @@ namespace CarePlus.API.Services.UserServices
                 if (user.Status != "Active")
                 {
                     return ApiResponse<object>.Fail("This account is not active.", 403);
+                }
+
+                if (expectedAccountType == "Patient" && !user.EmailVerified)
+                {
+                    return ApiResponse<object>.Fail("Please verify your email address before logging in.", 403);
                 }
 
                 var patient =await _patientRepo.GetPatientByUserIdAsync(user.UserId);
@@ -343,22 +371,6 @@ namespace CarePlus.API.Services.UserServices
                 var user = await _userRepo.GetUserByIdAsync(request.Id);
                 if (user != null)
                 {
-                    if (!string.IsNullOrWhiteSpace(request.Username))
-                    {
-                        var username = request.Username.Trim();
-
-                        var existingUsername = await _userRepo.GetAllUsersByAsync(
-                            u => u.Username == username && u.UserId != request.Id);
-
-                        if (existingUsername.Any())
-                        {
-                            return ApiResponse<object>.Fail(
-                                "Username already exists", 400);
-                        }
-
-                        user.Username = username;
-                    }
-
                     if (!string.IsNullOrWhiteSpace(request.Status))
                     {
                         var status = request.Status.Trim();
@@ -421,6 +433,115 @@ namespace CarePlus.API.Services.UserServices
             user.PasswordHash = HashPassword(user, request.NewPassword);
             await _userRepo.UpdateUserAsync(user);
             return ApiResponse<object>.Ok(new { updated = true }, "Password updated.");
+        }
+
+        public async Task<ApiResponse<object>> DeleteCurrentAccountAsync(long userId, AccountDeleteRequest request)
+        {
+            var user = await _userRepo.GetUserByIdAsync(userId);
+            if (user == null || user.Status == "Deleted")
+            {
+                return ApiResponse<object>.Fail("Account was not found.", 404);
+            }
+
+            if (string.IsNullOrWhiteSpace(request.CurrentPassword) || !VerifyPassword(user, request.CurrentPassword))
+            {
+                return ApiResponse<object>.Fail("Current password is incorrect.", 400);
+            }
+
+            var patient = await _patientRepo.GetPatientByUserIdAsync(userId);
+            if (patient == null)
+            {
+                return ApiResponse<object>.Fail("Only patient accounts can be deleted here.", 400);
+            }
+
+            var ownedGroup = await _db.FamilyGroups.FirstOrDefaultAsync(group => group.CreatedBy == patient.PatientId);
+            if (ownedGroup != null)
+            {
+                var activeMemberCount = await _db.FamilyMembers.CountAsync(member =>
+                    member.FamilyGroupId == ownedGroup.FamilyGroupId && member.Status == "Active");
+                if (activeMemberCount > 1)
+                {
+                    return ApiResponse<object>.Fail("Transfer family ownership before deleting your account.", 409);
+                }
+            }
+
+            var oldProfilePicture = patient.ProfilePicture;
+            await using var transaction = await _db.Database.BeginTransactionAsync();
+
+            if (ownedGroup != null)
+            {
+                _db.FamilyGroups.Remove(ownedGroup);
+            }
+            else
+            {
+                var memberships = await _db.FamilyMembers
+                    .Include(member => member.FamilyGroup)
+                    .Where(member => member.PatientId == patient.PatientId)
+                    .ToListAsync();
+
+                foreach (var membership in memberships)
+                {
+                    if (membership.Status == "Active")
+                    {
+                        membership.FamilyGroup.MemberCount = Math.Max(0, membership.FamilyGroup.MemberCount - 1);
+                    }
+                    _db.FamilyMembers.Remove(membership);
+                }
+            }
+
+            var accessRequests = await _db.FamilyUseRequests
+                .Where(row => row.FromPatientId == patient.PatientId || row.TargetPatientId == patient.PatientId)
+                .ToListAsync();
+            _db.FamilyUseRequests.RemoveRange(accessRequests);
+
+            var cart = await _db.Carts.FirstOrDefaultAsync(row => row.PatientId == patient.PatientId);
+            if (cart != null)
+            {
+                _db.Carts.Remove(cart);
+            }
+
+            _db.DeliveryAddresses.RemoveRange(_db.DeliveryAddresses.Where(row => row.PatientId == patient.PatientId));
+            _db.PaymentCards.RemoveRange(_db.PaymentCards.Where(row => row.UserId == userId));
+            _db.LoginActivities.RemoveRange(_db.LoginActivities.Where(row => row.UserId == userId));
+            _db.Notifications.RemoveRange(_db.Notifications.Where(row => row.UserId == userId));
+            _db.TwoFactorChallenges.RemoveRange(_db.TwoFactorChallenges.Where(row => row.UserId == userId));
+            _db.AppSettings.RemoveRange(_db.AppSettings.Where(row => row.UserId == userId));
+
+            var deletedKey = $"deleted-{userId}-{Guid.NewGuid():N}";
+            user.Username = deletedKey;
+            user.Email = $"{deletedKey}@deleted.careplus.local";
+            user.Name = "Deleted account";
+            user.Phone = null;
+            user.Status = "Deleted";
+            user.EmailVerified = false;
+            user.PasswordHash = HashPassword(user, Guid.NewGuid().ToString("N"));
+
+            patient.Address = null;
+            patient.ProfilePicture = null;
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            DeleteProfilePictureFile(oldProfilePicture);
+
+            return ApiResponse<object>.Ok(new { deleted = true }, "Account deleted.");
+        }
+
+        private void DeleteProfilePictureFile(string? relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath)) return;
+
+            try
+            {
+                var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+                var profileRoot = Path.GetFullPath(Path.Combine(webRoot, "profiles"));
+                var candidate = Path.GetFullPath(Path.Combine(webRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+                if (!candidate.StartsWith(profileRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return;
+                if (File.Exists(candidate)) File.Delete(candidate);
+            }
+            catch
+            {
+                // Account deletion must not fail because an old profile image cannot be removed.
+            }
         }
 
         public async Task<ApiResponse<object>> UpdateCurrentProfileAsync(long userId, ProfileUpdateRequest request)
@@ -836,6 +957,8 @@ namespace CarePlus.API.Services.UserServices
                     Appearance = "light",
                     Language = staff ? null : "en",
                     Notification = "all",
+                    TwoFactorEnabled = false,
+                    HasCompletedTutorial = false,
                 });
                 return;
             }
@@ -878,6 +1001,8 @@ namespace CarePlus.API.Services.UserServices
                 Appearance = "light",
                 Language = staff == null ? "en" : null,
                 Notification = "all",
+                TwoFactorEnabled = false,
+                HasCompletedTutorial = false,
             };
 
             var error = ApplyAppSetting(setting, request, staff != null);
@@ -957,6 +1082,11 @@ namespace CarePlus.API.Services.UserServices
                 setting.Notification = notification;
             }
 
+            if (request.HasCompletedTutorial.HasValue)
+            {
+                setting.HasCompletedTutorial = request.HasCompletedTutorial.Value;
+            }
+
             return null;
         }
 
@@ -967,6 +1097,8 @@ namespace CarePlus.API.Services.UserServices
                 Appearance = setting.Appearance,
                 Language = setting.Language,
                 Notification = setting.Notification,
+                TwoFactorEnabled = setting.TwoFactorEnabled,
+                HasCompletedTutorial = setting.HasCompletedTutorial,
             };
         }
 
