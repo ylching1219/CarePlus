@@ -18,13 +18,16 @@ namespace CarePlus.API.Services.LeaveServices
 
         private readonly ILeaveRepository _leaveRepo;
         private readonly IStaffRepository _staffRepo;
+        private readonly IWorkScheduleRepository _workScheduleRepo;
 
         public LeaveServices(
             ILeaveRepository leaveRepo,
-            IStaffRepository staffRepo)
+            IStaffRepository staffRepo,
+            IWorkScheduleRepository workScheduleRepo)
         {
             _leaveRepo = leaveRepo;
             _staffRepo = staffRepo;
+            _workScheduleRepo = workScheduleRepo;
         }
 
         public async Task<ApiResponse<object>> CreateLeaveAsync(
@@ -213,6 +216,11 @@ namespace CarePlus.API.Services.LeaveServices
                             "This staff member already has another pending or approved leave during these dates.",
                             409);
                     }
+
+                    await _workScheduleRepo.DeactivateActiveSchedulesAsync(
+                        leave.StaffId,
+                        DateOnly.FromDateTime(leave.StartDate.Date),
+                        DateOnly.FromDateTime(leave.EndDate.Date));
                 }
 
                 leave.Status = status;
