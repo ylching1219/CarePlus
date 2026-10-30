@@ -143,6 +143,10 @@ namespace CarePlus.API.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<decimal>("Price")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
                     b.HasKey("VisitTypeId");
 
                     b.ToTable("VisitTypes");
@@ -153,21 +157,24 @@ namespace CarePlus.API.Migrations
                             VisitTypeId = "general",
                             Description = "Cough, fever, skin, or a usual GP visit.",
                             IsActive = true,
-                            Name = "General consultation"
+                            Name = "General consultation",
+                            Price = 50m
                         },
                         new
                         {
                             VisitTypeId = "mental",
                             Description = "Stress, sleep, mood, or a quiet talk with a doctor.",
                             IsActive = true,
-                            Name = "Mental wellness"
+                            Name = "Mental wellness",
+                            Price = 60m
                         },
                         new
                         {
                             VisitTypeId = "screening",
                             Description = "Health screening and routine checks.",
                             IsActive = true,
-                            Name = "Body check"
+                            Name = "Body check",
+                            Price = 55m
                         });
                 });
 
