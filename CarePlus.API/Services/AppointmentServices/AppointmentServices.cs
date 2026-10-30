@@ -18,6 +18,10 @@ namespace CarePlus.API.Services.AppointmentServices
         public const int CancelsBeforeBookingCloses = 3;
 
         private static readonly TimeSpan MalaysiaOffset = TimeSpan.FromHours(8);
+        private static readonly TimeSpan MorningStart = TimeSpan.FromHours(8);
+        private static readonly TimeSpan MorningEnd = TimeSpan.FromHours(17);
+        private static readonly TimeSpan NightStart = TimeSpan.FromHours(18);
+        private static readonly TimeSpan NightEnd = TimeSpan.FromHours(22);
         private readonly AppDbContext _db;
         private readonly ICounterServices _counters;
 
@@ -399,8 +403,9 @@ namespace CarePlus.API.Services.AppointmentServices
                 return new BookingSlotsResponse { Date = day.ToString("yyyy-MM-dd"), DoctorId = doctorId };
             }
 
+            var scheduleDate = DateOnly.FromDateTime(day);
             var schedules = await _db.WorkSchedules.AsNoTracking()
-                .Where(row => activeIds.Contains(row.StaffId) && row.WorkingDate == day && row.Status == "Active")
+                .Where(row => activeIds.Contains(row.StaffId) && row.WorkingDate == scheduleDate && row.Status == "Active")
                 .ToListAsync();
 
             var taken = await _db.Appointments.AsNoTracking()
@@ -411,7 +416,8 @@ namespace CarePlus.API.Services.AppointmentServices
             var openTimes = new SortedSet<TimeSpan>();
             foreach (var schedule in schedules)
             {
-                for (var cursor = schedule.StartTime; cursor + TimeSpan.FromMinutes(SlotMinutes) <= schedule.EndTime; cursor += TimeSpan.FromMinutes(SlotMinutes))
+                var (startTime, endTime) = ShiftBounds(schedule.Shift);
+                for (var cursor = startTime; cursor + TimeSpan.FromMinutes(SlotMinutes) <= endTime; cursor += TimeSpan.FromMinutes(SlotMinutes))
                 {
                     openTimes.Add(cursor);
                 }
@@ -423,7 +429,7 @@ namespace CarePlus.API.Services.AppointmentServices
                 var startAt = ToOffset(start).ToString("yyyy-MM-ddTHH:mm:sszzz");
                 var label = ToOffset(start).ToString("h:mm tt", CultureInfo.GetCultureInfo("en-MY"));
                 var freeDoctor = activeIds.Any(id =>
-                    schedules.Any(schedule => schedule.StaffId == id && time >= schedule.StartTime && time + TimeSpan.FromMinutes(SlotMinutes) <= schedule.EndTime)
+                    schedules.Any(schedule => schedule.StaffId == id && IsTimeWithinShift(time, schedule.Shift))
                     && !taken.Any(row => row.DoctorId == id && row.AppointmentTime == time));
                 var booked = start <= now || !freeDoctor;
                 var item = new BookingSlotResponse { StartAt = startAt, Label = label, Booked = booked };
@@ -472,13 +478,19 @@ namespace CarePlus.API.Services.AppointmentServices
                 return false;
             }
 
+            var scheduleDate = DateOnly.FromDateTime(day);
+            var requiredShift = IsNightSession(time) ? "Night" : "Morning";
             var onDuty = await _db.WorkSchedules.AsNoTracking().AnyAsync(row =>
                 row.StaffId == doctorId
-                && row.WorkingDate == day
+                && row.WorkingDate == scheduleDate
                 && row.Status == "Active"
-                && time >= row.StartTime
-                && time + TimeSpan.FromMinutes(SlotMinutes) <= row.EndTime);
+                && row.Shift == requiredShift);
             if (!onDuty)
+            {
+                return false;
+            }
+
+            if (!IsTimeWithinShift(time, requiredShift))
             {
                 return false;
             }
@@ -490,6 +502,17 @@ namespace CarePlus.API.Services.AppointmentServices
                 && row.Status == "Scheduled"
                 && (ignoreAppointmentId == null || row.AppointmentId != ignoreAppointmentId));
             return !taken;
+        }
+
+        private static (TimeSpan Start, TimeSpan End) ShiftBounds(string shift) =>
+            shift.Equals("Night", StringComparison.OrdinalIgnoreCase)
+                ? (NightStart, NightEnd)
+                : (MorningStart, MorningEnd);
+
+        private static bool IsTimeWithinShift(TimeSpan time, string shift)
+        {
+            var (start, end) = ShiftBounds(shift);
+            return time >= start && time + TimeSpan.FromMinutes(SlotMinutes) <= end;
         }
 
         private async Task<HashSet<string>> StaffOnLeaveAsync(IEnumerable<string> staffIds, DateTime day)

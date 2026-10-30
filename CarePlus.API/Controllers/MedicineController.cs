@@ -1,11 +1,13 @@
 using CarePlus.API.DTO.MedicineDTO;
 using CarePlus.API.Services.MedicineServices.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CarePlus.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Pharmacist")]
     public class MedicineController : ControllerBase
     {
         private readonly IMedicineServices _medicineServices;
