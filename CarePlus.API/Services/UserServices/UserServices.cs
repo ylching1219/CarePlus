@@ -301,6 +301,9 @@ namespace CarePlus.API.Services.UserServices
                     PatientId = patient?.PatientId,
                     StaffId = staff?.StaffId,
                     IdentityCardNumber = patient?.IdentityCardNumber,
+                    DateOfBirth = patient?.DateOfBirth.HasValue == true
+                        ? DateOnly.FromDateTime(patient.DateOfBirth.Value)
+                        : null,
                     Gender = patient == null ? null : patient.Gender.ToString(),
                     Address = patient?.Address,
                     ProfilePicture = patient?.ProfilePicture

@@ -46,6 +46,7 @@ namespace CarePlus.API.Services.MedicineBatchServices
                 {
                     BatchId = medicineBatch.BatchId,
                     MedicineId = medicineBatch.MedicineId,
+                    MedicineName = medicine.MedicineName,
                     StockQuantity = medicineBatch.StockQuantity,
                     ExpiryDate = medicineBatch.ExpiryDate
                 });
@@ -152,6 +153,7 @@ namespace CarePlus.API.Services.MedicineBatchServices
             {
                 BatchId = medicineBatch.BatchId,
                 MedicineId = medicineBatch.MedicineId,
+                MedicineName = medicineBatch.Medicine?.MedicineName ?? string.Empty,
                 StockQuantity = medicineBatch.StockQuantity,
                 ExpiryDate = medicineBatch.ExpiryDate
             };

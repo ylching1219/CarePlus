@@ -193,7 +193,7 @@ namespace CarePlus.API.Services.StaffService
                 .AsNoTracking()
                 .Where(schedule => schedule.StaffId == doctor.StaffId && schedule.Status == "Active")
                 .OrderBy(schedule => schedule.WorkingDate)
-                .ThenBy(schedule => schedule.StartTime)
+                .ThenBy(schedule => schedule.Shift)
                 .ToListAsync();
 
             return new PublicDoctorResponse
@@ -205,9 +205,9 @@ namespace CarePlus.API.Services.StaffService
                 YearsOfExperience = doctor.YearsOfExperience,
                 Schedules = scheduleRows.Select(schedule => new PublicDoctorScheduleResponse
                 {
-                    WorkingDate = schedule.WorkingDate,
-                    StartTime = schedule.StartTime.ToString(),
-                    EndTime = schedule.EndTime.ToString(),
+                    WorkingDate = schedule.WorkingDate.ToDateTime(TimeOnly.MinValue),
+                    StartTime = schedule.Shift.Equals("Night", StringComparison.OrdinalIgnoreCase) ? "18:00:00" : "08:00:00",
+                    EndTime = schedule.Shift.Equals("Night", StringComparison.OrdinalIgnoreCase) ? "22:00:00" : "17:00:00",
                 }).ToList(),
             };
         }

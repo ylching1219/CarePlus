@@ -25,9 +25,6 @@ namespace CarePlus.API.Models.MedicalRecord
         [Required]
         public string Diagnosis { get; set; } = null!;
 
-        [Required]
-        public string Treatment { get; set; } = null!;
-
         public string? Notes { get; set; }  
 
     }

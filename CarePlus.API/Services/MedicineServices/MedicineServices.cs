@@ -27,14 +27,17 @@ namespace CarePlus.API.Services.MedicineServices
                 var medicine = new Medicine
                 {
                     MedicineId = await _counterService.GenerateNextIdAsync("MedicineId"),
-                    MedicineName = request.MedicineName,
-                    Description = request.Description,
+                    MedicineName = request.MedicineName.Trim(),
+                    NameZh = string.IsNullOrWhiteSpace(request.NameZh) ? null : request.NameZh.Trim(),
+                    Description = request.Description.Trim(),
+                    DescriptionZh = string.IsNullOrWhiteSpace(request.DescriptionZh) ? null : request.DescriptionZh.Trim(),
                     Price = request.Price,
                     Status = "Available",
                     Pack = "",
                     Form = "tablet",
                     Kind = "analgesic",
-                    Method = "",
+                    Method = request.Method?.Trim() ?? "",
+                    MethodZh = string.IsNullOrWhiteSpace(request.MethodZh) ? null : request.MethodZh.Trim(),
                     ImageKey = "para"
                 };
 
@@ -111,9 +114,35 @@ namespace CarePlus.API.Services.MedicineServices
                     medicine.MedicineName = request.MedicineName.Trim();
                 }
 
+                if (request.NameZh != null)
+                {
+                    medicine.NameZh = string.IsNullOrWhiteSpace(request.NameZh)
+                        ? null
+                        : request.NameZh.Trim();
+                }
+
                 if (!string.IsNullOrWhiteSpace(request.Description))
                 {
                     medicine.Description = request.Description.Trim();
+                }
+
+                if (request.DescriptionZh != null)
+                {
+                    medicine.DescriptionZh = string.IsNullOrWhiteSpace(request.DescriptionZh)
+                        ? null
+                        : request.DescriptionZh.Trim();
+                }
+
+                if (request.Method != null)
+                {
+                    medicine.Method = request.Method.Trim();
+                }
+
+                if (request.MethodZh != null)
+                {
+                    medicine.MethodZh = string.IsNullOrWhiteSpace(request.MethodZh)
+                        ? null
+                        : request.MethodZh.Trim();
                 }
 
                 if (request.Price != null)

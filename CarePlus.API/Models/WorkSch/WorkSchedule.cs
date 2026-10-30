@@ -12,15 +12,12 @@ namespace CarePlus.API.Models.WorkSch
         public string StaffId { get; set; } = null!;
         public Staff Staff { get; set; } = null!;
 
-        // ponytail: MySQL DATE/TIME come back as DateTime/TimeSpan; DateOnly/TimeOnly throw on materialize
         [Required]
-        public DateTime WorkingDate { get; set; }
+        public DateOnly WorkingDate { get; set; }
 
         [Required]
-        public TimeSpan StartTime { get; set; }
-
-        [Required]
-        public TimeSpan EndTime { get; set; }
+        [MaxLength(20)]
+        public string Shift { get; set; } = "Morning";
 
         public string Status { get; set; } = "Active";
     }
