@@ -29,7 +29,7 @@ namespace CarePlus.API.Models.Appointment
         public string ForName { get; set; } = "";
 
         [StringLength(80)]
-        public string VisitType { get; set; } = "general";
+        public string VisitType { get; set; } = "VT01";
 
         [StringLength(500)]
         public string? Notes { get; set; }
