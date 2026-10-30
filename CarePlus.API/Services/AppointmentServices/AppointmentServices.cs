@@ -49,6 +49,7 @@ namespace CarePlus.API.Services.AppointmentServices
                     Id = type.VisitTypeId,
                     Name = type.Name,
                     Description = type.Description,
+                    Price = type.Price,
                 })
                 .ToListAsync();
             var today = DateTimeHelper.MalaysiaNow().Date;

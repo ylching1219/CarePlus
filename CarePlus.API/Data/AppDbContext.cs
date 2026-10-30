@@ -449,10 +449,11 @@ namespace CarePlus.API.Data
             modelBuilder.Entity<Appointment>().Property(a => a.Notes).HasMaxLength(500);
             modelBuilder.Entity<Appointment>().Property(a => a.LastRescheduledAt).HasColumnType("datetime(6)");
             modelBuilder.Entity<VisitType>().Property(type => type.IsActive).HasDefaultValue(true);
+            modelBuilder.Entity<VisitType>().Property(type => type.Price).HasPrecision(10, 2);
             modelBuilder.Entity<VisitType>().HasData(
-                new VisitType { VisitTypeId = "general", Name = "General consultation", Description = "Cough, fever, skin, or a usual GP visit.", IsActive = true },
-                new VisitType { VisitTypeId = "mental", Name = "Mental wellness", Description = "Stress, sleep, mood, or a quiet talk with a doctor.", IsActive = true },
-                new VisitType { VisitTypeId = "screening", Name = "Body check", Description = "Health screening and routine checks.", IsActive = true }
+                new VisitType { VisitTypeId = "general", Name = "General consultation", Description = "Cough, fever, skin, or a usual GP visit.", Price = 50m, IsActive = true },
+                new VisitType { VisitTypeId = "mental", Name = "Mental wellness", Description = "Stress, sleep, mood, or a quiet talk with a doctor.", Price = 60m, IsActive = true },
+                new VisitType { VisitTypeId = "screening", Name = "Body check", Description = "Health screening and routine checks.", Price = 55m, IsActive = true }
             );
             modelBuilder.Entity<Appointment>().Property(a => a.Status).HasDefaultValueSql("('Scheduled')");
             modelBuilder.Entity<Appointment>().Property(a => a.CheckInStatus).HasDefaultValueSql("('Pending')");

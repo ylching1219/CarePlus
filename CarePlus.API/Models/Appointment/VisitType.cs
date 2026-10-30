@@ -18,6 +18,9 @@ namespace CarePlus.API.Models.Appointment
         [StringLength(250)]
         public string Description { get; set; } = null!;
 
+        [Column(TypeName = "decimal(10,2)")]
+        public decimal Price { get; set; }
+
         public bool IsActive { get; set; } = true;
     }
 }
