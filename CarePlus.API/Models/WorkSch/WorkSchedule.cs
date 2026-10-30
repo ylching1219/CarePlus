@@ -16,10 +16,8 @@ namespace CarePlus.API.Models.WorkSch
         public DateOnly WorkingDate { get; set; }
 
         [Required]
-        public TimeOnly StartTime { get; set; }
-
-        [Required]
-        public TimeOnly EndTime { get; set; }
+        [MaxLength(20)]
+        public string Shift { get; set; } = "Morning";
 
         public string Status { get; set; } = "Active";
     }

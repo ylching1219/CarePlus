@@ -64,6 +64,13 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/api/profiles",
     FileProvider = new PhysicalFileProvider(profileFolder)
 });
+var leaveDocumentFolder = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "leave-documents");
+Directory.CreateDirectory(leaveDocumentFolder);
+app.UseStaticFiles(new StaticFileOptions
+{
+    RequestPath = "/api/leave-documents",
+    FileProvider = new PhysicalFileProvider(leaveDocumentFolder)
+});
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
