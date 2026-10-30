@@ -25,6 +25,9 @@ namespace CarePlus.API.Models.FamilyMember
         [Required]
         public string AccessLevel { get; set; } = "View";
 
+        [MaxLength(100)]
+        public string? DisplayName { get; set; }
+
         public DateTime JoinAt { get; set; } = DateTimeHelper.MalaysiaNow();
 
         public string Status { get; set; } = "Pending";

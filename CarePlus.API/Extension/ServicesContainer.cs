@@ -11,16 +11,30 @@ using CarePlus.API.Services.MedicineBatchServices;
 using CarePlus.API.Services.MedicineBatchServices.Interface;
 using CarePlus.API.Services.CartServices;
 using CarePlus.API.Services.CartServices.Interface;
+using CarePlus.API.Services.AppointmentServices;
+using CarePlus.API.Services.AppointmentServices.Interface;
 using CarePlus.API.Services.InvoiceServices;
 using CarePlus.API.Services.InvoiceServices.Interface;
 using CarePlus.API.Services.MedicineOrderServices;
 using CarePlus.API.Services.MedicineOrderServices.Interface;
 using CarePlus.API.Services.PatientServices;
 using CarePlus.API.Services.PatientServices.Interface;
+using CarePlus.API.Services.FamilyServices;
+using CarePlus.API.Services.FamilyServices.Interface;
+using CarePlus.API.Services.AnnouncementServices;
+using CarePlus.API.Services.AnnouncementServices.Interface;
+using CarePlus.API.Services.NotificationServices;
+using CarePlus.API.Services.NotificationServices.Interface;
 using CarePlus.API.Services.StaffService;
 using CarePlus.API.Services.StaffService.Interface;
 using CarePlus.API.Services.UserServices;
 using CarePlus.API.Services.UserServices.Interface;
+using CarePlus.API.Services.EmailServices;
+using CarePlus.API.Services.EmailServices.Interface;
+using CarePlus.API.Services.EmailVerificationServices;
+using CarePlus.API.Services.EmailVerificationServices.Interface;
+using CarePlus.API.Services.TwoFactorServices;
+using CarePlus.API.Services.TwoFactorServices.Interface;
 using Microsoft.EntityFrameworkCore;
 
 namespace CarePlus.API.Extension
@@ -36,7 +50,14 @@ namespace CarePlus.API.Extension
 
             //services
             services.AddScoped<IUserServices, UserServices>();
+            services.Configure<EmailOptions>(config.GetSection("Email"));
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+            services.AddScoped<ITwoFactorServices, TwoFactorServices>();
+            services.AddScoped<IEmailVerificationServices, EmailVerificationServices>();
             services.AddScoped<IPatientServices, PatientServices>();
+            services.AddScoped<IFamilyServices, FamilyServices>();
+            services.AddScoped<IAnnouncementServices, AnnouncementServices>();
+            services.AddScoped<INotificationServices, NotificationServices>();
             services.AddScoped<ICounterServices, CounterServices>();
             services.AddScoped<IStaffServices, StaffServices>();
             services.AddScoped<IAdminServices, AdminServices>();
@@ -46,6 +67,7 @@ namespace CarePlus.API.Extension
             services.AddScoped<IMedicineBatchServices, MedicineBatchServices>();
             services.AddScoped<IMedicineOrderServices, MedicineOrderServices>();
             services.AddScoped<IInvoiceServices, InvoiceServices>();
+            services.AddScoped<IAppointmentServices, AppointmentServices>();
             services.AddScoped<ICartServices, CartServices>();
             services.AddScoped<AddressGeocoder>();
             services.AddHttpClient("nominatim", client =>

@@ -19,16 +19,59 @@ namespace CarePlus.API.Migrations
                 .HasAnnotation("ProductVersion", "9.0.20")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
+            modelBuilder.Entity("CarePlus.API.Models.Announcement.ClinicAnnouncement", b =>
+                {
+                    b.Property<string>("AnnouncementId")
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("BodyZh")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsPublished")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("PublishedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TitleZh")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("AnnouncementId");
+
+                    b.HasIndex("IsPublished", "PublishedAt");
+
+                    b.ToTable("ClinicAnnouncements");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.Appointment.Appointment", b =>
                 {
                     b.Property<string>("AppointmentId")
                         .HasColumnType("varchar(255)");
 
-                    b.Property<DateOnly>("AppointmentDate")
+                    b.Property<DateTime>("AppointmentDate")
                         .HasColumnType("date");
 
-                    b.Property<TimeOnly>("AppointmentTime")
+                    b.Property<TimeSpan>("AppointmentTime")
                         .HasColumnType("time");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("CheckInStatus")
                         .IsRequired()
@@ -40,15 +83,35 @@ namespace CarePlus.API.Migrations
                         .IsRequired()
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("ForName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime?>("LastRescheduledAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<string>("PatientId")
                         .IsRequired()
                         .HasColumnType("varchar(255)");
+
+                    b.Property<int>("RescheduleCount")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("longtext")
                         .HasDefaultValueSql("('Scheduled')");
+
+                    b.Property<string>("VisitType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
 
                     b.HasKey("AppointmentId");
 
@@ -57,6 +120,55 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("PatientId");
 
                     b.ToTable("Appointments");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Appointment.VisitType", b =>
+                {
+                    b.Property<string>("VisitTypeId")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("varchar(250)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("VisitTypeId");
+
+                    b.ToTable("VisitTypes");
+
+                    b.HasData(
+                        new
+                        {
+                            VisitTypeId = "general",
+                            Description = "Cough, fever, skin, or a usual GP visit.",
+                            IsActive = true,
+                            Name = "General consultation"
+                        },
+                        new
+                        {
+                            VisitTypeId = "mental",
+                            Description = "Stress, sleep, mood, or a quiet talk with a doctor.",
+                            IsActive = true,
+                            Name = "Mental wellness"
+                        },
+                        new
+                        {
+                            VisitTypeId = "screening",
+                            Description = "Health screening and routine checks.",
+                            IsActive = true,
+                            Name = "Body check"
+                        });
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Cart.Cart", b =>
@@ -250,6 +362,42 @@ namespace CarePlus.API.Migrations
                             Step = 1,
                             Value = 0L,
                             Version = 0L
+                        },
+                        new
+                        {
+                            Id = 9L,
+                            IsActive = true,
+                            Key = "StaffId",
+                            Length = 4,
+                            PaddingChar = "0",
+                            Prefix = "S",
+                            Step = 1,
+                            Value = 0L,
+                            Version = 0L
+                        },
+                        new
+                        {
+                            Id = 10L,
+                            IsActive = true,
+                            Key = "AppointmentId",
+                            Length = 4,
+                            PaddingChar = "0",
+                            Prefix = "Apt",
+                            Step = 1,
+                            Value = 0L,
+                            Version = 0L
+                        },
+                        new
+                        {
+                            Id = 11L,
+                            IsActive = true,
+                            Key = "ScheduleId",
+                            Length = 4,
+                            PaddingChar = "0",
+                            Prefix = "Sch",
+                            Step = 1,
+                            Value = 0L,
+                            Version = 0L
                         });
                 });
 
@@ -373,6 +521,10 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("longtext")
                         .HasDefaultValueSql("('View')");
 
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<long>("FamilyGroupId")
                         .HasColumnType("bigint");
 
@@ -395,11 +547,53 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("FamilyMemberId");
 
-                    b.HasIndex("FamilyGroupId");
-
                     b.HasIndex("PatientId");
 
+                    b.HasIndex("FamilyGroupId", "PatientId")
+                        .IsUnique();
+
                     b.ToTable("FamilyMembers");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.FamilyUseRequest.FamilyUseRequest", b =>
+                {
+                    b.Property<long>("FamilyUseRequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("FamilyGroupId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FromPatientId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<string>("TargetPatientId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("FamilyUseRequestId");
+
+                    b.HasIndex("FromPatientId");
+
+                    b.HasIndex("TargetPatientId");
+
+                    b.HasIndex("FamilyGroupId", "FromPatientId", "TargetPatientId", "Status");
+
+                    b.ToTable("FamilyUseRequests");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Invoice.Invoice", b =>
@@ -798,21 +992,49 @@ namespace CarePlus.API.Migrations
                     b.Property<string>("NotificationId")
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasDefaultValue("CarePlus Clinic");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Href")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasDefaultValue("/notifications");
+
+                    b.Property<string>("Initials")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8)
+                        .HasColumnType("varchar(8)")
+                        .HasDefaultValue("CC");
 
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("MessageZh")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("longtext")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
                         .HasDefaultValueSql("('Unread')");
 
                     b.Property<string>("Title")
                         .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TitleZh")
                         .HasColumnType("longtext");
 
                     b.Property<string>("Type")
@@ -890,7 +1112,8 @@ namespace CarePlus.API.Migrations
 
                     b.Property<string>("IdentityCardNumber")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("ProfilePicture")
                         .HasMaxLength(255)
@@ -1200,6 +1423,11 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("varchar(10)")
                         .HasDefaultValue("light");
 
+                    b.Property<bool>("HasCompletedTutorial")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Language")
                         .HasMaxLength(5)
                         .HasColumnType("varchar(5)");
@@ -1210,6 +1438,11 @@ namespace CarePlus.API.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("varchar(10)")
                         .HasDefaultValue("all");
+
+                    b.Property<bool>("TwoFactorEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.Property<long>("UserId")
                         .HasColumnType("bigint");
@@ -1273,6 +1506,44 @@ namespace CarePlus.API.Migrations
                     b.UseTptMappingStrategy();
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.User.TwoFactorChallenge", b =>
+                {
+                    b.Property<string>("ChallengeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("ChallengeId");
+
+                    b.HasIndex("UserId", "Purpose", "CreatedAt");
+
+                    b.ToTable("TwoFactorChallenges");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.User.User", b =>
                 {
                     b.Property<long>("UserId")
@@ -1294,6 +1565,11 @@ namespace CarePlus.API.Migrations
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<bool>("EmailVerified")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1339,14 +1615,14 @@ namespace CarePlus.API.Migrations
                     b.Property<string>("ScheduleId")
                         .HasColumnType("varchar(255)");
 
-                    b.Property<TimeOnly>("EndTime")
+                    b.Property<TimeSpan>("EndTime")
                         .HasColumnType("time");
 
                     b.Property<string>("StaffId")
                         .IsRequired()
                         .HasColumnType("varchar(255)");
 
-                    b.Property<TimeOnly>("StartTime")
+                    b.Property<TimeSpan>("StartTime")
                         .HasColumnType("time");
 
                     b.Property<string>("Status")
@@ -1355,7 +1631,7 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("longtext")
                         .HasDefaultValueSql("('Active')");
 
-                    b.Property<DateOnly>("WorkingDate")
+                    b.Property<DateTime>("WorkingDate")
                         .HasColumnType("date");
 
                     b.HasKey("ScheduleId");
@@ -1541,6 +1817,33 @@ namespace CarePlus.API.Migrations
                     b.Navigation("FamilyGroup");
 
                     b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.FamilyUseRequest.FamilyUseRequest", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.FamilyGroup.FamilyGroup", "FamilyGroup")
+                        .WithMany()
+                        .HasForeignKey("FamilyGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CarePlus.API.Models.Patient.Patient", "FromPatient")
+                        .WithMany()
+                        .HasForeignKey("FromPatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CarePlus.API.Models.Patient.Patient", "TargetPatient")
+                        .WithMany()
+                        .HasForeignKey("TargetPatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FamilyGroup");
+
+                    b.Navigation("FromPatient");
+
+                    b.Navigation("TargetPatient");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Invoice.Invoice", b =>
@@ -1806,6 +2109,17 @@ namespace CarePlus.API.Migrations
                     b.HasOne("CarePlus.API.Models.User.User", "User")
                         .WithOne()
                         .HasForeignKey("CarePlus.API.Models.User.Staff.Staff", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.User.TwoFactorChallenge", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.User.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

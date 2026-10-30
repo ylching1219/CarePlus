@@ -33,6 +33,7 @@ namespace CarePlus.API.Models.User
         [MaxLength(20)]
         public string Status { get; set; } = "Active";
 
+        public bool EmailVerified { get; set; } = true;
 
 
     }

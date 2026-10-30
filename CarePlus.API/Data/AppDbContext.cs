@@ -1,5 +1,6 @@
 using CarePlus.API.Extension;
 using CarePlus.API.Models.Appointment;
+using CarePlus.API.Models.Announcement;
 using CarePlus.API.Models.Cart;
 using CarePlus.API.Models.CartItem;
 using CarePlus.API.Models.Common;
@@ -7,6 +8,7 @@ using CarePlus.API.Models.DeliveryAddress;
 using CarePlus.API.Models.DispenseRec;
 using CarePlus.API.Models.FamilyGroup;
 using CarePlus.API.Models.FamilyMember;
+using CarePlus.API.Models.FamilyUseRequest;
 using CarePlus.API.Models.Invoice;
 using CarePlus.API.Models.Leave;
 using CarePlus.API.Models.MedicalRecord;
@@ -57,11 +59,14 @@ namespace CarePlus.API.Data
         public DbSet<PrescriptionItem> PrescriptionItems { get; set; } = null!;
         public DbSet<DispenseRec> DispenseRecords { get; set; } = null!;
         public DbSet<Appointment> Appointments { get; set; } = null!;
+        public DbSet<VisitType> VisitTypes { get; set; } = null!;
         public DbSet<PersonalHealthRec> PersonalHealthRecords { get; set; } = null!;
         public DbSet<QueueEntry> QueueEntries { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
+        public DbSet<ClinicAnnouncement> ClinicAnnouncements { get; set; } = null!;
         public DbSet<FamilyGroup> FamilyGroups { get; set; } = null!;
         public DbSet<FamilyMember> FamilyMembers { get; set; } = null!;
+        public DbSet<FamilyUseRequest> FamilyUseRequests { get; set; } = null!;
         public DbSet<Cart> Carts { get; set; } = null!;
         public DbSet<CartItem> CartItems { get; set; } = null!;
         public DbSet<MedicineOrder> MedicineOrders { get; set; } = null!;
@@ -73,6 +78,7 @@ namespace CarePlus.API.Data
         public DbSet<DeliveryAddress> DeliveryAddresses { get; set; } = null!;
         public DbSet<AppSetting> AppSettings { get; set; } = null!;
         public DbSet<PaymentCard> PaymentCards { get; set; } = null!;
+        public DbSet<TwoFactorChallenge> TwoFactorChallenges { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -172,6 +178,14 @@ namespace CarePlus.API.Data
                 .HasOne(n => n.User)
                 .WithMany()
                 .HasForeignKey(n => n.UserId);
+            modelBuilder.Entity<Notification>().Property(n => n.Status).HasMaxLength(20);
+            modelBuilder.Entity<Notification>().Property(n => n.Actor).HasMaxLength(255).HasDefaultValue("CarePlus Clinic");
+            modelBuilder.Entity<Notification>().Property(n => n.Initials).HasMaxLength(8).HasDefaultValue("CC");
+            modelBuilder.Entity<Notification>().Property(n => n.Href).HasMaxLength(500).HasDefaultValue("/notifications");
+
+            modelBuilder.Entity<ClinicAnnouncement>().Property(row => row.AnnouncementId).HasMaxLength(80);
+            modelBuilder.Entity<ClinicAnnouncement>().Property(row => row.IsPublished).HasDefaultValue(true);
+            modelBuilder.Entity<ClinicAnnouncement>().HasIndex(row => new { row.IsPublished, row.PublishedAt });
 
             modelBuilder.Entity<Medicine>().Property(m => m.Price).HasPrecision(18, 2);
             modelBuilder.Entity<Medicine>().Property(m => m.Description).HasMaxLength(500);
@@ -205,6 +219,31 @@ namespace CarePlus.API.Data
                 .HasOne(f => f.Patient)
                 .WithMany()
                 .HasForeignKey(f => f.PatientId);
+            modelBuilder.Entity<FamilyMember>()
+                .HasIndex(f => new { f.FamilyGroupId, f.PatientId })
+                .IsUnique();
+            modelBuilder.Entity<FamilyMember>()
+                .Property(f => f.DisplayName)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<FamilyUseRequest>()
+                .HasOne(request => request.FamilyGroup)
+                .WithMany()
+                .HasForeignKey(request => request.FamilyGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<FamilyUseRequest>()
+                .HasOne(request => request.FromPatient)
+                .WithMany()
+                .HasForeignKey(request => request.FromPatientId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<FamilyUseRequest>()
+                .HasOne(request => request.TargetPatient)
+                .WithMany()
+                .HasForeignKey(request => request.TargetPatientId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<FamilyUseRequest>()
+                .HasIndex(request => new { request.FamilyGroupId, request.FromPatientId, request.TargetPatientId, request.Status });
+            modelBuilder.Entity<FamilyUseRequest>().Property(request => request.Status).HasDefaultValue("Pending");
 
             modelBuilder.Entity<Cart>()
                 .HasOne(c => c.Patient)
@@ -272,6 +311,9 @@ namespace CarePlus.API.Data
             modelBuilder.Entity<Patient>()
                 .Property(p => p.DateOfBirth)
                 .HasColumnType("date");
+            modelBuilder.Entity<Patient>()
+                .Property(p => p.IdentityCardNumber)
+                .HasMaxLength(20);
 
             modelBuilder.Entity<LoginActivity>()
                 .HasOne(activity => activity.User)
@@ -297,6 +339,23 @@ namespace CarePlus.API.Data
                 .Property(setting => setting.Notification)
                 .HasDefaultValue("all");
 
+            modelBuilder.Entity<AppSetting>()
+                .Property(setting => setting.TwoFactorEnabled)
+                .HasDefaultValue(false);
+
+            modelBuilder.Entity<AppSetting>()
+                .Property(setting => setting.HasCompletedTutorial)
+                .HasDefaultValue(false);
+
+            modelBuilder.Entity<TwoFactorChallenge>()
+                .HasOne(challenge => challenge.User)
+                .WithMany()
+                .HasForeignKey(challenge => challenge.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TwoFactorChallenge>()
+                .HasIndex(challenge => new { challenge.UserId, challenge.Purpose, challenge.CreatedAt });
+
             modelBuilder.Entity<PaymentCard>()
                 .HasOne(card => card.User)
                 .WithMany()
@@ -307,8 +366,24 @@ namespace CarePlus.API.Data
                 .HasIndex(card => card.UserId);
 
             modelBuilder.Entity<User>().Property(u => u.Status).HasDefaultValue("Active");
+            modelBuilder.Entity<User>().Property(u => u.EmailVerified).HasDefaultValue(true);
+            modelBuilder.Entity<Appointment>().Property(a => a.AppointmentDate).HasColumnType("date");
+            modelBuilder.Entity<Appointment>().Property(a => a.AppointmentTime).HasColumnType("time");
+            modelBuilder.Entity<Appointment>().Property(a => a.ForName).HasMaxLength(100);
+            modelBuilder.Entity<Appointment>().Property(a => a.VisitType).HasMaxLength(80);
+            modelBuilder.Entity<Appointment>().Property(a => a.Notes).HasMaxLength(500);
+            modelBuilder.Entity<Appointment>().Property(a => a.LastRescheduledAt).HasColumnType("datetime(6)");
+            modelBuilder.Entity<VisitType>().Property(type => type.IsActive).HasDefaultValue(true);
+            modelBuilder.Entity<VisitType>().HasData(
+                new VisitType { VisitTypeId = "general", Name = "General consultation", Description = "Cough, fever, skin, or a usual GP visit.", IsActive = true },
+                new VisitType { VisitTypeId = "mental", Name = "Mental wellness", Description = "Stress, sleep, mood, or a quiet talk with a doctor.", IsActive = true },
+                new VisitType { VisitTypeId = "screening", Name = "Body check", Description = "Health screening and routine checks.", IsActive = true }
+            );
             modelBuilder.Entity<Appointment>().Property(a => a.Status).HasDefaultValueSql("('Scheduled')");
             modelBuilder.Entity<Appointment>().Property(a => a.CheckInStatus).HasDefaultValueSql("('Pending')");
+            modelBuilder.Entity<WorkSchedule>().Property(w => w.WorkingDate).HasColumnType("date");
+            modelBuilder.Entity<WorkSchedule>().Property(w => w.StartTime).HasColumnType("time");
+            modelBuilder.Entity<WorkSchedule>().Property(w => w.EndTime).HasColumnType("time");
             modelBuilder.Entity<ClinicRoom>().Property(r => r.Status).HasDefaultValueSql("('Available')");
             modelBuilder.Entity<DispenseRec>().Property(d => d.Status).HasDefaultValueSql("('Dispensed')");
             modelBuilder.Entity<FamilyGroup>().Property(f => f.MemberCount).HasDefaultValue(1);
@@ -422,6 +497,42 @@ namespace CarePlus.API.Data
                     Value = 0,
                     Step = 1,
                     Prefix = "Pay",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 9,
+                    Key = "StaffId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "S",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 10,
+                    Key = "AppointmentId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "Apt",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 11,
+                    Key = "ScheduleId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "Sch",
                     Length = 4,
                     PaddingChar = '0',
                     IsActive = true,

@@ -1,8 +1,10 @@
 using CarePlus.API.DTO.PatientDTO;
 using CarePlus.API.DTO.UserDTO;
+using CarePlus.API.Data;
 using CarePlus.API.Models.Patient;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.CounterServices.Interface;
+using CarePlus.API.Services.EmailVerificationServices.Interface;
 using CarePlus.API.Services.PatientServices.Interface;
 using CarePlus.API.Services.UserServices.Interface;
 
@@ -13,19 +15,27 @@ namespace CarePlus.API.Services.PatientServices
         private readonly IPatientRepository _patientRepo;
         private readonly IUserServices _userService;
         private readonly ICounterServices _counterService;
+        private readonly IEmailVerificationServices _emailVerificationServices;
+        private readonly AppDbContext _db;
 
         public PatientServices(
             IPatientRepository patientRepo,
             IUserServices userServices,
-            ICounterServices counterService)
+            ICounterServices counterService,
+            IEmailVerificationServices emailVerificationServices,
+            AppDbContext db)
         {
             _patientRepo = patientRepo;
             _userService = userServices;
             _counterService = counterService;
+            _emailVerificationServices = emailVerificationServices;
+            _db = db;
         }
 
         public async Task<ApiResponse<object>> RegisterPatientAsync(PatientRegisterRequest request)
         {
+            await using var transaction = await _db.Database.BeginTransactionAsync();
+
             try {
                 if (!TryReadIdentityCard(request.IdentityCardNumber, out var identityCard, out var dateOfBirth, out var gender))
                 {
@@ -43,7 +53,7 @@ namespace CarePlus.API.Services.PatientServices
                     return ApiResponse<object>.Fail(string.Join("\n", errors), 400, errors);
                 }
 
-                var userResponse = await _userService.RegisterUserAsync(request);
+                var userResponse = await _userService.RegisterUserAsync(request, emailVerified: false);
 
                 if (!userResponse.IsSuccess)
                 {
@@ -68,15 +78,29 @@ namespace CarePlus.API.Services.PatientServices
                 var patientId = await _patientRepo.CreatePatientAsync(patient);
                 await _userService.EnsureAppSettingAsync(user.UserId, false);
 
+                var verificationResponse = await _emailVerificationServices.SendCodeAsync(user.UserId);
+                if (!verificationResponse.IsSuccess || verificationResponse.Data is not EmailVerificationCodeSentResponse verification)
+                {
+                    await transaction.RollbackAsync();
+                    return ApiResponse<object>.Fail(verificationResponse.RespMessage, verificationResponse.RespCode, verificationResponse.Data);
+                }
+
+                await transaction.CommitAsync();
+
                 return ApiResponse<object>.Ok(new PatientRegisterResponse
                 {
                     UserId = user.UserId,
                     Name = request.Name,
-                    PatientId = patientId
+                    PatientId = patientId,
+                    EmailVerificationRequired = true,
+                    VerificationChallengeId = verification.ChallengeId,
+                    MaskedEmail = verification.MaskedEmail,
+                    VerificationExpiresInSeconds = verification.ExpiresInSeconds,
                 });
             }
             catch(Exception ex) 
             {
+                await transaction.RollbackAsync();
                 return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
             }
         }

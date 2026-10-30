@@ -25,5 +25,11 @@ namespace CarePlus.API.Models.User
         [Required]
         [MaxLength(10)]
         public string Notification { get; set; } = "all";
+
+        [Required]
+        public bool TwoFactorEnabled { get; set; } = false;
+
+        [Required]
+        public bool HasCompletedTutorial { get; set; } = false;
     }
 }
