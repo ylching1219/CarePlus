@@ -492,11 +492,6 @@ namespace CarePlus.API.Services.UserServices
                 }
             }
 
-            var accessRequests = await _db.FamilyUseRequests
-                .Where(row => row.FromPatientId == patient.PatientId || row.TargetPatientId == patient.PatientId)
-                .ToListAsync();
-            _db.FamilyUseRequests.RemoveRange(accessRequests);
-
             var cart = await _db.Carts.FirstOrDefaultAsync(row => row.PatientId == patient.PatientId);
             if (cart != null)
             {

@@ -18,20 +18,24 @@ public class AnnouncementServices : IAnnouncementServices
 
     public async Task<ApiResponse<List<AnnouncementResponse>>> ListPublishedAsync()
     {
-        var rows = await _db.ClinicAnnouncements
+        var rows = await _db.Notifications
             .AsNoTracking()
-            .Where(row => row.IsPublished && row.PublishedAt <= DateTimeHelper.MalaysiaNow())
-            .OrderByDescending(row => row.PublishedAt)
+            .Where(row => row.UserId == null
+                && row.Type == "announcement"
+                && row.IsPublished
+                && row.Status != "Deleted"
+                && row.CreatedAt <= DateTimeHelper.MalaysiaNow())
+            .OrderByDescending(row => row.CreatedAt)
             .ToListAsync();
 
         return ApiResponse<List<AnnouncementResponse>>.Ok(rows.Select(row => new AnnouncementResponse
         {
-            Id = row.AnnouncementId,
-            PostedOn = row.PublishedAt.ToString("yyyy-MM-dd"),
+            Id = row.NotificationId,
+            PostedOn = row.CreatedAt.ToString("yyyy-MM-dd"),
             Title = row.Title,
-            Body = row.Body,
-            TitleZh = row.TitleZh,
-            BodyZh = row.BodyZh,
+            Body = row.Message,
+            TitleZh = row.TitleZh ?? row.Title,
+            BodyZh = row.MessageZh ?? row.Message,
         }).ToList());
     }
 }
