@@ -190,23 +190,27 @@ public class NotificationServices : INotificationServices
                 invitation.JoinAt));
         }
 
-        var announcements = await _db.ClinicAnnouncements
+        var announcements = await _db.Notifications
             .AsNoTracking()
-            .Where(row => row.IsPublished && row.PublishedAt <= now)
+            .Where(row => row.UserId == null
+                && row.Type == "announcement"
+                && row.IsPublished
+                && row.Status != "Deleted"
+                && row.CreatedAt <= now)
             .ToListAsync();
         foreach (var announcement in announcements)
         {
             Add(drafts, new NotificationDraft(
-                $"announcement:{announcement.AnnouncementId}:user:{userId}",
+                $"announcement:{announcement.NotificationId}:user:{userId}",
                 announcement.Title,
-                announcement.Body,
-                announcement.TitleZh,
-                announcement.BodyZh,
-                "CarePlus Clinic",
-                "CC",
+                announcement.Message,
+                announcement.TitleZh ?? announcement.Title,
+                announcement.MessageZh ?? announcement.Message,
+                announcement.Actor,
+                announcement.Initials,
                 "announcement",
-                $"/announcements#{announcement.AnnouncementId}",
-                announcement.PublishedAt));
+                $"/announcements#{announcement.NotificationId}",
+                announcement.CreatedAt));
         }
 
         var ids = drafts.Keys.ToList();
