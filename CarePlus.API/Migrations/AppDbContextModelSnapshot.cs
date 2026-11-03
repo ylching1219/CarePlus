@@ -1504,6 +1504,17 @@ namespace CarePlus.API.Migrations
                         .IsUnique();
 
                     b.ToTable("appSetting");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1L,
+                            Appearance = "dark",
+                            HasCompletedTutorial = false,
+                            Notification = "all",
+                            TwoFactorEnabled = false,
+                            UserId = 1L
+                        });
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.LoginActivity", b =>
@@ -1641,6 +1652,18 @@ namespace CarePlus.API.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+
+                    b.HasData(
+                        new
+                        {
+                            UserId = 1L,
+                            Email = "admin@gmail.com",
+                            EmailVerified = true,
+                            Name = "Admin One",
+                            PasswordHash = "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==",
+                            Status = "Active",
+                            Username = "admin001"
+                        });
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.WorkSch.WorkSchedule", b =>
@@ -1687,6 +1710,16 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.ToTable("Admins", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            StaffId = "STF000001",
+                            Role = "Admin",
+                            UserId = 1L,
+                            AccessLevel = 3,
+                            Department = "Administration"
+                        });
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.Staff.Doctor.Doctor", b =>
