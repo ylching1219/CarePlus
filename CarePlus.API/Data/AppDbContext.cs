@@ -1,6 +1,5 @@
 using CarePlus.API.Extension;
 using CarePlus.API.Models.Appointment;
-using CarePlus.API.Models.Announcement;
 using CarePlus.API.Models.Cart;
 using CarePlus.API.Models.CartItem;
 using CarePlus.API.Models.Common;
@@ -8,7 +7,6 @@ using CarePlus.API.Models.DeliveryAddress;
 using CarePlus.API.Models.DispenseRec;
 using CarePlus.API.Models.FamilyGroup;
 using CarePlus.API.Models.FamilyMember;
-using CarePlus.API.Models.FamilyUseRequest;
 using CarePlus.API.Models.Invoice;
 using CarePlus.API.Models.Leave;
 using CarePlus.API.Models.MedicalRecord;
@@ -81,10 +79,8 @@ namespace CarePlus.API.Data
         public DbSet<PersonalHealthRec> PersonalHealthRecords { get; set; } = null!;
         public DbSet<QueueEntry> QueueEntries { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
-        public DbSet<ClinicAnnouncement> ClinicAnnouncements { get; set; } = null!;
         public DbSet<FamilyGroup> FamilyGroups { get; set; } = null!;
         public DbSet<FamilyMember> FamilyMembers { get; set; } = null!;
-        public DbSet<FamilyUseRequest> FamilyUseRequests { get; set; } = null!;
         public DbSet<Cart> Carts { get; set; } = null!;
         public DbSet<CartItem> CartItems { get; set; } = null!;
         public DbSet<MedicineOrder> MedicineOrders { get; set; } = null!;
@@ -230,15 +226,14 @@ namespace CarePlus.API.Data
             modelBuilder.Entity<Notification>()
                 .HasOne(n => n.User)
                 .WithMany()
-                .HasForeignKey(n => n.UserId);
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<Notification>().Property(n => n.Status).HasMaxLength(20).HasDefaultValueSql("('Unread')");
             modelBuilder.Entity<Notification>().Property(n => n.Actor).HasMaxLength(255).HasDefaultValue("CarePlus Clinic");
             modelBuilder.Entity<Notification>().Property(n => n.Initials).HasMaxLength(8).HasDefaultValue("CC");
             modelBuilder.Entity<Notification>().Property(n => n.Href).HasMaxLength(500).HasDefaultValue("/notifications");
-
-            modelBuilder.Entity<ClinicAnnouncement>().Property(row => row.AnnouncementId).HasMaxLength(80);
-            modelBuilder.Entity<ClinicAnnouncement>().Property(row => row.IsPublished).HasDefaultValue(true);
-            modelBuilder.Entity<ClinicAnnouncement>().HasIndex(row => new { row.IsPublished, row.PublishedAt });
+            modelBuilder.Entity<Notification>().Property(n => n.IsPublished).HasDefaultValue(true);
+            modelBuilder.Entity<Notification>().HasIndex(row => new { row.Type, row.UserId, row.CreatedAt });
 
             modelBuilder.Entity<Medicine>().Property(m => m.Price).HasPrecision(18, 2);
             modelBuilder.Entity<Medicine>().Property(m => m.Description).HasMaxLength(500);
@@ -281,24 +276,6 @@ namespace CarePlus.API.Data
                 .Property(f => f.DisplayName)
                 .HasMaxLength(100);
 
-            modelBuilder.Entity<FamilyUseRequest>()
-                .HasOne(request => request.FamilyGroup)
-                .WithMany()
-                .HasForeignKey(request => request.FamilyGroupId)
-                .OnDelete(DeleteBehavior.Cascade);
-            modelBuilder.Entity<FamilyUseRequest>()
-                .HasOne(request => request.FromPatient)
-                .WithMany()
-                .HasForeignKey(request => request.FromPatientId)
-                .OnDelete(DeleteBehavior.Cascade);
-            modelBuilder.Entity<FamilyUseRequest>()
-                .HasOne(request => request.TargetPatient)
-                .WithMany()
-                .HasForeignKey(request => request.TargetPatientId)
-                .OnDelete(DeleteBehavior.Cascade);
-            modelBuilder.Entity<FamilyUseRequest>()
-                .HasIndex(request => new { request.FamilyGroupId, request.FromPatientId, request.TargetPatientId, request.Status });
-            modelBuilder.Entity<FamilyUseRequest>().Property(request => request.Status).HasDefaultValue("Pending");
             modelBuilder.Entity<FamilyMember>().Property(f => f.AccessLevel).HasDefaultValueSql("('View')");
             modelBuilder.Entity<FamilyMember>().Property(f => f.Status).HasDefaultValueSql("('Pending')");
 

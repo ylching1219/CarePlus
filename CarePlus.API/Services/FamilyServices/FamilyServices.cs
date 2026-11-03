@@ -188,10 +188,6 @@ public class FamilyServices : Interface.IFamilyServices
         var member = await _db.FamilyMembers.FirstOrDefaultAsync(row => row.FamilyGroupId == group.FamilyGroupId && row.FamilyMemberId == familyMemberId && row.PatientId != patientId);
         if (member == null) return Fail("Family member was not found.", 404);
 
-        var requests = await _db.FamilyUseRequests
-            .Where(row => row.FamilyGroupId == group.FamilyGroupId && (row.FromPatientId == member.PatientId || row.TargetPatientId == member.PatientId))
-            .ToListAsync();
-        _db.FamilyUseRequests.RemoveRange(requests);
         _db.FamilyMembers.Remove(member);
         group.MemberCount = await _db.FamilyMembers.CountAsync(row => row.FamilyGroupId == group.FamilyGroupId && row.Status == "Active" && row.FamilyMemberId != familyMemberId);
         await _db.SaveChangesAsync();
@@ -224,10 +220,6 @@ public class FamilyServices : Interface.IFamilyServices
             transfer.Relationship = "parent";
         }
 
-        var requests = await _db.FamilyUseRequests
-            .Where(row => row.FamilyGroupId == group.FamilyGroupId && (row.FromPatientId == patientId || row.TargetPatientId == patientId))
-            .ToListAsync();
-        _db.FamilyUseRequests.RemoveRange(requests);
         _db.FamilyMembers.Remove(member);
         group.MemberCount = activeMembers.Count - 1;
         await _db.SaveChangesAsync();
