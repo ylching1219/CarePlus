@@ -11,9 +11,10 @@ namespace CarePlus.API.Models.Notification
         [Key]
         public string NotificationId { get; set; } = null!;
 
-        [Required]
-        public long UserId { get; set; }
-        public User.User User { get; set; } = null!;
+        // Null means this is the public broadcast copy of a clinic announcement.
+        // User-specific copies have a recipient and their own read status.
+        public long? UserId { get; set; }
+        public User.User? User { get; set; }
 
         [Required]
         public string Title { get; set; } = null!;
@@ -38,6 +39,8 @@ namespace CarePlus.API.Models.Notification
         public string Href { get; set; } = "/notifications";
 
         public string Status { get; set; } = "Unread";
+
+        public bool IsPublished { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTimeHelper.MalaysiaNow();
     }
