@@ -19,6 +19,8 @@ using CarePlus.API.Services.AppointmentServices;
 using CarePlus.API.Services.AppointmentServices.Interface;
 using CarePlus.API.Services.ClinicRecordServices;
 using CarePlus.API.Services.ClinicRecordServices.Interface;
+using CarePlus.API.Services.ClinicRoomServices;
+using CarePlus.API.Services.ClinicRoomServices.Interface;
 using CarePlus.API.Services.AuditLogServices;
 using CarePlus.API.Services.AuditLogServices.Interface;
 using CarePlus.API.Services.InvoiceServices;
@@ -79,6 +81,7 @@ namespace CarePlus.API.Extension
             services.AddScoped<IInvoiceServices, InvoiceServices>();
             services.AddScoped<IAppointmentServices, AppointmentServices>();
             services.AddScoped<IClinicRecordServices, ClinicRecordServices>();
+            services.AddScoped<IClinicRoomServices, ClinicRoomServices>();
             services.AddScoped<ICartServices, CartServices>();
             services.AddScoped<IAuditLogServices, AuditLogServices>();
             services.AddScoped<AddressGeocoder>();

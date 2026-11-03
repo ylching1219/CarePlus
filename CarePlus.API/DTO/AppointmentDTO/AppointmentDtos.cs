@@ -58,6 +58,23 @@ namespace CarePlus.API.DTO.AppointmentDTO
         public bool RescheduleBlocked { get; set; }
     }
 
+    public class StaffAppointmentResponse
+    {
+        public string Id { get; set; } = "";
+        public string PatientId { get; set; } = "";
+        public string PatientName { get; set; } = "";
+        public string PatientUsername { get; set; } = "";
+        public string DoctorId { get; set; } = "";
+        public string DoctorName { get; set; } = "";
+        public string VisitTypeId { get; set; } = "";
+        public string VisitType { get; set; } = "";
+        public string? Notes { get; set; }
+        public string StartAt { get; set; } = "";
+        public string EndAt { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string CheckInStatus { get; set; } = "";
+    }
+
     public class AppointmentBookRequest
     {
         public string DoctorId { get; set; } = "";

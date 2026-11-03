@@ -8,6 +8,10 @@ namespace CarePlus.API.Services.AppointmentServices.Interface
         Task<ApiResponse<BookingSlotsResponse>> GetSlotsAsync(long userId, string date, string doctorId);
         Task<ApiResponse<List<AppointmentResponse>>> ListUpcomingAsync(long userId);
         Task<ApiResponse<List<AppointmentResponse>>> ListHistoryAsync(long userId);
+        Task<ApiResponse<List<StaffAppointmentResponse>>> ListStaffAsync(
+            long userId,
+            string role,
+            string? date);
         Task<ApiResponse<AppointmentResponse>> BookAsync(long userId, AppointmentBookRequest request);
         Task<ApiResponse<AppointmentResponse>> CancelAsync(long userId, string appointmentId);
         Task<ApiResponse<AppointmentResponse>> RescheduleAsync(long userId, string appointmentId, AppointmentRescheduleRequest request);

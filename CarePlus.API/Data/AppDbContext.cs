@@ -455,6 +455,45 @@ namespace CarePlus.API.Data
                 new VisitType { VisitTypeId = "VT02", Name = "Body check", Description = "Health screening and routine checks.", Price = 55m, IsActive = true },
                 new VisitType { VisitTypeId = "VT03", Name = "Mental wellness", Description = "Stress, sleep, mood, or a quiet talk with a doctor.", Price = 60m, IsActive = true }
             );
+
+            modelBuilder.Entity<User>().HasData(
+                new User
+                {
+                    UserId = 1,
+                    Username = "admin001",
+                    Name = "Admin One",
+                    Email = "admin@gmail.com",
+                    PasswordHash = "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                }
+            );
+
+            modelBuilder.Entity<Admin>().HasData(
+                new Admin
+                {
+                    StaffId = "STF000001",
+                    UserId = 1,
+                    Role = "Admin",
+                    AccessLevel = 3,
+                    Department = "Administration"
+                }
+            );
+
+            modelBuilder.Entity<AppSetting>().HasData(
+                new AppSetting
+                {
+                    Id = 1,
+                    UserId = 1,
+                    Appearance = "dark",
+                    Language = null,
+                    Notification = "all",
+                    TwoFactorEnabled = false,
+                    HasCompletedTutorial = false
+                }
+            );
+
             modelBuilder.Entity<Appointment>().Property(a => a.Status).HasDefaultValueSql("('Scheduled')");
             modelBuilder.Entity<Appointment>().Property(a => a.CheckInStatus).HasDefaultValueSql("('Pending')");
             modelBuilder.Entity<ClinicRoom>().Property(r => r.Status).HasDefaultValueSql("('Available')");

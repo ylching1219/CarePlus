@@ -125,6 +125,71 @@ namespace CarePlus.API.Services.AppointmentServices
             return ApiResponse<List<AppointmentResponse>>.Ok(history);
         }
 
+        public async Task<ApiResponse<List<StaffAppointmentResponse>>> ListStaffAsync(
+            long userId,
+            string role,
+            string? date)
+        {
+            if (!string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(role, "Pharmacist", StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiResponse<List<StaffAppointmentResponse>>.Fail(
+                    "This account is not a staff account.", 403);
+            }
+
+            var query = _db.Appointments
+                .AsNoTracking()
+                .Include(row => row.Patient)
+                    .ThenInclude(patient => patient.User)
+                .Include(row => row.Doctor)
+                    .ThenInclude(doctor => doctor.User)
+                .AsQueryable();
+
+            if (string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase))
+            {
+                var doctorId = await _db.Doctors
+                    .AsNoTracking()
+                    .Where(doctor => doctor.UserId == userId)
+                    .Select(doctor => doctor.StaffId)
+                    .FirstOrDefaultAsync();
+
+                if (doctorId == null)
+                {
+                    return ApiResponse<List<StaffAppointmentResponse>>.Fail(
+                        "Doctor profile was not found.", 404);
+                }
+
+                query = query.Where(row => row.DoctorId == doctorId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(date))
+            {
+                if (!TryParseDate(date, out var selectedDate))
+                {
+                    return ApiResponse<List<StaffAppointmentResponse>>.Fail(
+                        "Pick a valid appointment date.", 400);
+                }
+
+                var nextDate = selectedDate.Date.AddDays(1);
+                query = query.Where(row =>
+                    row.AppointmentDate >= selectedDate.Date
+                    && row.AppointmentDate < nextDate);
+            }
+
+            var rows = await query
+                .OrderBy(row => row.AppointmentDate)
+                .ThenBy(row => row.AppointmentTime)
+                .ToListAsync();
+
+            var visitTypes = await _db.VisitTypes
+                .AsNoTracking()
+                .ToDictionaryAsync(type => type.VisitTypeId, type => type.Name);
+
+            return ApiResponse<List<StaffAppointmentResponse>>.Ok(
+                rows.Select(row => ToStaffResponse(row, visitTypes)).ToList());
+        }
+
         public async Task<ApiResponse<AppointmentResponse>> BookAsync(long userId, AppointmentBookRequest request)
         {
             var patient = await FindPatientAsync(userId);
@@ -154,11 +219,21 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("same-day-session-limit", 400);
             }
 
-            var type = (request.Type ?? "").Trim().ToLowerInvariant();
-            if (!await _db.VisitTypes.AsNoTracking().AnyAsync(item => item.VisitTypeId == type && item.IsActive))
+            var requestedType = (request.Type ?? "").Trim();
+            var normalizedType = requestedType.ToUpperInvariant();
+            var visitType = await _db.VisitTypes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item =>
+                    item.IsActive
+                    && (item.VisitTypeId.ToUpper() == normalizedType
+                        || item.Name.ToUpper() == normalizedType));
+
+            if (visitType == null)
             {
                 return ApiResponse<AppointmentResponse>.Fail("Pick a visit type.", 400);
             }
+
+            var type = visitType.VisitTypeId;
 
             var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
             if (notes != null && notes.Length > 500)
@@ -563,6 +638,33 @@ namespace CarePlus.API.Services.AppointmentServices
             };
         }
 
+        private static StaffAppointmentResponse ToStaffResponse(
+            Appointment row,
+            IReadOnlyDictionary<string, string> visitTypes)
+        {
+            var start = ToStart(row);
+            var end = start.AddMinutes(SlotMinutes);
+
+            return new StaffAppointmentResponse
+            {
+                Id = row.AppointmentId,
+                PatientId = row.PatientId,
+                PatientName = string.IsNullOrWhiteSpace(row.ForName)
+                    ? (row.Patient?.User?.Name ?? row.PatientId)
+                    : row.ForName,
+                PatientUsername = row.Patient?.User?.Username ?? string.Empty,
+                DoctorId = row.DoctorId,
+                DoctorName = FormatDoctorName(row.Doctor?.User?.Name),
+                VisitTypeId = row.VisitType,
+                VisitType = visitTypes.GetValueOrDefault(row.VisitType, row.VisitType),
+                Notes = row.Notes,
+                StartAt = ToOffset(start).ToString("yyyy-MM-ddTHH:mm:sszzz"),
+                EndAt = ToOffset(end).ToString("yyyy-MM-ddTHH:mm:sszzz"),
+                Status = row.Status,
+                CheckInStatus = row.CheckInStatus
+            };
+        }
+
         private static DateTime ToStart(Appointment row) => row.AppointmentDate.Date + row.AppointmentTime;
 
         private static DateTimeOffset ToOffset(DateTime malaysiaLocal) =>
@@ -613,5 +715,6 @@ namespace CarePlus.API.Services.AppointmentServices
             start = new DateTime(start.Year, start.Month, start.Day, start.Hour, start.Minute, 0);
             return true;
         }
+
     }
 }
