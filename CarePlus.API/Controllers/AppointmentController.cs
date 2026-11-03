@@ -62,6 +62,19 @@ namespace CarePlus.API.Controllers
             return Ok(await _appointments.ListHistoryAsync(userId));
         }
 
+        [Authorize(Roles = "Admin,Doctor,Pharmacist")]
+        [HttpGet("Staff")]
+        public async Task<IActionResult> StaffAppointments([FromQuery] string? date)
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<List<StaffAppointmentResponse>>.Fail("Invalid token.", 401));
+            }
+
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            return Ok(await _appointments.ListStaffAsync(userId, role, date));
+        }
+
         [HttpPost]
         public async Task<IActionResult> Book([FromBody] AppointmentBookRequest request)
         {
