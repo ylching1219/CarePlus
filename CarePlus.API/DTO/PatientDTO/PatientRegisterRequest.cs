@@ -8,5 +8,11 @@ namespace CarePlus.API.DTO.PatientDTO
         [Required(ErrorMessage = "Identity card number is required.")]
         public string IdentityCardNumber { get; init; } = string.Empty;
 
+        [Required(ErrorMessage = "Verify your email address before registering.")]
+        public string EmailVerificationChallengeId { get; init; } = string.Empty;
+
+        [Required(ErrorMessage = "Verify your email address before registering.")]
+        public string EmailVerificationToken { get; init; } = string.Empty;
+
     }
 }

@@ -19,6 +19,7 @@ namespace CarePlus.API.DTO.ClinicRecordDTO
         public string Ward { get; set; } = "";
         public List<ClinicChargeLineResponse> Charges { get; set; } = [];
         public decimal SstRate { get; set; }
+        public DoctorReviewResponse? Review { get; set; }
     }
 
     public class ClinicChargeLineResponse

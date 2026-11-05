@@ -19,16 +19,27 @@ namespace CarePlus.API.Middleware
             if (context.User.Identity?.IsAuthenticated == true &&
                 long.TryParse(context.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             {
-                var status = await db.Users
+                var account = await db.Users
                     .AsNoTracking()
                     .Where(user => user.UserId == userId)
-                    .Select(user => user.Status)
+                    .Select(user => new { user.Status, user.PasswordLockoutUntilUtc })
                     .FirstOrDefaultAsync();
 
-                if (!string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(account?.Status, "Active", StringComparison.OrdinalIgnoreCase))
                 {
                     context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                     await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail("This account is not active.", 401));
+                    return;
+                }
+
+                if (account?.PasswordLockoutUntilUtc is DateTime lockoutUntil && lockoutUntil > DateTime.UtcNow)
+                {
+                    var remaining = lockoutUntil - DateTime.UtcNow;
+                    var minutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
+                    context.Response.StatusCode = StatusCodes.Status423Locked;
+                    context.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(remaining.TotalSeconds)).ToString();
+                    await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail(
+                        $"Account temporarily locked. Try again in {minutes} minute(s).", 423));
                     return;
                 }
             }
