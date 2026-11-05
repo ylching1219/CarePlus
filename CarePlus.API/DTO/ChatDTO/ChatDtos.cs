@@ -30,6 +30,37 @@ public sealed record ChatResponse(
     string Disclaimer,
     IReadOnlyList<ChatSourceResponse> Sources);
 
+public sealed class PersistedChatMessageRequest
+{
+    public string? ThreadId { get; set; }
+
+    [Required]
+    [StringLength(2000, MinimumLength = 1)]
+    public string Message { get; set; } = string.Empty;
+}
+
+public sealed class DeleteChatThreadsRequest
+{
+    [Required]
+    [MinLength(1)]
+    [MaxLength(100)]
+    public List<string> ThreadIds { get; set; } = [];
+}
+
+public sealed record ChatMessageResponse(
+    string Id,
+    string Role,
+    string Text,
+    long At,
+    string? Disclaimer,
+    IReadOnlyList<ChatSourceResponse>? Sources);
+
+public sealed record ChatThreadResponse(
+    string Id,
+    string Title,
+    long UpdatedAt,
+    IReadOnlyList<ChatMessageResponse> Messages);
+
 public sealed class IndexKnowledgeRequest
 {
     [Required]
