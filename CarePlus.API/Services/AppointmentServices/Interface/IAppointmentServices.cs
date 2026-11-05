@@ -6,6 +6,9 @@ namespace CarePlus.API.Services.AppointmentServices.Interface
     {
         Task<ApiResponse<BookingCatalogResponse>> GetCatalogAsync(long userId);
         Task<ApiResponse<BookingSlotsResponse>> GetSlotsAsync(long userId, string date, string doctorId);
+        Task<ApiResponse<List<BookingDoctorResponse>>> GetAvailableDoctorsAsync(
+            string? date,
+            string? time);
         Task<ApiResponse<List<AppointmentResponse>>> ListUpcomingAsync(long userId);
         Task<ApiResponse<List<AppointmentResponse>>> ListHistoryAsync(long userId);
         Task<ApiResponse<List<StaffAppointmentResponse>>> ListStaffAsync(
@@ -13,7 +16,10 @@ namespace CarePlus.API.Services.AppointmentServices.Interface
             string role,
             string? date);
         Task<ApiResponse<AppointmentResponse>> BookAsync(long userId, AppointmentBookRequest request);
+        Task<ApiResponse<AppointmentResponse>> BookForStaffAsync(StaffAppointmentBookRequest request);
         Task<ApiResponse<AppointmentResponse>> CancelAsync(long userId, string appointmentId);
         Task<ApiResponse<AppointmentResponse>> RescheduleAsync(long userId, string appointmentId, AppointmentRescheduleRequest request);
+        Task<ApiResponse<AppointmentResponse>> CancelForStaffAsync(string appointmentId);
+        Task<ApiResponse<AppointmentResponse>> RescheduleForStaffAsync(string appointmentId, AppointmentRescheduleRequest request);
     }
 }

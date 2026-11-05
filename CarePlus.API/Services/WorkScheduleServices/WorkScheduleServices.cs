@@ -93,11 +93,22 @@ namespace CarePlus.API.Services.WorkScheduleServices
             }
         }
 
-        public async Task<ApiResponse<object>> RetrieveAllWorkSchedulesAsync()
+        public async Task<ApiResponse<object>> RetrieveAllWorkSchedulesAsync(
+            long userId,
+            string role)
         {
             try
             {
-                var schedules = await _workScheduleRepo.GetAllWorkSchedulesAsync();
+                var scopedStaffId = await ResolveScopedStaffIdAsync(userId, role);
+
+                if (!IsAdminRole(role) && scopedStaffId == null)
+                {
+                    return ApiResponse<object>.Fail("Staff profile not found.", 404);
+                }
+
+                var schedules = scopedStaffId == null
+                    ? await _workScheduleRepo.GetAllWorkSchedulesAsync()
+                    : await _workScheduleRepo.GetWorkSchedulesByStaffIdAsync(scopedStaffId);
 
                 if (schedules.Count == 0)
                 {
@@ -114,7 +125,9 @@ namespace CarePlus.API.Services.WorkScheduleServices
         }
 
         public async Task<ApiResponse<object>> RetrieveWorkScheduleByIdAsync(
-            string scheduleId)
+            string scheduleId,
+            long userId,
+            string role)
         {
             try
             {
@@ -132,6 +145,12 @@ namespace CarePlus.API.Services.WorkScheduleServices
                         "Work schedules are only available for Doctor and Pharmacist staff.", 400);
                 }
 
+                if (!await CanAccessStaffScheduleAsync(schedule.StaffId, userId, role))
+                {
+                    return ApiResponse<object>.Fail(
+                        "You can only view your own work schedules.", 403);
+                }
+
                 return ApiResponse<object>.Ok(ToResponse(schedule));
             }
             catch (Exception ex)
@@ -142,11 +161,20 @@ namespace CarePlus.API.Services.WorkScheduleServices
         }
 
         public async Task<ApiResponse<object>> RetrieveWorkSchedulesByStaffIdAsync(
-            string staffId)
+            string staffId,
+            long userId,
+            string role)
         {
             try
             {
                 var normalizedStaffId = staffId.Trim();
+
+                if (!await CanAccessStaffScheduleAsync(normalizedStaffId, userId, role))
+                {
+                    return ApiResponse<object>.Fail(
+                        "You can only view your own work schedules.", 403);
+                }
+
                 var staff = await _staffRepo.GetStaffByIdAsync(normalizedStaffId);
 
                 if (staff == null)
@@ -276,6 +304,39 @@ namespace CarePlus.API.Services.WorkScheduleServices
         {
             return string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(role, "Pharmacist", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsAdminRole(string? role) =>
+            string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+        private async Task<string?> ResolveScopedStaffIdAsync(
+            long userId,
+            string role)
+        {
+            if (IsAdminRole(role))
+            {
+                return null;
+            }
+
+            var staff = await _staffRepo.GetStaffByUserIdAsync(userId);
+            return staff != null && IsSchedulableRole(staff.Role)
+                ? staff.StaffId
+                : null;
+        }
+
+        private async Task<bool> CanAccessStaffScheduleAsync(
+            string staffId,
+            long userId,
+            string role)
+        {
+            if (IsAdminRole(role))
+            {
+                return true;
+            }
+
+            var scopedStaffId = await ResolveScopedStaffIdAsync(userId, role);
+            return scopedStaffId != null
+                && string.Equals(scopedStaffId, staffId, StringComparison.OrdinalIgnoreCase);
         }
     }
 }
