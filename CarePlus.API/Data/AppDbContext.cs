@@ -2,6 +2,7 @@ using CarePlus.API.Extension;
 using CarePlus.API.Models.Appointment;
 using CarePlus.API.Models.Cart;
 using CarePlus.API.Models.CartItem;
+using CarePlus.API.Models.Chat;
 using CarePlus.API.Models.Common;
 using CarePlus.API.Models.DeliveryAddress;
 using CarePlus.API.Models.DispenseRec;
@@ -48,6 +49,8 @@ namespace CarePlus.API.Data
             typeof(Cart),
             typeof(CartItem),
             typeof(Notification),
+            typeof(ChatThread),
+            typeof(ChatMessage),
             typeof(LoginActivity),
             typeof(RegistrationEmailChallenge)
         };
@@ -96,6 +99,8 @@ namespace CarePlus.API.Data
         public DbSet<PaymentCard> PaymentCards { get; set; } = null!;
         public DbSet<TwoFactorChallenge> TwoFactorChallenges { get; set; } = null!;
         public DbSet<RegistrationEmailChallenge> RegistrationEmailChallenges { get; set; } = null!;
+        public DbSet<ChatThread> ChatThreads { get; set; } = null!;
+        public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
         public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
 
@@ -250,6 +255,34 @@ namespace CarePlus.API.Data
             modelBuilder.Entity<Notification>().Property(n => n.Href).HasMaxLength(500).HasDefaultValue("/notifications");
             modelBuilder.Entity<Notification>().Property(n => n.IsPublished).HasDefaultValue(true);
             modelBuilder.Entity<Notification>().HasIndex(row => new { row.Type, row.UserId, row.CreatedAt });
+
+            modelBuilder.Entity<ChatThread>(entity =>
+            {
+                entity.Property(thread => thread.Title).HasMaxLength(120);
+                entity.Property(thread => thread.CreatedAt).HasColumnType("datetime(6)");
+                entity.Property(thread => thread.UpdatedAt).HasColumnType("datetime(6)");
+                entity.HasIndex(thread => new { thread.PatientId, thread.UpdatedAt });
+                entity.HasOne(thread => thread.Patient)
+                    .WithMany()
+                    .HasForeignKey(thread => thread.PatientId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ChatMessage>(entity =>
+            {
+                entity.Property(message => message.Role).HasMaxLength(16);
+                entity.Property(message => message.Content).HasColumnType("longtext");
+                entity.Property(message => message.Disclaimer).HasMaxLength(1000);
+                entity.Property(message => message.SourcesJson).HasColumnType("longtext");
+                entity.Property(message => message.CreatedAt).HasColumnType("datetime(6)");
+                entity.HasIndex(message => new { message.ChatThreadId, message.CreatedAt });
+                entity.ToTable("ChatMessages", table =>
+                    table.HasCheckConstraint("CK_ChatMessages_Role", "`Role` IN ('user', 'assistant')"));
+                entity.HasOne(message => message.ChatThread)
+                    .WithMany(thread => thread.Messages)
+                    .HasForeignKey(message => message.ChatThreadId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<Medicine>().Property(m => m.Price).HasPrecision(18, 2);
             modelBuilder.Entity<Medicine>().Property(m => m.Description).HasMaxLength(500);
