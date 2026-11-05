@@ -96,6 +96,7 @@ namespace CarePlus.API.Extension
             services.Configure<QdrantOptions>(config.GetSection(QdrantOptions.SectionName));
             services.Configure<ChatOptions>(config.GetSection(ChatOptions.SectionName));
             services.AddScoped<IChatServices, ChatServices>();
+            services.AddScoped<IChatHistoryServices, ChatHistoryServices>();
             services.AddHttpClient<IVectorKnowledgeStore, QdrantKnowledgeStore>(client =>
                 client.Timeout = TimeSpan.FromSeconds(45));
             services.AddHttpClient<IGroqChatClient, GroqChatClient>(client =>
