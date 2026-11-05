@@ -1,3 +1,5 @@
+using CarePlus.API.DTO.ClinicRecordDTO;
+
 namespace CarePlus.API.DTO.StaffDTO
 {
     public class PublicDoctorResponse
@@ -8,6 +10,7 @@ namespace CarePlus.API.DTO.StaffDTO
         public string Qualification { get; set; } = string.Empty;
         public int YearsOfExperience { get; set; }
         public List<PublicDoctorScheduleResponse> Schedules { get; set; } = [];
+        public List<DoctorReviewResponse> Reviews { get; set; } = [];
     }
 
     public class PublicDoctorScheduleResponse

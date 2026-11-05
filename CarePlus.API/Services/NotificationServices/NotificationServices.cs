@@ -198,8 +198,13 @@ public class NotificationServices : INotificationServices
                 && row.Status != "Deleted"
                 && row.CreatedAt <= now)
             .ToListAsync();
+        var announcementStartAt = await _db.Patients.AsNoTracking()
+            .Where(row => row.PatientId == patientId)
+            .Select(row => row.AnnouncementStartAt)
+            .FirstOrDefaultAsync();
         foreach (var announcement in announcements)
         {
+            if (announcementStartAt.HasValue && announcement.CreatedAt < announcementStartAt.Value) continue;
             Add(drafts, new NotificationDraft(
                 $"announcement:{announcement.NotificationId}:user:{userId}",
                 announcement.Title,

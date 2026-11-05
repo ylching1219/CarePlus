@@ -18,6 +18,8 @@ namespace CarePlus.API.Services.UserServices
 {
     public class UserServices : IUserServices
     {
+        private const int MaximumPasswordAttempts = 5;
+        private static readonly TimeSpan PasswordLockoutDuration = TimeSpan.FromMinutes(5);
         private readonly IUserRepository _userRepo;
         private readonly PasswordHasher<User> _passwordHasher = new();
         private readonly IPatientRepository _patientRepo;
@@ -74,6 +76,23 @@ namespace CarePlus.API.Services.UserServices
                 errors.Add("Username already exists");
             }
 
+            if (!string.IsNullOrWhiteSpace(request.Phone))
+            {
+                var normalizedPhone = NormalizePhone(request.Phone);
+                if (normalizedPhone == null)
+                {
+                    errors.Add("Invalid phone number.");
+                }
+                else
+                {
+                    var checkPhone = await _userRepo.GetAllUsersByAsync(u => u.Phone == normalizedPhone);
+                    if (checkPhone.Count > 0)
+                    {
+                        errors.Add("Phone number already exists");
+                    }
+                }
+            }
+
             return errors;
         }
 
@@ -93,7 +112,7 @@ namespace CarePlus.API.Services.UserServices
                 Username = request.Username.Trim(),
                 Name = request.Name,
                 Email = request.Email,
-                Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+                Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : NormalizePhone(request.Phone),
                 EmailVerified = emailVerified,
             };
 
@@ -113,6 +132,18 @@ namespace CarePlus.API.Services.UserServices
 
                 return ApiResponse<object>.Fail("User registration failed", 500);
 
+            }
+            catch (DbUpdateException ex) when (HasUniqueIndexConflict(ex, "IX_Users_Phone"))
+            {
+                return ApiResponse<object>.Fail("Phone number already exists", 400);
+            }
+            catch (DbUpdateException ex) when (HasUniqueIndexConflict(ex, "IX_Users_Email"))
+            {
+                return ApiResponse<object>.Fail("Email already exists", 400);
+            }
+            catch (DbUpdateException ex) when (HasUniqueIndexConflict(ex, "IX_Users_Username"))
+            {
+                return ApiResponse<object>.Fail("Username already exists", 400);
             }
             catch (Exception ex)
             {
@@ -146,6 +177,9 @@ namespace CarePlus.API.Services.UserServices
                 if (!passwordMatch) {
                     return ApiResponse<object>.Fail("Incorrect username/email or password.", 401);
                 }
+
+                var lockout = GetPasswordLockoutResponse(user.PasswordLockoutUntilUtc);
+                if (lockout != null) return lockout;
 
                 if (user.Status != "Active")
                 {
@@ -395,7 +429,19 @@ namespace CarePlus.API.Services.UserServices
 
                     if (!string.IsNullOrWhiteSpace(request.Phone))
                     {
-                        user.Phone = request.Phone.Trim();
+                        var phone = NormalizePhone(request.Phone);
+                        if (phone == null)
+                        {
+                            return ApiResponse<object>.Fail("Invalid phone number.", 400);
+                        }
+
+                        var taken = await _userRepo.GetAllUsersByAsync(match => match.Phone == phone);
+                        if (taken.Any(match => match.UserId != user.UserId))
+                        {
+                            return ApiResponse<object>.Fail("Phone number already exists", 400);
+                        }
+
+                        user.Phone = phone;
                     }
 
                     bool success = await _userRepo.UpdateUserAsync(user);
@@ -446,9 +492,27 @@ namespace CarePlus.API.Services.UserServices
                 return ApiResponse<object>.Fail("Account was not found.", 404);
             }
 
-            if (string.IsNullOrWhiteSpace(request.CurrentPassword) || !VerifyPassword(user, request.CurrentPassword))
+            var lockout = GetPasswordLockoutResponse(user.PasswordLockoutUntilUtc);
+            if (lockout != null) return lockout;
+
+            if (string.IsNullOrWhiteSpace(request.CurrentPassword))
             {
-                return ApiResponse<object>.Fail("Current password is incorrect.", 400);
+                return ApiResponse<object>.Fail("Current password is required.", 400);
+            }
+
+            if (!VerifyPassword(user, request.CurrentPassword))
+            {
+                return await RecordFailedDeletionPasswordAsync(userId);
+            }
+
+            if (!await ClearFailedDeletionPasswordAttemptsAsync(userId))
+            {
+                var currentLockout = await _db.Users.AsNoTracking()
+                    .Where(row => row.UserId == userId)
+                    .Select(row => row.PasswordLockoutUntilUtc)
+                    .SingleAsync();
+                return GetPasswordLockoutResponse(currentLockout)
+                    ?? ApiResponse<object>.Fail("Please try again.", 409);
             }
 
             var patient = await _patientRepo.GetPatientByUserIdAsync(userId);
@@ -592,6 +656,12 @@ namespace CarePlus.API.Services.UserServices
                     if (phone == null)
                     {
                         return ApiResponse<object>.Fail("Invalid phone number.", 400);
+                    }
+
+                    var taken = await _userRepo.GetAllUsersByAsync(match => match.Phone == phone);
+                    if (taken.Any(match => match.UserId != user.UserId))
+                    {
+                        return ApiResponse<object>.Fail("Phone number already exists", 400);
                     }
 
                     user.Phone = phone;
@@ -808,6 +878,13 @@ namespace CarePlus.API.Services.UserServices
                 || (digits.Length is 9 or 10 && (digits.StartsWith("10") || digits.StartsWith("14")))
                 || (digits.Length == 9 && digits[0] == '1' && "236789".Contains(digits[1]));
             return valid ? "+60" + digits : null;
+        }
+
+        private static bool HasUniqueIndexConflict(DbUpdateException exception, string indexName)
+        {
+            return exception.InnerException?.Message.Contains(
+                indexName,
+                StringComparison.OrdinalIgnoreCase) == true;
         }
 
         private static char? GenderFromIdentityCard(string? identityCard)
@@ -1336,10 +1413,64 @@ namespace CarePlus.API.Services.UserServices
             return _passwordHasher.HashPassword(user, password);
         }
 
+        private static ApiResponse<object>? GetPasswordLockoutResponse(DateTime? lockoutUntilUtc)
+        {
+            if (lockoutUntilUtc is not DateTime until || until <= DateTime.UtcNow) return null;
+
+            var minutes = Math.Max(1, (int)Math.Ceiling((until - DateTime.UtcNow).TotalMinutes));
+            return ApiResponse<object>.Fail($"Account temporarily locked. Try again in {minutes} minute(s).", 423);
+        }
+
+        private async Task<ApiResponse<object>> RecordFailedDeletionPasswordAsync(long userId)
+        {
+            var now = DateTime.UtcNow;
+            var lockoutUntil = now.Add(PasswordLockoutDuration);
+
+            // MySQL evaluates assignments in order. Reset/increment first, then lock on attempt five.
+            // One update keeps concurrent account-deletion attempts on the same database counter.
+            await _db.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE `Users`
+                SET `FailedPasswordAttempts` = CASE
+                    WHEN `PasswordLockoutUntilUtc` IS NOT NULL AND `PasswordLockoutUntilUtc` <= {now} THEN 1
+                    ELSE `FailedPasswordAttempts` + 1
+                END,
+                `PasswordLockoutUntilUtc` = CASE
+                    WHEN `PasswordLockoutUntilUtc` IS NOT NULL AND `PasswordLockoutUntilUtc` <= {now} THEN NULL
+                    WHEN `FailedPasswordAttempts` >= {MaximumPasswordAttempts} THEN {lockoutUntil}
+                    ELSE NULL
+                END
+                WHERE `UserId` = {userId}
+                    AND (`PasswordLockoutUntilUtc` IS NULL OR `PasswordLockoutUntilUtc` <= {now})");
+
+            var currentLockout = await _db.Users.AsNoTracking()
+                .Where(user => user.UserId == userId)
+                .Select(user => user.PasswordLockoutUntilUtc)
+                .SingleAsync();
+
+            return GetPasswordLockoutResponse(currentLockout)
+                ?? ApiResponse<object>.Fail("Current password is incorrect.", 400);
+        }
+
+        private async Task<bool> ClearFailedDeletionPasswordAttemptsAsync(long userId)
+        {
+            var now = DateTime.UtcNow;
+            await _db.Users
+                .Where(user => user.UserId == userId &&
+                    (user.PasswordLockoutUntilUtc == null || user.PasswordLockoutUntilUtc <= now))
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(user => user.FailedPasswordAttempts, 0)
+                    .SetProperty(user => user.PasswordLockoutUntilUtc, (DateTime?)null));
+            var currentLockout = await _db.Users.AsNoTracking()
+                .Where(user => user.UserId == userId)
+                .Select(user => user.PasswordLockoutUntilUtc)
+                .SingleAsync();
+            return currentLockout == null || currentLockout <= DateTime.UtcNow;
+        }
+
         private bool VerifyPassword(User user, string password)
         {
             var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash!, password);
-            return result == PasswordVerificationResult.Success;
+            return result != PasswordVerificationResult.Failed;
         }
     }
 }

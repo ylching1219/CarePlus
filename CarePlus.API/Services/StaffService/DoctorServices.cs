@@ -1,4 +1,5 @@
 using CarePlus.API.Data;
+using CarePlus.API.DTO.ClinicRecordDTO;
 using CarePlus.API.DTO.StaffDTO;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Models.User.Staff.Doctor;
@@ -184,10 +185,10 @@ namespace CarePlus.API.Services.StaffService
                 return ApiResponse<PublicDoctorResponse>.Fail("Doctor not found", 404);
             }
 
-            return ApiResponse<PublicDoctorResponse>.Ok(await ToPublicDoctorAsync(doctor));
+            return ApiResponse<PublicDoctorResponse>.Ok(await ToPublicDoctorAsync(doctor, includeReviews: true));
         }
 
-        private async Task<PublicDoctorResponse> ToPublicDoctorAsync(Doctor doctor)
+        private async Task<PublicDoctorResponse> ToPublicDoctorAsync(Doctor doctor, bool includeReviews = false)
         {
             var scheduleRows = await _db.WorkSchedules
                 .AsNoTracking()
@@ -196,6 +197,20 @@ namespace CarePlus.API.Services.StaffService
                 .ThenBy(schedule => schedule.Shift)
                 .ToListAsync();
 
+            var reviews = includeReviews ? await _db.DoctorReviews
+                .AsNoTracking()
+                .Where(review => review.MedicalRecord.DoctorId == doctor.StaffId)
+                .OrderByDescending(review => review.CreatedAt)
+                .Select(review => new DoctorReviewResponse
+                {
+                    Rating = review.Rating,
+                    Description = review.Description,
+                    IsAnonymous = review.IsAnonymous,
+                    AuthorName = review.IsAnonymous ? null : review.MedicalRecord.Patient.User.Name,
+                    CreatedAt = review.CreatedAt,
+                })
+                .ToListAsync() : [];
+
             return new PublicDoctorResponse
             {
                 StaffId = doctor.StaffId,
@@ -203,6 +218,7 @@ namespace CarePlus.API.Services.StaffService
                 Specialization = doctor.Specialization,
                 Qualification = doctor.Qualification,
                 YearsOfExperience = doctor.YearsOfExperience,
+                Reviews = reviews,
                 Schedules = scheduleRows.Select(schedule => new PublicDoctorScheduleResponse
                 {
                     WorkingDate = schedule.WorkingDate.ToDateTime(TimeOnly.MinValue),
