@@ -18,6 +18,68 @@ namespace CarePlus.API.Services.ClinicRecordServices
             _db = db;
         }
 
+        public async Task<ApiResponse<DoctorReviewResponse>> CreateReviewAsync(long userId, string medicalRecordId, CreateDoctorReviewRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(medicalRecordId) || request.Rating is < 1 or > 5)
+            {
+                return ApiResponse<DoctorReviewResponse>.Fail("Choose a rating from 1 to 5 stars.", 400);
+            }
+
+            var description = request.Description?.Trim();
+            if (description?.Length > 1000)
+            {
+                return ApiResponse<DoctorReviewResponse>.Fail("The review must be 1000 characters or fewer.", 400);
+            }
+
+            // Resolve the patient from the authenticated user, never from a caller-supplied patient ID.
+            var record = await _db.MedicalRecords
+                .Include(row => row.Patient)
+                    .ThenInclude(row => row.User)
+                .FirstOrDefaultAsync(row => row.MedicalRecordId == medicalRecordId && row.Patient.UserId == userId);
+            if (record == null)
+            {
+                return ApiResponse<DoctorReviewResponse>.Fail("Clinic record not found.", 404);
+            }
+
+            if (await _db.DoctorReviews.AnyAsync(review => review.MedicalRecordId == medicalRecordId))
+            {
+                return ApiResponse<DoctorReviewResponse>.Fail("This clinic record already has a review.", 409);
+            }
+
+            var review = new DoctorReview
+            {
+                MedicalRecordId = medicalRecordId,
+                Rating = request.Rating,
+                Description = string.IsNullOrWhiteSpace(description) ? null : description,
+                IsAnonymous = request.IsAnonymous,
+                CreatedAt = DateTime.UtcNow,
+            };
+            _db.DoctorReviews.Add(review);
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // The primary key also guards simultaneous submissions for the same record.
+                _db.Entry(review).State = EntityState.Detached;
+                if (await _db.DoctorReviews.AsNoTracking().AnyAsync(row => row.MedicalRecordId == medicalRecordId))
+                {
+                    return ApiResponse<DoctorReviewResponse>.Fail("This clinic record already has a review.", 409);
+                }
+                throw;
+            }
+
+            return ApiResponse<DoctorReviewResponse>.Ok(new DoctorReviewResponse
+            {
+                Rating = review.Rating,
+                Description = review.Description,
+                IsAnonymous = review.IsAnonymous,
+                AuthorName = review.IsAnonymous ? null : record.Patient.User.Name,
+                CreatedAt = review.CreatedAt,
+            });
+        }
+
         public async Task<ApiResponse<List<ClinicRecordResponse>>> ListForPatientAsync(long userId, string? locale)
         {
             var patient = await _db.Patients
@@ -42,6 +104,10 @@ namespace CarePlus.API.Services.ClinicRecordServices
             }
 
             var recordIds = records.Select(row => row.MedicalRecordId).ToList();
+            var reviews = await _db.DoctorReviews
+                .AsNoTracking()
+                .Where(row => recordIds.Contains(row.MedicalRecordId))
+                .ToDictionaryAsync(row => row.MedicalRecordId);
             var prescriptionItems = await _db.PrescriptionItems
                 .AsNoTracking()
                 .Where(row => recordIds.Contains(row.Prescription.MedicalRecordId))
@@ -70,7 +136,8 @@ namespace CarePlus.API.Services.ClinicRecordServices
                 invoices.FirstOrDefault(row => row.MedicalRecordId == record.MedicalRecordId),
                 prescriptionItems.Where(row => row.Prescription.MedicalRecordId == record.MedicalRecordId).ToList(),
                 visitTypes,
-                isChinese)).ToList();
+                isChinese,
+                reviews.GetValueOrDefault(record.MedicalRecordId))).ToList();
 
             return ApiResponse<List<ClinicRecordResponse>>.Ok(result);
         }
@@ -89,7 +156,8 @@ namespace CarePlus.API.Services.ClinicRecordServices
             Models.Invoice.Invoice? invoice,
             List<PrescriptionItem> prescriptionItems,
             Dictionary<string, VisitType> visitTypes,
-            bool isChinese)
+            bool isChinese,
+            DoctorReview? review)
         {
             var visitTypeId = NormalizeVisitTypeId(appointment?.VisitType, invoice?.VisitType, visitTypes);
             var visitType = visitTypes.GetValueOrDefault(visitTypeId)
@@ -152,6 +220,14 @@ namespace CarePlus.API.Services.ClinicRecordServices
                 VisitedAt = visitedAt.ToString("yyyy-MM-ddTHH:mm:sszzz"),
                 Diagnosis = record.Diagnosis,
                 DoctorComment = record.Notes ?? "",
+                Review = review == null ? null : new DoctorReviewResponse
+                {
+                    Rating = review.Rating,
+                    Description = review.Description,
+                    IsAnonymous = review.IsAnonymous,
+                    AuthorName = review.IsAnonymous ? null : patientName,
+                    CreatedAt = review.CreatedAt,
+                },
                 Medications = medications,
                 Ward = "",
                 Charges = charges,

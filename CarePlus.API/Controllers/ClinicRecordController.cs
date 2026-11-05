@@ -28,5 +28,18 @@ namespace CarePlus.API.Controllers
 
             return Ok(await _clinicRecords.ListForPatientAsync(userId, locale));
         }
+
+        [Authorize(Roles = "Patient")]
+        [HttpPost("{medicalRecordId}/review")]
+        public async Task<IActionResult> CreateReview(string medicalRecordId, [FromBody] CreateDoctorReviewRequest request)
+        {
+            if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            {
+                return Unauthorized(ApiResponse<DoctorReviewResponse>.Fail("Invalid token.", 401));
+            }
+
+            var result = await _clinicRecords.CreateReviewAsync(userId, medicalRecordId, request);
+            return StatusCode(result.IsSuccess ? 200 : result.RespCode, result);
+        }
     }
 }

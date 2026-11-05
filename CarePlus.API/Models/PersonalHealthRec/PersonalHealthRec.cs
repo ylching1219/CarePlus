@@ -22,6 +22,11 @@ namespace CarePlus.API.Models.PersonalHealthRec
         public string? MedicalHistory { get; set; }
         public string? Symptoms { get; set; } 
         public string? HealthNotes { get; set; }
+        public DateTime? RecordedAt { get; set; }
+        [MaxLength(255)]
+        public string? PdfFileName { get; set; }
+        [MaxLength(64)]
+        public string? PdfStorageName { get; set; }
         public DateTime CreatedAt { get; set; } = DateTimeHelper.MalaysiaNow();
 
     }
