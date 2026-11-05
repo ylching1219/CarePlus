@@ -2,6 +2,7 @@ using CarePlus.API.DTO.WorkScheduleDTO;
 using CarePlus.API.Services.WorkScheduleServices.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace CarePlus.API.Controllers
 {
@@ -28,22 +29,37 @@ namespace CarePlus.API.Controllers
         [HttpGet("Retrieve")]
         public async Task<IActionResult> RetrieveWorkSchedules()
         {
+            if (!TryGetUserContext(out var userId, out var role))
+            {
+                return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
             return Ok(await _workScheduleServices
-                .RetrieveAllWorkSchedulesAsync());
+                .RetrieveAllWorkSchedulesAsync(userId, role));
         }
 
         [HttpGet("RetrieveById/{scheduleId}")]
         public async Task<IActionResult> RetrieveWorkScheduleById(string scheduleId)
         {
+            if (!TryGetUserContext(out var userId, out var role))
+            {
+                return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
             return Ok(await _workScheduleServices
-                .RetrieveWorkScheduleByIdAsync(scheduleId));
+                .RetrieveWorkScheduleByIdAsync(scheduleId, userId, role));
         }
 
         [HttpGet("RetrieveByStaffId/{staffId}")]
         public async Task<IActionResult> RetrieveWorkSchedulesByStaffId(string staffId)
         {
+            if (!TryGetUserContext(out var userId, out var role))
+            {
+                return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
             return Ok(await _workScheduleServices
-                .RetrieveWorkSchedulesByStaffIdAsync(staffId));
+                .RetrieveWorkSchedulesByStaffIdAsync(staffId, userId, role));
         }
 
         [HttpPut("Update")]
@@ -53,6 +69,14 @@ namespace CarePlus.API.Controllers
         {
             return Ok(await _workScheduleServices
                 .UpdateWorkScheduleAsync(request));
+        }
+
+        private bool TryGetUserContext(out long userId, out string role)
+        {
+            role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            return long.TryParse(
+                User.FindFirstValue(ClaimTypes.NameIdentifier),
+                out userId);
         }
     }
 }

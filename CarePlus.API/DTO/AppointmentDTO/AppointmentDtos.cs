@@ -84,6 +84,15 @@ namespace CarePlus.API.DTO.AppointmentDTO
         public string? Notes { get; set; }
     }
 
+    public class StaffAppointmentBookRequest
+    {
+        public string PatientId { get; set; } = "";
+        public string DoctorId { get; set; } = "";
+        public string StartAt { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string? Notes { get; set; }
+    }
+
     public class AppointmentRescheduleRequest
     {
         public string StartAt { get; set; } = "";
