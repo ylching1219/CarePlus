@@ -28,5 +28,8 @@ namespace CarePlus.API.Models.Patient
 
         [MaxLength(255)]
         public string? ProfilePicture { get; set; }
+
+        // Existing patients remain null; new accounts only receive later announcements.
+        public DateTime? AnnouncementStartAt { get; set; }
     }
 }

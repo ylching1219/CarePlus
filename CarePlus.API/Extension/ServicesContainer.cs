@@ -45,6 +45,12 @@ using CarePlus.API.Services.EmailVerificationServices;
 using CarePlus.API.Services.EmailVerificationServices.Interface;
 using CarePlus.API.Services.TwoFactorServices;
 using CarePlus.API.Services.TwoFactorServices.Interface;
+using CarePlus.API.Services.PasswordResetServices;
+using CarePlus.API.Services.PasswordResetServices.Interface;
+using CarePlus.API.Services.RegistrationEmailVerificationServices;
+using CarePlus.API.Services.RegistrationEmailVerificationServices.Interface;
+using CarePlus.API.Services.ChatServices;
+using CarePlus.API.Services.ChatServices.Interface;
 using Microsoft.EntityFrameworkCore;
 
 namespace CarePlus.API.Extension
@@ -64,6 +70,8 @@ namespace CarePlus.API.Extension
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
             services.AddScoped<ITwoFactorServices, TwoFactorServices>();
             services.AddScoped<IEmailVerificationServices, EmailVerificationServices>();
+            services.AddScoped<IPasswordResetServices, PasswordResetServices>();
+            services.AddScoped<IRegistrationEmailVerificationServices, RegistrationEmailVerificationServices>();
             services.AddScoped<IPatientServices, PatientServices>();
             services.AddScoped<IFamilyServices, FamilyServices>();
             services.AddScoped<IAnnouncementServices, AnnouncementServices>();
@@ -84,6 +92,14 @@ namespace CarePlus.API.Extension
             services.AddScoped<IClinicRoomServices, ClinicRoomServices>();
             services.AddScoped<ICartServices, CartServices>();
             services.AddScoped<IAuditLogServices, AuditLogServices>();
+            services.Configure<GroqOptions>(config.GetSection(GroqOptions.SectionName));
+            services.Configure<QdrantOptions>(config.GetSection(QdrantOptions.SectionName));
+            services.Configure<ChatOptions>(config.GetSection(ChatOptions.SectionName));
+            services.AddScoped<IChatServices, ChatServices>();
+            services.AddHttpClient<IVectorKnowledgeStore, QdrantKnowledgeStore>(client =>
+                client.Timeout = TimeSpan.FromSeconds(45));
+            services.AddHttpClient<IGroqChatClient, GroqChatClient>(client =>
+                client.Timeout = TimeSpan.FromSeconds(45));
             services.AddScoped<AddressGeocoder>();
             services.AddHttpClient("nominatim", client =>
             {

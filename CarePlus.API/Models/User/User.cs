@@ -7,6 +7,8 @@ namespace CarePlus.API.Models.User
 {
     [Table("Users")]
     [Index(nameof(Username), IsUnique = true)]
+    [Index(nameof(Email), IsUnique = true)]
+    [Index(nameof(Phone), IsUnique = true)]
     public class User
     {
         [Key]
@@ -34,6 +36,10 @@ namespace CarePlus.API.Models.User
         public string Status { get; set; } = "Active";
 
         public bool EmailVerified { get; set; } = true;
+
+        public int FailedPasswordAttempts { get; set; }
+
+        public DateTime? PasswordLockoutUntilUtc { get; set; }
 
 
     }

@@ -48,7 +48,8 @@ namespace CarePlus.API.Data
             typeof(Cart),
             typeof(CartItem),
             typeof(Notification),
-            typeof(LoginActivity)
+            typeof(LoginActivity),
+            typeof(RegistrationEmailChallenge)
         };
 
         public AppDbContext(
@@ -71,6 +72,7 @@ namespace CarePlus.API.Data
         public DbSet<Medicine> Medicines { get; set; } = null!;
         public DbSet<MedicineBatch> MedicineBatches { get; set; } = null!;  
         public DbSet<MedRecord> MedicalRecords { get; set; } = null!;
+        public DbSet<DoctorReview> DoctorReviews { get; set; } = null!;
         public DbSet<Prescription> Prescriptions { get; set; } = null!;
         public DbSet<PrescriptionItem> PrescriptionItems { get; set; } = null!;
         public DbSet<DispenseRec> DispenseRecords { get; set; } = null!;
@@ -93,6 +95,7 @@ namespace CarePlus.API.Data
         public DbSet<AppSetting> AppSettings { get; set; } = null!;
         public DbSet<PaymentCard> PaymentCards { get; set; } = null!;
         public DbSet<TwoFactorChallenge> TwoFactorChallenges { get; set; } = null!;
+        public DbSet<RegistrationEmailChallenge> RegistrationEmailChallenges { get; set; } = null!;
         public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
 
@@ -101,6 +104,7 @@ namespace CarePlus.API.Data
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<User>().Property(u => u.Status).HasDefaultValue("Active");
+            modelBuilder.Entity<User>().Property(u => u.FailedPasswordAttempts).HasDefaultValue(0);
 
             modelBuilder.Entity<Patient>()
                 .HasOne(p => p.User)
@@ -164,6 +168,18 @@ namespace CarePlus.API.Data
                 .HasOne(m => m.Doctor)
                 .WithMany()
                 .HasForeignKey(m => m.DoctorId);
+
+            modelBuilder.Entity<DoctorReview>(entity =>
+            {
+                entity.HasKey(review => review.MedicalRecordId);
+                entity.Property(review => review.Description).HasMaxLength(1000);
+                entity.ToTable("DoctorReviews", table =>
+                    table.HasCheckConstraint("CK_DoctorReviews_Rating", "`Rating` BETWEEN 1 AND 5"));
+                entity.HasOne(review => review.MedicalRecord)
+                    .WithOne()
+                    .HasForeignKey<DoctorReview>(review => review.MedicalRecordId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<PersonalHealthRec>()
                 .HasOne(h => h.Patient)
