@@ -206,6 +206,11 @@ namespace CarePlus.API.Data
                 .HasOne(q => q.Patient)
                 .WithMany()
                 .HasForeignKey(q => q.PatientId);
+            modelBuilder.Entity<QueueEntry>()
+                .HasOne(q => q.Room)
+                .WithMany()
+                .HasForeignKey(q => q.RoomId)
+                .OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<QueueEntry>().Property(q => q.Status).HasDefaultValueSql("('Waiting')");
 
             modelBuilder.Entity<RoomAssignment>()

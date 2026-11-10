@@ -99,21 +99,92 @@ public class NotificationServices : INotificationServices
         foreach (var appointment in appointments)
         {
             var start = appointment.AppointmentDate.Date + appointment.AppointmentTime;
-            if (start <= now || start > now.AddDays(7)) continue;
-
             var doctor = appointment.Doctor?.User?.Name ?? "your doctor";
-            var when = FormatDateTime(start);
+            if (start > now && start <= now.AddDays(7))
+            {
+                var when = FormatDateTime(start);
+                Add(drafts, new NotificationDraft(
+                    $"appointment-reminder:{appointment.AppointmentId}",
+                    "Appointment reminder",
+                    $"Your appointment with {doctor} is scheduled for {when}.",
+                    "预约提醒",
+                    $"您与{doctor}的预约时间为{FormatDateTimeZh(start)}。",
+                    doctor,
+                    Initials(doctor),
+                    "appointment_reminder",
+                    "/visits",
+                    now));
+            }
+
+            var checkInOpens = start.AddMinutes(-10);
+            var checkInCloses = start.AddMinutes(QueueServices.QueueServices.CheckInMinutesAfter);
+            if (appointment.CheckInStatus.Equals("Pending", StringComparison.OrdinalIgnoreCase)
+                && now >= checkInOpens
+                && now <= checkInCloses)
+            {
+                Add(drafts, new NotificationDraft(
+                    $"check-in-reminder:{appointment.AppointmentId}",
+                    "Check in for your appointment",
+                    $"Your appointment with {doctor} starts at {start:h:mm tt}. Check in by {checkInCloses:h:mm tt} to receive your queue number and avoid automatic cancellation.",
+                    "预约报到提醒",
+                    $"您与{doctor}的预约将于{start:HH:mm}开始。请在{checkInCloses:HH:mm}前报到，以获取排队号码并避免预约自动取消。",
+                    doctor,
+                    Initials(doctor),
+                    "check_in_reminder",
+                    $"/queue?appointmentId={Uri.EscapeDataString(appointment.AppointmentId)}",
+                    checkInOpens));
+            }
+        }
+
+        var queueEntries = await _db.QueueEntries
+            .AsNoTracking()
+            .Include(row => row.Appointment).ThenInclude(row => row!.Doctor).ThenInclude(row => row.User)
+            .Include(row => row.Room)
+            .Where(row => row.PatientId == patientId
+                && (row.Status == "Waiting" || row.Status == "Called" || row.Status == "InConsultation"))
+            .ToListAsync();
+        foreach (var entry in queueEntries)
+        {
+            var group = await _db.QueueEntries.AsNoTracking()
+                .Where(row => row.QueueType == entry.QueueType)
+                .OrderBy(row => row.CheckInTime)
+                .ThenBy(row => row.QueueId)
+                .ToListAsync();
+            var position = Math.Max(1, group.FindIndex(row => row.QueueId == entry.QueueId) + 1);
+            var peopleAhead = entry.Status.Equals("Waiting", StringComparison.OrdinalIgnoreCase)
+                ? group.Count(row => row.QueueId != entry.QueueId
+                    && row.CheckInTime <= entry.CheckInTime
+                    && (row.Status == "Waiting" || row.Status == "Called" || row.Status == "InConsultation"))
+                : 0;
+            var queueNumber = $"Q{position:000}";
+            var doctor = entry.Appointment?.Doctor?.User?.Name ?? "CarePlus doctor";
+            var message = entry.Status switch
+            {
+                "Called" => entry.Room == null
+                    ? $"Queue {queueNumber} has been called. Please proceed to the clinic counter."
+                    : $"Queue {queueNumber} has been called. Please proceed to {entry.Room.RoomName}.",
+                "InConsultation" => $"Queue {queueNumber} is now in consultation.",
+                _ => $"You are {queueNumber}. {peopleAhead} patient(s) are ahead of you.",
+            };
+            var messageZh = entry.Status switch
+            {
+                "Called" => entry.Room == null
+                    ? $"排队号码 {queueNumber} 已被叫号。请前往诊所柜台。"
+                    : $"排队号码 {queueNumber} 已被叫号。请前往{entry.Room.RoomName}。",
+                "InConsultation" => $"排队号码 {queueNumber} 正在看诊。",
+                _ => $"您的排队号码是 {queueNumber}，前面还有{peopleAhead}位病人。",
+            };
             Add(drafts, new NotificationDraft(
-                $"appointment-reminder:{appointment.AppointmentId}",
-                "Appointment reminder",
-                $"Your appointment with {doctor} is scheduled for {when}.",
-                "预约提醒",
-                $"您与{doctor}的预约时间为{FormatDateTimeZh(start)}。",
+                $"queue-update:{entry.QueueId}:{entry.Status.ToLowerInvariant()}",
+                "Queue update",
+                message,
+                "排队更新",
+                messageZh,
                 doctor,
                 Initials(doctor),
-                "appointment_reminder",
-                "/visits",
-                now));
+                "queue_update",
+                "/queue",
+                entry.CheckInTime));
         }
 
         var invoices = await _db.Invoices
@@ -293,9 +364,11 @@ public class NotificationServices : INotificationServices
 
     private static void Add(Dictionary<string, NotificationDraft> drafts, NotificationDraft draft) => drafts[draft.Id] = draft;
 
-    private static bool IsReminder(string type) => type is "appointment_reminder" or "payment_reminder" or "medicine_update";
+    private static bool IsReminder(string type) => type is "appointment_reminder" or "appointment_cancelled" or "check_in_reminder" or "queue_update" or "payment_reminder" or "medicine_update";
 
     private static bool IsGenerated(string id) => id.StartsWith("appointment-reminder:", StringComparison.Ordinal)
+        || id.StartsWith("check-in-reminder:", StringComparison.Ordinal)
+        || id.StartsWith("queue-update:", StringComparison.Ordinal)
         || id.StartsWith("payment-reminder:", StringComparison.Ordinal)
         || id.StartsWith("medicine-update:", StringComparison.Ordinal)
         || id.StartsWith("family-invite:", StringComparison.Ordinal)

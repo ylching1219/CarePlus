@@ -19,4 +19,20 @@ namespace CarePlus.API.DTO.InvoiceDTO
     {
         public string PaymentMethod { get; set; } = "";
     }
+
+    public class PaidInvoiceResponse
+    {
+        public string Id { get; set; } = "";
+        public string RecordId { get; set; } = "";
+        public string IssuedAt { get; set; } = "";
+        public string PaidAt { get; set; } = "";
+        public string Method { get; set; } = "";
+        public string DoctorId { get; set; } = "";
+        public string DoctorName { get; set; } = "";
+        public string VisitType { get; set; } = "";
+        public decimal Bill { get; set; }
+        public decimal LateFee { get; set; }
+        public int DaysOverdue { get; set; }
+        public decimal Total { get; set; }
+    }
 }

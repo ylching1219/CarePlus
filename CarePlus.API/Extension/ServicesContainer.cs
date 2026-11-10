@@ -35,6 +35,8 @@ using CarePlus.API.Services.AnnouncementServices;
 using CarePlus.API.Services.AnnouncementServices.Interface;
 using CarePlus.API.Services.NotificationServices;
 using CarePlus.API.Services.NotificationServices.Interface;
+using CarePlus.API.Services.QueueServices;
+using CarePlus.API.Services.QueueServices.Interface;
 using CarePlus.API.Services.StaffService;
 using CarePlus.API.Services.StaffService.Interface;
 using CarePlus.API.Services.UserServices;
@@ -76,6 +78,8 @@ namespace CarePlus.API.Extension
             services.AddScoped<IFamilyServices, FamilyServices>();
             services.AddScoped<IAnnouncementServices, AnnouncementServices>();
             services.AddScoped<INotificationServices, NotificationServices>();
+            services.AddScoped<IQueueServices, QueueServices>();
+            services.AddHostedService<AppointmentCheckInMonitor>();
             services.AddScoped<ICounterServices, CounterServices>();
             services.AddScoped<IStaffServices, StaffServices>();
             services.AddScoped<IAdminServices, AdminServices>();
