@@ -35,25 +35,6 @@ namespace CarePlus.API.Migrations
                 .Annotation("MySQL:Charset", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "ClinicAnnouncements",
-                columns: table => new
-                {
-                    AnnouncementId = table.Column<string>(type: "varchar(80)", maxLength: 80, nullable: false),
-                    Title = table.Column<string>(type: "longtext", nullable: false),
-                    Body = table.Column<string>(type: "longtext", nullable: false),
-                    TitleZh = table.Column<string>(type: "longtext", nullable: false),
-                    BodyZh = table.Column<string>(type: "longtext", nullable: false),
-                    PublishedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    IsPublished = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ClinicAnnouncements", x => x.AnnouncementId);
-                })
-                .Annotation("MySQL:Charset", "utf8mb4");
-
-            migrationBuilder.CreateTable(
                 name: "ClinicRooms",
                 columns: table => new
                 {
@@ -114,6 +95,25 @@ namespace CarePlus.API.Migrations
                 .Annotation("MySQL:Charset", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "RegistrationEmailChallenges",
+                columns: table => new
+                {
+                    ChallengeId = table.Column<string>(type: "varchar(64)", maxLength: 64, nullable: false),
+                    Email = table.Column<string>(type: "varchar(254)", maxLength: 254, nullable: false),
+                    SecretHash = table.Column<string>(type: "varchar(128)", maxLength: 128, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    VerifiedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    ConsumedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    Attempts = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RegistrationEmailChallenges", x => x.ChallengeId);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "Users",
                 columns: table => new
                 {
@@ -121,11 +121,13 @@ namespace CarePlus.API.Migrations
                         .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     Username = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false),
                     Name = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false),
-                    Email = table.Column<string>(type: "longtext", nullable: false),
+                    Email = table.Column<string>(type: "varchar(255)", nullable: false),
                     PasswordHash = table.Column<string>(type: "longtext", nullable: false),
                     Phone = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: true),
                     Status = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false, defaultValue: "Active"),
-                    EmailVerified = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: true)
+                    EmailVerified = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: true),
+                    FailedPasswordAttempts = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    PasswordLockoutUntilUtc = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -223,16 +225,17 @@ namespace CarePlus.API.Migrations
                 columns: table => new
                 {
                     NotificationId = table.Column<string>(type: "varchar(255)", nullable: false),
-                    UserId = table.Column<long>(type: "bigint", nullable: false),
+                    UserId = table.Column<long>(type: "bigint", nullable: true),
                     Title = table.Column<string>(type: "longtext", nullable: false),
                     Message = table.Column<string>(type: "longtext", nullable: false),
-                    Type = table.Column<string>(type: "longtext", nullable: false),
+                    Type = table.Column<string>(type: "varchar(255)", nullable: false),
                     Actor = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false, defaultValue: "CarePlus Clinic"),
                     Initials = table.Column<string>(type: "varchar(8)", maxLength: 8, nullable: false, defaultValue: "CC"),
                     TitleZh = table.Column<string>(type: "longtext", nullable: true),
                     MessageZh = table.Column<string>(type: "longtext", nullable: true),
                     Href = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: false, defaultValue: "/notifications"),
                     Status = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false, defaultValueSql: "('Unread')"),
+                    IsPublished = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
                 constraints: table =>
@@ -257,7 +260,8 @@ namespace CarePlus.API.Migrations
                     DateOfBirth = table.Column<DateTime>(type: "date", nullable: true),
                     Gender = table.Column<string>(type: "varchar(1)", nullable: false),
                     Address = table.Column<string>(type: "longtext", nullable: true),
-                    ProfilePicture = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true)
+                    ProfilePicture = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true),
+                    AnnouncementStartAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -405,6 +409,9 @@ namespace CarePlus.API.Migrations
                     MedicalHistory = table.Column<string>(type: "longtext", nullable: true),
                     Symptoms = table.Column<string>(type: "longtext", nullable: true),
                     HealthNotes = table.Column<string>(type: "longtext", nullable: true),
+                    RecordedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    PdfFileName = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true),
+                    PdfStorageName = table.Column<string>(type: "varchar(64)", maxLength: 64, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
                 constraints: table =>
@@ -618,43 +625,6 @@ namespace CarePlus.API.Migrations
                 .Annotation("MySQL:Charset", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "FamilyUseRequests",
-                columns: table => new
-                {
-                    FamilyUseRequestId = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
-                    FamilyGroupId = table.Column<long>(type: "bigint", nullable: false),
-                    FromPatientId = table.Column<string>(type: "varchar(255)", nullable: false),
-                    TargetPatientId = table.Column<string>(type: "varchar(255)", nullable: false),
-                    Status = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false, defaultValue: "Pending"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    DecidedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_FamilyUseRequests", x => x.FamilyUseRequestId);
-                    table.ForeignKey(
-                        name: "FK_FamilyUseRequests_FamilyGroups_FamilyGroupId",
-                        column: x => x.FamilyGroupId,
-                        principalTable: "FamilyGroups",
-                        principalColumn: "FamilyGroupId",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_FamilyUseRequests_Patients_FromPatientId",
-                        column: x => x.FromPatientId,
-                        principalTable: "Patients",
-                        principalColumn: "PatientId",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_FamilyUseRequests_Patients_TargetPatientId",
-                        column: x => x.TargetPatientId,
-                        principalTable: "Patients",
-                        principalColumn: "PatientId",
-                        onDelete: ReferentialAction.Cascade);
-                })
-                .Annotation("MySQL:Charset", "utf8mb4");
-
-            migrationBuilder.CreateTable(
                 name: "CartItems",
                 columns: table => new
                 {
@@ -689,6 +659,7 @@ namespace CarePlus.API.Migrations
                     AppointmentId = table.Column<string>(type: "varchar(255)", nullable: false),
                     PatientId = table.Column<string>(type: "varchar(255)", nullable: false),
                     DoctorId = table.Column<string>(type: "varchar(255)", nullable: false),
+                    RoomId = table.Column<string>(type: "varchar(255)", nullable: true),
                     AppointmentDate = table.Column<DateTime>(type: "date", nullable: false),
                     AppointmentTime = table.Column<TimeSpan>(type: "time", nullable: false),
                     ForName = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false),
@@ -703,6 +674,12 @@ namespace CarePlus.API.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Appointments", x => x.AppointmentId);
+                    table.ForeignKey(
+                        name: "FK_Appointments_ClinicRooms_RoomId",
+                        column: x => x.RoomId,
+                        principalTable: "ClinicRooms",
+                        principalColumn: "RoomId",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Appointments_Doctors_DoctorId",
                         column: x => x.DoctorId,
@@ -753,6 +730,7 @@ namespace CarePlus.API.Migrations
                 {
                     AssignmentId = table.Column<string>(type: "varchar(255)", nullable: false),
                     RoomId = table.Column<string>(type: "varchar(255)", nullable: false),
+                    ScheduleId = table.Column<string>(type: "varchar(255)", nullable: true),
                     DoctorId = table.Column<string>(type: "varchar(255)", nullable: false),
                     AssignmentDate = table.Column<DateTime>(type: "date", nullable: false),
                     StartTime = table.Column<TimeSpan>(type: "time", nullable: false),
@@ -773,6 +751,12 @@ namespace CarePlus.API.Migrations
                         principalTable: "Doctors",
                         principalColumn: "StaffId",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RoomAssignments_WorkingSchedules_ScheduleId",
+                        column: x => x.ScheduleId,
+                        principalTable: "WorkingSchedules",
+                        principalColumn: "ScheduleId",
+                        onDelete: ReferentialAction.SetNull);
                 })
                 .Annotation("MySQL:Charset", "utf8mb4");
 
@@ -830,6 +814,29 @@ namespace CarePlus.API.Migrations
                         column: x => x.PatientId,
                         principalTable: "Patients",
                         principalColumn: "PatientId",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "DoctorReviews",
+                columns: table => new
+                {
+                    MedicalRecordId = table.Column<string>(type: "varchar(255)", nullable: false),
+                    Rating = table.Column<int>(type: "int", nullable: false),
+                    Description = table.Column<string>(type: "varchar(1000)", maxLength: 1000, nullable: true),
+                    IsAnonymous = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DoctorReviews", x => x.MedicalRecordId);
+                    table.CheckConstraint("CK_DoctorReviews_Rating", "`Rating` BETWEEN 1 AND 5");
+                    table.ForeignKey(
+                        name: "FK_DoctorReviews_MedicalRecords_MedicalRecordId",
+                        column: x => x.MedicalRecordId,
+                        principalTable: "MedicalRecords",
+                        principalColumn: "MedicalRecordId",
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySQL:Charset", "utf8mb4");
@@ -989,6 +996,18 @@ namespace CarePlus.API.Migrations
                 .Annotation("MySQL:Charset", "utf8mb4");
 
             migrationBuilder.InsertData(
+                table: "ClinicRooms",
+                columns: new[] { "RoomId", "RoomName", "Status" },
+                values: new object[,]
+                {
+                    { "RM-0001", "Consultation Room 1", "Available" },
+                    { "RM-0002", "Consultation Room 2", "Available" },
+                    { "RM-0003", "Consultation Room 3", "Available" },
+                    { "RM-0004", "Consultation Room 4", "Available" },
+                    { "RM-0005", "Consultation Room 5", "Available" }
+                });
+
+            migrationBuilder.InsertData(
                 table: "Counters",
                 columns: new[] { "Id", "IsActive", "Key", "Length", "PaddingChar", "Prefix", "Step", "Value", "Version" },
                 values: new object[,]
@@ -1001,9 +1020,10 @@ namespace CarePlus.API.Migrations
                     { 6L, true, "OrderItemId", 4, "0", "ORDI", 1, 0L, 0L },
                     { 7L, true, "InvoiceId", 4, "0", "INV", 1, 0L, 0L },
                     { 8L, true, "PaymentId", 4, "0", "PAY", 1, 0L, 0L },
-                    { 9L, true, "StaffId", 6, "0", "STF", 1, 1L, 0L },
+                    { 9L, true, "StaffId", 6, "0", "STF", 1, 9L, 0L },
                     { 10L, true, "AppointmentId", 4, "0", "Apt", 1, 0L, 0L },
-                    { 11L, true, "ScheduleId", 6, "0", "SCH", 1, 0L, 0L }
+                    { 11L, true, "ScheduleId", 6, "0", "SCH", 1, 0L, 0L },
+                    { 12L, true, "RoomId", 4, "0", "RM-", 1, 5L, 0L }
                 });
 
             migrationBuilder.InsertData(
@@ -1021,8 +1041,19 @@ namespace CarePlus.API.Migrations
 
             migrationBuilder.InsertData(
                 table: "Users",
-                columns: new[] { "UserId", "Email", "EmailVerified", "Name", "PasswordHash", "Phone", "Status", "Username" },
-                values: new object[] { 1L, "admin@gmail.com", true, "Admin One", "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==", null, "Active", "admin001" });
+                columns: new[] { "UserId", "Email", "EmailVerified", "Name", "PasswordHash", "PasswordLockoutUntilUtc", "Phone", "Status", "Username" },
+                values: new object[,]
+                {
+                    { 1L, "admin@gmail.com", true, "Admin One", "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==", null, null, "Active", "admin001" },
+                    { 2L, "doctor001@careplus.local", true, "Doctor One", "AQAAAAIAAYagAAAAEGoelPdTS08xnFMkc6zJXJral4MAdthS0khrTQFqxq2lLRXB300vh4F487u+CoAz8w==", null, null, "Active", "doctor001" },
+                    { 3L, "doctor002@careplus.local", true, "Doctor Two", "AQAAAAIAAYagAAAAENVjvWCqRGeKqDx7qaMq0bZriP0cMVXCvq9/g6Uv8p8KilJeLVp9Lur77q1u6ke5Ig==", null, null, "Active", "doctor002" },
+                    { 4L, "doctor003@careplus.local", true, "Doctor Three", "AQAAAAIAAYagAAAAEKiHgZFZkJy/7Wj4tG4liN16amXXAenFi7oZG2287Iu2mtbzAoFop17fiM5oig2pdQ==", null, null, "Active", "doctor003" },
+                    { 5L, "doctor004@careplus.local", true, "Doctor Four", "AQAAAAIAAYagAAAAEPN2650fnLQvqDVcWyy2LH33rvWhntm6s7qfwifGVOMPgWEsjwDoR3fxgvdt/B3jcw==", null, null, "Active", "doctor004" },
+                    { 6L, "pharmacist001@careplus.local", true, "Pharmacist One", "AQAAAAIAAYagAAAAEG3iHfNMaN+/igy9fme2UrMWqdHuMzctlQftjRzLxm2SzFWEbriRJ6mZG+fKpPyXOw==", null, null, "Active", "pharmacist001" },
+                    { 7L, "pharmacist002@careplus.local", true, "Pharmacist Two", "AQAAAAIAAYagAAAAEJpqLtK3RlHlxiavCb2iWKGWgiF6Pm2HVlvek7ysaZb6SJ5NB4TLuGnTxVihBcGpRQ==", null, null, "Active", "pharmacist002" },
+                    { 8L, "pharmacist003@careplus.local", true, "Pharmacist Three", "AQAAAAIAAYagAAAAEMlRRueMa8uoEWnmk+vArUsHppCKM4olXhEt5NpiqYBfXkDPH/4rLJ/cAEGNJTjcqQ==", null, null, "Active", "pharmacist003" },
+                    { 9L, "pharmacist004@careplus.local", true, "Pharmacist Four", "AQAAAAIAAYagAAAAENKWTF+b0fTQnXoTV+20lfIYjoEhlZquB1pkymPpbza24sKPeXPEWx0NXQGUS8kHyw==", null, null, "Active", "pharmacist004" }
+                });
 
             migrationBuilder.InsertData(
                 table: "VisitTypes",
@@ -1037,7 +1068,18 @@ namespace CarePlus.API.Migrations
             migrationBuilder.InsertData(
                 table: "Staffs",
                 columns: new[] { "StaffId", "Role", "UserId" },
-                values: new object[] { "STF000001", "Admin", 1L });
+                values: new object[,]
+                {
+                    { "STF000001", "Admin", 1L },
+                    { "STF000002", "Doctor", 2L },
+                    { "STF000003", "Doctor", 3L },
+                    { "STF000004", "Doctor", 4L },
+                    { "STF000005", "Doctor", 5L },
+                    { "STF000006", "Pharmacist", 6L },
+                    { "STF000007", "Pharmacist", 7L },
+                    { "STF000008", "Pharmacist", 8L },
+                    { "STF000009", "Pharmacist", 9L }
+                });
 
             migrationBuilder.InsertData(
                 table: "appSetting",
@@ -1049,6 +1091,28 @@ namespace CarePlus.API.Migrations
                 columns: new[] { "StaffId", "AccessLevel", "Department" },
                 values: new object[] { "STF000001", 3, "Administration" });
 
+            migrationBuilder.InsertData(
+                table: "Doctors",
+                columns: new[] { "StaffId", "LicenseNumber", "Qualification", "Specialization", "YearsOfExperience" },
+                values: new object[,]
+                {
+                    { "STF000002", "DOC-LIC-0001", "MBBS", "General Medicine", 5 },
+                    { "STF000003", "DOC-LIC-0002", "MBBS", "Family Medicine", 7 },
+                    { "STF000004", "DOC-LIC-0003", "MD", "Internal Medicine", 9 },
+                    { "STF000005", "DOC-LIC-0004", "MBBS, Paediatrics", "Paediatrics", 4 }
+                });
+
+            migrationBuilder.InsertData(
+                table: "Pharmacists",
+                columns: new[] { "StaffId", "Certification", "LicenseNumber", "Qualification", "YearsOfExperience" },
+                values: new object[,]
+                {
+                    { "STF000006", "Registered Pharmacist", "PHA-LIC-0001", "Bachelor of Pharmacy", 5 },
+                    { "STF000007", "Registered Pharmacist", "PHA-LIC-0002", "Bachelor of Pharmacy", 6 },
+                    { "STF000008", "Registered Pharmacist", "PHA-LIC-0003", "Diploma in Pharmacy", 3 },
+                    { "STF000009", "Registered Pharmacist", "PHA-LIC-0004", "Bachelor of Pharmacy", 8 }
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_Appointments_DoctorId",
                 table: "Appointments",
@@ -1058,6 +1122,11 @@ namespace CarePlus.API.Migrations
                 name: "IX_Appointments_PatientId",
                 table: "Appointments",
                 column: "PatientId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Appointments_RoomId",
+                table: "Appointments",
+                column: "RoomId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_appSetting_UserId",
@@ -1084,11 +1153,6 @@ namespace CarePlus.API.Migrations
                 name: "IX_CartItems_MedicineId",
                 table: "CartItems",
                 column: "MedicineId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ClinicAnnouncements_IsPublished_PublishedAt",
-                table: "ClinicAnnouncements",
-                columns: new[] { "IsPublished", "PublishedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Counters_Key",
@@ -1132,21 +1196,6 @@ namespace CarePlus.API.Migrations
                 name: "IX_FamilyMembers_PatientId",
                 table: "FamilyMembers",
                 column: "PatientId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_FamilyUseRequests_FamilyGroupId_FromPatientId_TargetPatientI~",
-                table: "FamilyUseRequests",
-                columns: new[] { "FamilyGroupId", "FromPatientId", "TargetPatientId", "Status" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_FamilyUseRequests_FromPatientId",
-                table: "FamilyUseRequests",
-                column: "FromPatientId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_FamilyUseRequests_TargetPatientId",
-                table: "FamilyUseRequests",
-                column: "TargetPatientId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Invoices_MedicalRecordId",
@@ -1197,6 +1246,11 @@ namespace CarePlus.API.Migrations
                 name: "IX_MedicineOrders_PatientId",
                 table: "MedicineOrders",
                 column: "PatientId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notifications_Type_UserId_CreatedAt",
+                table: "Notifications",
+                columns: new[] { "Type", "UserId", "CreatedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Notifications_UserId",
@@ -1276,6 +1330,11 @@ namespace CarePlus.API.Migrations
                 column: "PatientId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RegistrationEmailChallenges_Email_CreatedAt",
+                table: "RegistrationEmailChallenges",
+                columns: new[] { "Email", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RoomAssignments_DoctorId",
                 table: "RoomAssignments",
                 column: "DoctorId");
@@ -1284,6 +1343,12 @@ namespace CarePlus.API.Migrations
                 name: "IX_RoomAssignments_RoomId",
                 table: "RoomAssignments",
                 column: "RoomId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoomAssignments_ScheduleId",
+                table: "RoomAssignments",
+                column: "ScheduleId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ShoppingCarts_PatientId",
@@ -1301,6 +1366,18 @@ namespace CarePlus.API.Migrations
                 name: "IX_TwoFactorChallenges_UserId_Purpose_CreatedAt",
                 table: "TwoFactorChallenges",
                 columns: new[] { "UserId", "Purpose", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Email",
+                table: "Users",
+                column: "Email",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Phone",
+                table: "Users",
+                column: "Phone",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_Username",
@@ -1330,19 +1407,16 @@ namespace CarePlus.API.Migrations
                 name: "CartItems");
 
             migrationBuilder.DropTable(
-                name: "ClinicAnnouncements");
-
-            migrationBuilder.DropTable(
                 name: "Counters");
 
             migrationBuilder.DropTable(
                 name: "DispensingRecords");
 
             migrationBuilder.DropTable(
-                name: "FamilyMembers");
+                name: "DoctorReviews");
 
             migrationBuilder.DropTable(
-                name: "FamilyUseRequests");
+                name: "FamilyMembers");
 
             migrationBuilder.DropTable(
                 name: "LeaveApplications");
@@ -1375,6 +1449,9 @@ namespace CarePlus.API.Migrations
                 name: "QueueEntries");
 
             migrationBuilder.DropTable(
+                name: "RegistrationEmailChallenges");
+
+            migrationBuilder.DropTable(
                 name: "RoomAssignments");
 
             migrationBuilder.DropTable(
@@ -1382,9 +1459,6 @@ namespace CarePlus.API.Migrations
 
             migrationBuilder.DropTable(
                 name: "VisitTypes");
-
-            migrationBuilder.DropTable(
-                name: "WorkingSchedules");
 
             migrationBuilder.DropTable(
                 name: "ShoppingCarts");
@@ -1408,13 +1482,16 @@ namespace CarePlus.API.Migrations
                 name: "Appointments");
 
             migrationBuilder.DropTable(
-                name: "ClinicRooms");
+                name: "WorkingSchedules");
 
             migrationBuilder.DropTable(
                 name: "MedicineOrders");
 
             migrationBuilder.DropTable(
                 name: "MedicalRecords");
+
+            migrationBuilder.DropTable(
+                name: "ClinicRooms");
 
             migrationBuilder.DropTable(
                 name: "DeliveryAddresses");
