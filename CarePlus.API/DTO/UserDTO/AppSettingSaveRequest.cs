@@ -5,6 +5,7 @@ namespace CarePlus.API.DTO.UserDTO
         public string? Appearance { get; set; }
         public string? Language { get; set; }
         public string? Notification { get; set; }
+        public string? TextSize { get; set; }
         public bool? HasCompletedTutorial { get; set; }
     }
 }
