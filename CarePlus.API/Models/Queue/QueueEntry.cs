@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using CarePlus.API.Models.Room;
 
 namespace CarePlus.API.Models.Queue
 {
@@ -16,6 +17,9 @@ namespace CarePlus.API.Models.Queue
         
         public string? AppointmentId { get; set; }
         public Appointment.Appointment? Appointment { get; set; }
+
+        public string? RoomId { get; set; }
+        public ClinicRoom? Room { get; set; }
 
         [Required]
         public string QueueType { get; set; } = null!; 

@@ -36,6 +36,50 @@ namespace CarePlus.API.Services.InvoiceServices
             return ApiResponse<List<OutstandingInvoiceResponse>>.Ok(rows.Select(row => ToResponse(row, today)).ToList());
         }
 
+        public async Task<ApiResponse<List<PaidInvoiceResponse>>> ListPaidAsync(long userId)
+        {
+            var patient = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(row => row.UserId == userId);
+            if (patient == null)
+            {
+                return ApiResponse<List<PaidInvoiceResponse>>.Fail("This account is not a patient account.", 400);
+            }
+
+            var rows = await _db.Payments.AsNoTracking()
+                .Include(row => row.Invoice)
+                    .ThenInclude(invoice => invoice.MedicalRecord)
+                .Where(row => row.Invoice.PatientId == patient.PatientId
+                    && row.Invoice.MedicalRecordId != null
+                    && (row.Status == "Paid" || row.Status == "Completed"))
+                .OrderByDescending(row => row.TransactionDate)
+                .ToListAsync();
+
+            var result = rows.Select(row =>
+            {
+                var invoice = row.Invoice;
+                var overdueDays = row.DueDate == null
+                    ? 0
+                    : Math.Max(0, (row.TransactionDate.Date - row.DueDate.Value.Date).Days);
+                var lateFee = Math.Max(0m, row.TotalAmount - invoice.TotalAmount);
+                return new PaidInvoiceResponse
+                {
+                    Id = row.PaymentId,
+                    RecordId = invoice.RecordRef ?? invoice.MedicalRecordId ?? "",
+                    IssuedAt = ToMalaysiaOffset(invoice.IssueAt),
+                    PaidAt = ToMalaysiaOffset(row.TransactionDate),
+                    Method = row.PaymentMethod,
+                    DoctorId = invoice.MedicalRecord?.DoctorId ?? "",
+                    DoctorName = invoice.DoctorName ?? "",
+                    VisitType = invoice.VisitType ?? "",
+                    Bill = invoice.TotalAmount,
+                    LateFee = lateFee,
+                    DaysOverdue = overdueDays,
+                    Total = row.TotalAmount,
+                };
+            }).ToList();
+
+            return ApiResponse<List<PaidInvoiceResponse>>.Ok(result);
+        }
+
         public async Task<ApiResponse<OutstandingInvoiceResponse>> PayAsync(long userId, string invoiceId, InvoicePayRequest request)
         {
             var patient = await _db.Patients.FirstOrDefaultAsync(row => row.UserId == userId);
@@ -105,6 +149,12 @@ namespace CarePlus.API.Services.InvoiceServices
                 LateFee = lateFee,
                 AmountDue = invoice.TotalAmount + lateFee,
             };
+        }
+
+        private static string ToMalaysiaOffset(DateTime value)
+        {
+            return new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Unspecified), TimeSpan.FromHours(8))
+                .ToString("yyyy-MM-ddTHH:mm:sszzz");
         }
     }
 }
