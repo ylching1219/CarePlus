@@ -90,6 +90,44 @@ namespace CarePlus.API.Services.AppointmentServices
             return ApiResponse<BookingSlotsResponse>.Ok(slots);
         }
 
+        public async Task<ApiResponse<List<string>>> GetAvailableDatesAsync(long userId, string doctorId, int days)
+        {
+            if (await FindPatientAsync(userId) == null)
+            {
+                return ApiResponse<List<string>>.Fail("This account is not a patient account.", 400);
+            }
+
+            var doctorKey = (doctorId ?? "any").Trim();
+            if (doctorKey.Length == 0)
+            {
+                return ApiResponse<List<string>>.Fail("Pick a doctor.", 400);
+            }
+
+            var rangeDays = Math.Clamp(days, 7, 180);
+            var today = DateOnly.FromDateTime(DateTimeHelper.MalaysiaNow());
+            var lastDay = today.AddDays(rangeDays);
+            var schedules = _db.WorkSchedules
+                .AsNoTracking()
+                .Where(row => row.Status == "Active" && row.WorkingDate >= today && row.WorkingDate <= lastDay);
+
+            if (!doctorKey.Equals("any", StringComparison.OrdinalIgnoreCase))
+            {
+                schedules = schedules.Where(row => row.StaffId == doctorKey);
+            }
+
+            var dates = await schedules
+                .Where(schedule => _db.RoomAssignments.Any(assignment =>
+                    assignment.ScheduleId == schedule.ScheduleId
+                    || (assignment.DoctorId == schedule.StaffId
+                        && assignment.AssignmentDate == schedule.WorkingDate)))
+                .Select(row => row.WorkingDate)
+                .Distinct()
+                .OrderBy(day => day)
+                .ToListAsync();
+
+            return ApiResponse<List<string>>.Ok(dates.Select(day => day.ToString("yyyy-MM-dd")).ToList());
+        }
+
         public async Task<ApiResponse<List<BookingDoctorResponse>>> GetAvailableDoctorsAsync(
             string? date,
             string? time)

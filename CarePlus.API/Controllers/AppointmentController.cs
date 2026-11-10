@@ -40,6 +40,19 @@ namespace CarePlus.API.Controllers
             return Ok(await _appointments.GetSlotsAsync(userId, date, doctorId));
         }
 
+        [HttpGet("AvailableDates")]
+        public async Task<IActionResult> AvailableDates(
+            [FromQuery] string doctorId = "any",
+            [FromQuery] int days = 90)
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<List<string>>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _appointments.GetAvailableDatesAsync(userId, doctorId, days));
+        }
+
         [HttpGet("AvailableDoctors")]
         public async Task<IActionResult> AvailableDoctors(
             [FromQuery] string? date = null,
