@@ -40,6 +40,15 @@ namespace CarePlus.API.Controllers
             return Ok(await _appointments.GetSlotsAsync(userId, date, doctorId));
         }
 
+        [Authorize(Roles = "Admin")]
+        [HttpGet("AvailableDoctors")]
+        public async Task<IActionResult> AvailableDoctors(
+            [FromQuery] string? date = null,
+            [FromQuery] string? time = null)
+        {
+            return Ok(await _appointments.GetAvailableDoctorsAsync(date, time));
+        }
+
         [HttpGet("Upcoming")]
         public async Task<IActionResult> Upcoming()
         {
@@ -84,6 +93,29 @@ namespace CarePlus.API.Controllers
             }
 
             return Ok(await _appointments.BookAsync(userId, request));
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("Staff")]
+        public async Task<IActionResult> StaffBook([FromBody] StaffAppointmentBookRequest request)
+        {
+            return Ok(await _appointments.BookForStaffAsync(request));
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("Staff/{id}/Cancel")]
+        public async Task<IActionResult> StaffCancel(string id)
+        {
+            return Ok(await _appointments.CancelForStaffAsync(id));
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("Staff/{id}/Reschedule")]
+        public async Task<IActionResult> StaffReschedule(
+            string id,
+            [FromBody] AppointmentRescheduleRequest request)
+        {
+            return Ok(await _appointments.RescheduleForStaffAsync(id, request));
         }
 
         [HttpPost("{id}/Cancel")]
