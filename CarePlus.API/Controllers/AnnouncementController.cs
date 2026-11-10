@@ -1,4 +1,4 @@
-using CarePlus.API.Services.AnnouncementServices.Interface;
+using CarePlus.API.Services.NotificationServices.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,13 +9,13 @@ namespace CarePlus.API.Controllers;
 [AllowAnonymous]
 public class AnnouncementController : ControllerBase
 {
-    private readonly IAnnouncementServices _announcements;
+    private readonly INotificationServices _notifications;
 
-    public AnnouncementController(IAnnouncementServices announcements)
+    public AnnouncementController(INotificationServices notifications)
     {
-        _announcements = announcements;
+        _notifications = notifications;
     }
 
     [HttpGet]
-    public async Task<IActionResult> List() => Ok(await _announcements.ListPublishedAsync());
+    public async Task<IActionResult> List() => Ok(await _notifications.ListPublishedAsync());
 }

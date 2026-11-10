@@ -29,6 +29,17 @@ namespace CarePlus.API.Controllers
             return Ok(await _invoices.ListOutstandingAsync(userId));
         }
 
+        [HttpGet("History")]
+        public async Task<IActionResult> History()
+        {
+            if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            {
+                return Unauthorized(ApiResponse<List<PaidInvoiceResponse>>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _invoices.ListPaidAsync(userId));
+        }
+
         [HttpPost("{id}/Pay")]
         public async Task<IActionResult> Pay(string id, InvoicePayRequest request)
         {

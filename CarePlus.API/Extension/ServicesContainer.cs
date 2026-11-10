@@ -33,10 +33,10 @@ using CarePlus.API.Services.PatientServices;
 using CarePlus.API.Services.PatientServices.Interface;
 using CarePlus.API.Services.FamilyServices;
 using CarePlus.API.Services.FamilyServices.Interface;
-using CarePlus.API.Services.AnnouncementServices;
-using CarePlus.API.Services.AnnouncementServices.Interface;
 using CarePlus.API.Services.NotificationServices;
 using CarePlus.API.Services.NotificationServices.Interface;
+using CarePlus.API.Services.QueueServices;
+using CarePlus.API.Services.QueueServices.Interface;
 using CarePlus.API.Services.StaffService;
 using CarePlus.API.Services.StaffService.Interface;
 using CarePlus.API.Services.UserServices;
@@ -76,8 +76,9 @@ namespace CarePlus.API.Extension
             services.AddScoped<IRegistrationEmailVerificationServices, RegistrationEmailVerificationServices>();
             services.AddScoped<IPatientServices, PatientServices>();
             services.AddScoped<IFamilyServices, FamilyServices>();
-            services.AddScoped<IAnnouncementServices, AnnouncementServices>();
             services.AddScoped<INotificationServices, NotificationServices>();
+            services.AddScoped<IQueueServices, QueueServices>();
+            services.AddHostedService<AppointmentCheckInMonitor>();
             services.AddScoped<ICounterServices, CounterServices>();
             services.AddScoped<IStaffServices, StaffServices>();
             services.AddScoped<IAdminServices, AdminServices>();
@@ -99,6 +100,7 @@ namespace CarePlus.API.Extension
             services.Configure<QdrantOptions>(config.GetSection(QdrantOptions.SectionName));
             services.Configure<ChatOptions>(config.GetSection(ChatOptions.SectionName));
             services.AddScoped<IChatServices, ChatServices>();
+            services.AddScoped<IChatHistoryServices, ChatHistoryServices>();
             services.AddHttpClient<IVectorKnowledgeStore, QdrantKnowledgeStore>(client =>
                 client.Timeout = TimeSpan.FromSeconds(45));
             services.AddHttpClient<IGroqChatClient, GroqChatClient>(client =>
