@@ -40,7 +40,6 @@ namespace CarePlus.API.Controllers
             return Ok(await _appointments.GetSlotsAsync(userId, date, doctorId));
         }
 
-        [Authorize(Roles = "Admin")]
         [HttpGet("AvailableDoctors")]
         public async Task<IActionResult> AvailableDoctors(
             [FromQuery] string? date = null,
