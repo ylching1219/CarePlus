@@ -1032,6 +1032,7 @@ namespace CarePlus.API.Services.UserServices
                     Appearance = "light",
                     Language = staff ? null : "en",
                     Notification = "all",
+                    TextSize = "normal",
                     TwoFactorEnabled = false,
                     HasCompletedTutorial = false,
                 });
@@ -1048,6 +1049,12 @@ namespace CarePlus.API.Services.UserServices
             if (string.IsNullOrWhiteSpace(setting.Notification))
             {
                 setting.Notification = "all";
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(setting.TextSize))
+            {
+                setting.TextSize = "normal";
                 changed = true;
             }
 
@@ -1076,6 +1083,7 @@ namespace CarePlus.API.Services.UserServices
                 Appearance = "light",
                 Language = staff == null ? "en" : null,
                 Notification = "all",
+                TextSize = "normal",
                 TwoFactorEnabled = false,
                 HasCompletedTutorial = false,
             };
@@ -1157,6 +1165,17 @@ namespace CarePlus.API.Services.UserServices
                 setting.Notification = notification;
             }
 
+            if (!string.IsNullOrWhiteSpace(request.TextSize))
+            {
+                var textSize = request.TextSize.Trim().ToLowerInvariant();
+                if (textSize != "normal" && textSize != "large" && textSize != "larger")
+                {
+                    return "TextSize must be normal, large, or larger.";
+                }
+
+                setting.TextSize = textSize;
+            }
+
             if (request.HasCompletedTutorial.HasValue)
             {
                 setting.HasCompletedTutorial = request.HasCompletedTutorial.Value;
@@ -1172,6 +1191,7 @@ namespace CarePlus.API.Services.UserServices
                 Appearance = setting.Appearance,
                 Language = setting.Language,
                 Notification = setting.Notification,
+                TextSize = string.IsNullOrWhiteSpace(setting.TextSize) ? "normal" : setting.TextSize,
                 TwoFactorEnabled = setting.TwoFactorEnabled,
                 HasCompletedTutorial = setting.HasCompletedTutorial,
             };

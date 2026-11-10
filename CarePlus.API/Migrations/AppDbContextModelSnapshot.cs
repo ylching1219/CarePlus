@@ -186,6 +186,73 @@ namespace CarePlus.API.Migrations
                     b.ToTable("CartItems");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatMessage", b =>
+                {
+                    b.Property<long>("ChatMessageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ChatThreadId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Disclaimer")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("SourcesJson")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("ChatMessageId");
+
+                    b.HasIndex("ChatThreadId", "CreatedAt");
+
+                    b.ToTable("ChatMessages", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ChatMessages_Role", "`Role` IN ('user', 'assistant')");
+                        });
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatThread", b =>
+                {
+                    b.Property<long>("ChatThreadId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PatientId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ChatThreadId");
+
+                    b.HasIndex("PatientId", "UpdatedAt");
+
+                    b.ToTable("ChatThreads");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.Common.AuditLog", b =>
                 {
                     b.Property<string>("LogId")
@@ -655,6 +722,32 @@ namespace CarePlus.API.Migrations
                     b.ToTable("LeaveApplications");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.MedicalRecord.DoctorReview", b =>
+                {
+                    b.Property<string>("MedicalRecordId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<bool>("IsAnonymous")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.HasKey("MedicalRecordId");
+
+                    b.ToTable("DoctorReviews", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DoctorReviews_Rating", "`Rating` BETWEEN 1 AND 5");
+                        });
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.MedicalRecord.MedRecord", b =>
                 {
                     b.Property<string>("MedicalRecordId")
@@ -1080,6 +1173,9 @@ namespace CarePlus.API.Migrations
                     b.Property<string>("Address")
                         .HasColumnType("longtext");
 
+                    b.Property<DateTime?>("AnnouncementStartAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("date");
 
@@ -1218,9 +1314,20 @@ namespace CarePlus.API.Migrations
                         .IsRequired()
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("PdfFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PdfStorageName")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
                     b.Property<string>("RecordType")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("RecordedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Symptoms")
                         .HasColumnType("longtext");
@@ -1321,6 +1428,9 @@ namespace CarePlus.API.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("RoomId")
+                        .HasColumnType("varchar(255)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1332,6 +1442,8 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("AppointmentId");
 
                     b.HasIndex("PatientId");
+
+                    b.HasIndex("RoomId");
 
                     b.ToTable("QueueEntries");
                 });
@@ -1416,6 +1528,11 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("varchar(10)")
                         .HasDefaultValue("all");
 
+                    b.Property<string>("TextSize")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint(1)")
@@ -1438,6 +1555,7 @@ namespace CarePlus.API.Migrations
                             Appearance = "dark",
                             HasCompletedTutorial = false,
                             Notification = "all",
+                            TextSize = "normal",
                             TwoFactorEnabled = false,
                             UserId = 1L
                         });
@@ -1470,6 +1588,44 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("LoginActivities");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.User.RegistrationEmailChallenge", b =>
+                {
+                    b.Property<string>("ChallengeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("varchar(254)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SecretHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ChallengeId");
+
+                    b.HasIndex("Email", "CreatedAt");
+
+                    b.ToTable("RegistrationEmailChallenges");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.Staff.Staff", b =>
@@ -1540,12 +1696,17 @@ namespace CarePlus.API.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<bool>("EmailVerified")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
+
+                    b.Property<int>("FailedPasswordAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1555,6 +1716,9 @@ namespace CarePlus.API.Migrations
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("PasswordLockoutUntilUtc")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
@@ -1574,6 +1738,12 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("UserId");
 
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Phone")
+                        .IsUnique();
+
                     b.HasIndex("Username")
                         .IsUnique();
 
@@ -1585,6 +1755,7 @@ namespace CarePlus.API.Migrations
                             UserId = 1L,
                             Email = "admin@gmail.com",
                             EmailVerified = true,
+                            FailedPasswordAttempts = 0,
                             Name = "Admin One",
                             PasswordHash = "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==",
                             Status = "Active",
@@ -1752,6 +1923,28 @@ namespace CarePlus.API.Migrations
                     b.Navigation("Medicine");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatMessage", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.Chat.ChatThread", "ChatThread")
+                        .WithMany("Messages")
+                        .HasForeignKey("ChatThreadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChatThread");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatThread", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.Patient.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.DeliveryAddress.DeliveryAddress", b =>
                 {
                     b.HasOne("CarePlus.API.Models.Patient.Patient", "Patient")
@@ -1844,6 +2037,17 @@ namespace CarePlus.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Staff");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.MedicalRecord.DoctorReview", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.MedicalRecord.MedRecord", "MedicalRecord")
+                        .WithOne()
+                        .HasForeignKey("CarePlus.API.Models.MedicalRecord.DoctorReview", "MedicalRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MedicalRecord");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.MedicalRecord.MedRecord", b =>
@@ -2023,9 +2227,16 @@ namespace CarePlus.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CarePlus.API.Models.Room.ClinicRoom", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Appointment");
 
                     b.Navigation("Patient");
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.RoomAssg.RoomAssignment", b =>
@@ -2127,6 +2338,11 @@ namespace CarePlus.API.Migrations
                         .HasForeignKey("CarePlus.API.Models.User.Staff.Pharmacist.Pharmacist", "StaffId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatThread", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }
