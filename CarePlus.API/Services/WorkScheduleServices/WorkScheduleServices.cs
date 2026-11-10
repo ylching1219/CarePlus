@@ -1,8 +1,11 @@
+using CarePlus.API.Data;
 using CarePlus.API.DTO.WorkScheduleDTO;
+using CarePlus.API.Models.RoomAssg;
 using CarePlus.API.Models.WorkSch;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.CounterServices.Interface;
 using CarePlus.API.Services.WorkScheduleServices.Interface;
+using Microsoft.EntityFrameworkCore;
 
 namespace CarePlus.API.Services.WorkScheduleServices
 {
@@ -25,15 +28,18 @@ namespace CarePlus.API.Services.WorkScheduleServices
         private readonly IWorkScheduleRepository _workScheduleRepo;
         private readonly IStaffRepository _staffRepo;
         private readonly ICounterServices _counterService;
+        private readonly AppDbContext _db;
 
         public WorkScheduleServices(
             IWorkScheduleRepository workScheduleRepo,
             IStaffRepository staffRepo,
-            ICounterServices counterService)
+            ICounterServices counterService,
+            AppDbContext db)
         {
             _workScheduleRepo = workScheduleRepo;
             _staffRepo = staffRepo;
             _counterService = counterService;
+            _db = db;
         }
 
         public async Task<ApiResponse<object>> CreateWorkScheduleAsync(
@@ -84,7 +90,7 @@ namespace CarePlus.API.Services.WorkScheduleServices
                 await _workScheduleRepo.CreateWorkScheduleAsync(workSchedule);
 
                 workSchedule.Staff = staff;
-                return ApiResponse<object>.Ok(ToResponse(workSchedule));
+                return ApiResponse<object>.Ok(ToResponse(workSchedule, null));
             }
             catch (Exception ex)
             {
@@ -115,7 +121,14 @@ namespace CarePlus.API.Services.WorkScheduleServices
                     return ApiResponse<object>.Fail("No work schedule found.", 404);
                 }
 
-                return ApiResponse<object>.Ok(schedules.Select(ToResponse).ToList());
+                var assignments = await LoadRoomAssignmentsAsync(
+                    schedules.Select(schedule => schedule.ScheduleId));
+
+                return ApiResponse<object>.Ok(schedules
+                    .Select(schedule => ToResponse(
+                        schedule,
+                        assignments.GetValueOrDefault(schedule.ScheduleId)))
+                    .ToList());
             }
             catch (Exception ex)
             {
@@ -151,7 +164,8 @@ namespace CarePlus.API.Services.WorkScheduleServices
                         "You can only view your own work schedules.", 403);
                 }
 
-                return ApiResponse<object>.Ok(ToResponse(schedule));
+                var assignment = await LoadRoomAssignmentAsync(schedule.ScheduleId);
+                return ApiResponse<object>.Ok(ToResponse(schedule, assignment));
             }
             catch (Exception ex)
             {
@@ -191,7 +205,14 @@ namespace CarePlus.API.Services.WorkScheduleServices
                         "No work schedule found for this staff member.", 404);
                 }
 
-                return ApiResponse<object>.Ok(schedules.Select(ToResponse).ToList());
+                var assignments = await LoadRoomAssignmentsAsync(
+                    schedules.Select(schedule => schedule.ScheduleId));
+
+                return ApiResponse<object>.Ok(schedules
+                    .Select(schedule => ToResponse(
+                        schedule,
+                        assignments.GetValueOrDefault(schedule.ScheduleId)))
+                    .ToList());
             }
             catch (Exception ex)
             {
@@ -252,13 +273,55 @@ namespace CarePlus.API.Services.WorkScheduleServices
                     }
                 }
 
+                var roomAssignment = await LoadRoomAssignmentAsync(
+                    schedule.ScheduleId,
+                    trackChanges: true);
+                if (roomAssignment != null)
+                {
+                    var (startTime, endTime) = ShiftBounds(shift);
+                    var requestedStart = workingDate.ToDateTime(startTime);
+                    var requestedEnd = workingDate.ToDateTime(endTime);
+                    if (requestedEnd <= requestedStart)
+                    {
+                        requestedEnd = requestedEnd.AddDays(1);
+                    }
+
+                    var conflictingAssignments = await _db.RoomAssignments
+                        .AsNoTracking()
+                        .Where(item => item.RoomId == roomAssignment.RoomId
+                            && item.AssignmentId != roomAssignment.AssignmentId)
+                        .ToListAsync();
+
+                    var roomConflict = conflictingAssignments.Any(item =>
+                    {
+                        var existingStart = item.AssignmentDate.ToDateTime(item.StartTime);
+                        var existingEnd = item.AssignmentDate.ToDateTime(item.EndTime);
+                        if (existingEnd <= existingStart)
+                        {
+                            existingEnd = existingEnd.AddDays(1);
+                        }
+
+                        return requestedStart < existingEnd && existingStart < requestedEnd;
+                    });
+
+                    if (roomConflict)
+                    {
+                        return ApiResponse<object>.Fail(
+                            "The assigned clinic room is already in use during that shift.", 409);
+                    }
+
+                    roomAssignment.AssignmentDate = workingDate;
+                    roomAssignment.StartTime = startTime;
+                    roomAssignment.EndTime = endTime;
+                }
+
                 schedule.WorkingDate = workingDate;
                 schedule.Shift = shift;
                 schedule.Status = status;
 
                 await _workScheduleRepo.UpdateWorkScheduleAsync(schedule);
 
-                return ApiResponse<object>.Ok(ToResponse(schedule));
+                return ApiResponse<object>.Ok(ToResponse(schedule, roomAssignment));
             }
             catch (Exception ex)
             {
@@ -268,7 +331,8 @@ namespace CarePlus.API.Services.WorkScheduleServices
         }
 
         private static WorkScheduleRetrieveResponse ToResponse(
-            WorkSchedule workSchedule)
+            WorkSchedule workSchedule,
+            RoomAssignment? roomAssignment)
         {
             return new WorkScheduleRetrieveResponse
             {
@@ -281,8 +345,54 @@ namespace CarePlus.API.Services.WorkScheduleServices
                 Role = workSchedule.Staff?.Role ?? string.Empty,
                 WorkingDate = workSchedule.WorkingDate,
                 Shift = workSchedule.Shift,
-                Status = workSchedule.Status
+                Status = workSchedule.Status,
+                RoomAssignmentId = roomAssignment?.AssignmentId,
+                RoomId = roomAssignment?.RoomId,
+                RoomName = roomAssignment?.Room?.RoomName,
             };
+        }
+
+        private async Task<RoomAssignment?> LoadRoomAssignmentAsync(
+            string scheduleId,
+            bool trackChanges = false)
+        {
+            var query = _db.RoomAssignments
+                .Include(assignment => assignment.Room)
+                .Where(assignment => assignment.ScheduleId == scheduleId);
+
+            if (!trackChanges)
+            {
+                query = query.AsNoTracking();
+            }
+
+            return await query.FirstOrDefaultAsync();
+        }
+
+        private async Task<Dictionary<string, RoomAssignment>> LoadRoomAssignmentsAsync(
+            IEnumerable<string> scheduleIds)
+        {
+            var ids = scheduleIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (ids.Count == 0)
+            {
+                return new Dictionary<string, RoomAssignment>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            var assignments = await _db.RoomAssignments
+                .AsNoTracking()
+                .Include(assignment => assignment.Room)
+                .Where(assignment => assignment.ScheduleId != null
+                    && ids.Contains(assignment.ScheduleId))
+                .ToListAsync();
+
+            return assignments
+                .Where(assignment => assignment.ScheduleId != null)
+                .ToDictionary(
+                    assignment => assignment.ScheduleId!,
+                    StringComparer.OrdinalIgnoreCase);
         }
 
         private static bool TryNormalizeShift(
@@ -308,6 +418,13 @@ namespace CarePlus.API.Services.WorkScheduleServices
 
         private static bool IsAdminRole(string? role) =>
             string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+        private static (TimeOnly Start, TimeOnly End) ShiftBounds(string shift)
+        {
+            return string.Equals(shift, "Night", StringComparison.OrdinalIgnoreCase)
+                ? (new TimeOnly(18, 0), new TimeOnly(6, 0))
+                : (new TimeOnly(6, 0), new TimeOnly(18, 0));
+        }
 
         private async Task<string?> ResolveScopedStaffIdAsync(
             long userId,

@@ -49,6 +49,8 @@ namespace CarePlus.API.DTO.AppointmentDTO
         public string ForName { get; set; } = "";
         public string DoctorId { get; set; } = "";
         public string DoctorName { get; set; } = "";
+        public string? RoomId { get; set; }
+        public string? RoomName { get; set; }
         public string Type { get; set; } = "";
         public string? Notes { get; set; }
         public string StartAt { get; set; } = "";
@@ -66,6 +68,8 @@ namespace CarePlus.API.DTO.AppointmentDTO
         public string PatientUsername { get; set; } = "";
         public string DoctorId { get; set; } = "";
         public string DoctorName { get; set; } = "";
+        public string? RoomId { get; set; }
+        public string? RoomName { get; set; }
         public string VisitTypeId { get; set; } = "";
         public string VisitType { get; set; } = "";
         public string? Notes { get; set; }

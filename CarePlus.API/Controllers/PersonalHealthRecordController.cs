@@ -84,8 +84,9 @@ public class PersonalHealthRecordController(AppDbContext db, IWebHostEnvironment
     }
 
     [HttpPost("pdf")]
+    [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaxPdfBytes + 1024 * 1024)]
-    public async Task<IActionResult> UploadPdf([FromForm] IFormFile? file)
+    public async Task<IActionResult> UploadPdf(IFormFile? file)
     {
         var patientId = await PatientIdAsync();
         if (patientId == null) return Forbid();

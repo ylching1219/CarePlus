@@ -10,5 +10,8 @@ namespace CarePlus.API.DTO.WorkScheduleDTO
         public DateOnly WorkingDate { get; set; }
         public string Shift { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
+        public string? RoomAssignmentId { get; set; }
+        public string? RoomId { get; set; }
+        public string? RoomName { get; set; }
     }
 }

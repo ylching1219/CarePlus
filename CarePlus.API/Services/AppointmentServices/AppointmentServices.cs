@@ -184,6 +184,7 @@ namespace CarePlus.API.Services.AppointmentServices
                     .ThenInclude(patient => patient.User)
                 .Include(row => row.Doctor)
                     .ThenInclude(doctor => doctor.User)
+                .Include(row => row.Room)
                 .AsQueryable();
 
             if (string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase))
@@ -307,12 +308,20 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("That slot is already booked.", 400);
             }
 
+            var roomId = await FindRoomIdForSlotAsync(doctorId, day, time);
+            if (roomId == null)
+            {
+                return ApiResponse<AppointmentResponse>.Fail(
+                    "No available clinic room is assigned to this doctor at that time.", 409);
+            }
+
             var appointmentId = await _counters.GenerateNextIdAsync("AppointmentId");
             var row = new Appointment
             {
                 AppointmentId = appointmentId,
                 PatientId = patient.PatientId,
                 DoctorId = doctorId,
+                RoomId = roomId,
                 AppointmentDate = day,
                 AppointmentTime = time,
                 ForName = forName,
@@ -395,12 +404,20 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("That slot is already booked.", 400);
             }
 
+            var roomId = await FindRoomIdForSlotAsync(doctorId, start.Date, start.TimeOfDay);
+            if (roomId == null)
+            {
+                return ApiResponse<AppointmentResponse>.Fail(
+                    "No available clinic room is assigned to this doctor at that time.", 409);
+            }
+
             var appointmentId = await _counters.GenerateNextIdAsync("AppointmentId");
             _db.Appointments.Add(new Appointment
             {
                 AppointmentId = appointmentId,
                 PatientId = patient.PatientId,
                 DoctorId = doctorId,
+                RoomId = roomId,
                 AppointmentDate = start.Date,
                 AppointmentTime = start.TimeOfDay,
                 ForName = patient.User?.Name ?? patient.PatientId,
@@ -485,8 +502,16 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("That slot is already booked.", 400);
             }
 
+            var roomId = await FindRoomIdForSlotAsync(row.DoctorId, start.Date, start.TimeOfDay);
+            if (roomId == null)
+            {
+                return ApiResponse<AppointmentResponse>.Fail(
+                    "No available clinic room is assigned to this doctor at that time.", 409);
+            }
+
             row.AppointmentDate = start.Date;
             row.AppointmentTime = start.TimeOfDay;
+            row.RoomId = roomId;
             row.RescheduleCount += 1;
             row.LastRescheduledAt = now;
             await _db.SaveChangesAsync();
@@ -550,8 +575,16 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("That slot is already booked.", 400);
             }
 
+            var roomId = await FindRoomIdForSlotAsync(row.DoctorId, start.Date, start.TimeOfDay);
+            if (roomId == null)
+            {
+                return ApiResponse<AppointmentResponse>.Fail(
+                    "No available clinic room is assigned to this doctor at that time.", 409);
+            }
+
             row.AppointmentDate = start.Date;
             row.AppointmentTime = start.TimeOfDay;
+            row.RoomId = roomId;
             row.RescheduleCount += 1;
             row.LastRescheduledAt = now;
             await _db.SaveChangesAsync();
@@ -595,6 +628,7 @@ namespace CarePlus.API.Services.AppointmentServices
                     .ThenInclude(patient => patient.User)
                 .Include(row => row.Doctor)
                     .ThenInclude(doctor => doctor.User)
+                .Include(row => row.Room)
                 .Where(row => row.PatientId == patientId)
                 .ToListAsync();
         }
@@ -607,6 +641,7 @@ namespace CarePlus.API.Services.AppointmentServices
                     .ThenInclude(patient => patient.User)
                 .Include(row => row.Doctor)
                     .ThenInclude(doctor => doctor.User)
+                .Include(row => row.Room)
                 .FirstOrDefaultAsync(row => row.AppointmentId == appointmentId);
         }
 
@@ -695,9 +730,17 @@ namespace CarePlus.API.Services.AppointmentServices
                 var start = day + time;
                 var startAt = ToOffset(start).ToString("yyyy-MM-ddTHH:mm:sszzz");
                 var label = ToOffset(start).ToString("h:mm tt", CultureInfo.GetCultureInfo("en-MY"));
-                var freeDoctor = activeIds.Any(id =>
-                    schedules.Any(schedule => schedule.StaffId == id && IsTimeWithinShift(time, schedule.Shift))
-                    && !taken.Any(row => row.DoctorId == id && row.AppointmentTime == time));
+                var freeDoctor = false;
+                foreach (var id in activeIds)
+                {
+                    if (schedules.Any(schedule => schedule.StaffId == id && IsTimeWithinShift(time, schedule.Shift))
+                        && !taken.Any(row => row.DoctorId == id && row.AppointmentTime == time)
+                        && await FindRoomIdForSlotAsync(id, day, time) != null)
+                    {
+                        freeDoctor = true;
+                        break;
+                    }
+                }
                 var booked = start <= now || !freeDoctor;
                 var item = new BookingSlotResponse { StartAt = startAt, Label = label, Booked = booked };
                 if (time.Hours < 18 && time.Hours >= 6)
@@ -733,6 +776,46 @@ namespace CarePlus.API.Services.AppointmentServices
             return null;
         }
 
+        private async Task<string?> FindRoomIdForSlotAsync(
+            string doctorId,
+            DateTime day,
+            TimeSpan time)
+        {
+            var assignmentDate = DateOnly.FromDateTime(day);
+            var candidateTime = TimeOnly.FromTimeSpan(time);
+            var assignments = await _db.RoomAssignments
+                .AsNoTracking()
+                .Include(assignment => assignment.Room)
+                .Include(assignment => assignment.Schedule)
+                .Where(assignment => assignment.DoctorId == doctorId
+                    && assignment.AssignmentDate == assignmentDate
+                    && assignment.Schedule != null
+                    && assignment.Schedule.Status == "Active")
+                .ToListAsync();
+
+            return assignments
+                .Where(assignment => string.Equals(
+                    assignment.Room.Status,
+                    "Available",
+                    StringComparison.OrdinalIgnoreCase))
+                .Where(assignment => IsTimeWithinAssignment(
+                    candidateTime,
+                    assignment.StartTime,
+                    assignment.EndTime))
+                .Select(assignment => assignment.RoomId)
+                .FirstOrDefault();
+        }
+
+        private static bool IsTimeWithinAssignment(
+            TimeOnly time,
+            TimeOnly start,
+            TimeOnly end)
+        {
+            return start <= end
+                ? time >= start && time < end
+                : time >= start || time < end;
+        }
+
         private async Task<bool> DoctorIsOpenAsync(string doctorId, DateTime day, TimeSpan time, DateTime now, string? ignoreAppointmentId = null)
         {
             if (day + time < now.AddMinutes(30))
@@ -758,6 +841,11 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             if (!IsTimeWithinShift(time, requiredShift))
+            {
+                return false;
+            }
+
+            if (await FindRoomIdForSlotAsync(doctorId, day, time) == null)
             {
                 return false;
             }
@@ -859,6 +947,8 @@ namespace CarePlus.API.Services.AppointmentServices
                 ForName = string.IsNullOrWhiteSpace(row.ForName) ? (row.Patient?.User?.Name ?? row.PatientId) : row.ForName,
                 DoctorId = row.DoctorId,
                 DoctorName = FormatDoctorName(row.Doctor?.User?.Name),
+                RoomId = row.RoomId,
+                RoomName = row.Room?.RoomName,
                 Type = row.VisitType,
                 Notes = row.Notes,
                 StartAt = ToOffset(start).ToString("yyyy-MM-ddTHH:mm:sszzz"),
@@ -886,6 +976,8 @@ namespace CarePlus.API.Services.AppointmentServices
                 PatientUsername = row.Patient?.User?.Username ?? string.Empty,
                 DoctorId = row.DoctorId,
                 DoctorName = FormatDoctorName(row.Doctor?.User?.Name),
+                RoomId = row.RoomId,
+                RoomName = row.Room?.RoomName,
                 VisitTypeId = row.VisitType,
                 VisitType = visitTypes.GetValueOrDefault(row.VisitType, row.VisitType),
                 Notes = row.Notes,

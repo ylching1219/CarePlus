@@ -2,6 +2,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
+using CarePlus.API.Models.Room;
+
 namespace CarePlus.API.Models.Appointment
 {
     [Table("Appointments")]
@@ -17,6 +19,9 @@ namespace CarePlus.API.Models.Appointment
         [Required]
         public string DoctorId { get; set; } = null!;
         public Doctor Doctor { get; set; } = null!;
+
+        public string? RoomId { get; set; }
+        public ClinicRoom? Room { get; set; }
 
         // ponytail: MySQL DATE/TIME come back as DateTime/TimeSpan; DateOnly/TimeOnly throw on materialize
         [Required]

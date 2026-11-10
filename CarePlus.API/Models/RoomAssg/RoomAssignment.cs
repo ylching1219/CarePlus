@@ -1,6 +1,7 @@
 ﻿
 using CarePlus.API.Models.Room;
 using CarePlus.API.Models.User.Staff.Doctor;
+using CarePlus.API.Models.WorkSch;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -15,6 +16,9 @@ namespace CarePlus.API.Models.RoomAssg
         [Required]
         public string RoomId { get; set; } = null!;
         public ClinicRoom Room { get; set; } = null!;
+
+        public string? ScheduleId { get; set; }
+        public WorkSchedule? Schedule { get; set; }
 
         [Required]
         public string DoctorId { get; set; } = null!;
