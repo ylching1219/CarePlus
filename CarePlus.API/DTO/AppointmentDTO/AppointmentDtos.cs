@@ -80,6 +80,7 @@ namespace CarePlus.API.DTO.AppointmentDTO
         public string DoctorId { get; set; } = "";
         public string StartAt { get; set; } = "";
         public string Type { get; set; } = "";
+        public string? PatientId { get; set; }
         public string? ForName { get; set; }
         public string? Notes { get; set; }
     }

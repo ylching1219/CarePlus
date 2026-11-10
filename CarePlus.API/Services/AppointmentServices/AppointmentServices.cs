@@ -16,6 +16,7 @@ namespace CarePlus.API.Services.AppointmentServices
         public const int MaxAppointmentsPerDaySession = 1;
         public const int ReschedulesPerDay = 3;
         public const int CancelsBeforeBookingCloses = 3;
+        public const int MinimumChildSelfBookingAge = 12;
 
         private static readonly TimeSpan MalaysiaOffset = TimeSpan.FromHours(8);
         private static readonly TimeSpan MorningStart = TimeSpan.FromHours(6);
@@ -238,8 +239,57 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("This account is not a patient account.", 400);
             }
 
-            var today = DateTimeHelper.MalaysiaNow().Date;
-            if (await CountCancelsTodayAsync(patient.PatientId, today) > CancelsBeforeBookingCloses)
+            var now = DateTimeHelper.MalaysiaNow();
+            var today = now.Date;
+            var currentMembership = await _db.FamilyMembers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(row => row.PatientId == patient.PatientId && row.Status == "Active");
+            var isChild = currentMembership != null
+                && string.Equals(currentMembership.Relationship, "child", StringComparison.OrdinalIgnoreCase);
+            var age = CalculateAge(patient.DateOfBirth, today);
+
+            if (isChild && age == null)
+            {
+                return ApiResponse<AppointmentResponse>.Fail("age-verification-required", 403);
+            }
+
+            if (isChild && age < MinimumChildSelfBookingAge)
+            {
+                return ApiResponse<AppointmentResponse>.Fail("child-underage-booking", 403);
+            }
+
+            var bookingPatient = patient;
+            var requestedPatientId = (request.PatientId ?? "").Trim();
+            if (!string.IsNullOrWhiteSpace(requestedPatientId)
+                && !string.Equals(requestedPatientId, patient.PatientId, StringComparison.OrdinalIgnoreCase))
+            {
+                if (currentMembership == null)
+                {
+                    return ApiResponse<AppointmentResponse>.Fail("You do not belong to an active family.", 403);
+                }
+
+                if (isChild)
+                {
+                    return ApiResponse<AppointmentResponse>.Fail("child-self-only", 403);
+                }
+
+                bookingPatient = await _db.FamilyMembers
+                    .AsNoTracking()
+                    .Include(row => row.Patient)
+                        .ThenInclude(row => row.User)
+                    .Where(row =>
+                        row.FamilyGroupId == currentMembership.FamilyGroupId
+                        && row.PatientId == requestedPatientId
+                        && row.Status == "Active")
+                    .Select(row => row.Patient)
+                    .FirstOrDefaultAsync();
+                if (bookingPatient == null)
+                {
+                    return ApiResponse<AppointmentResponse>.Fail("You can only book for an active member of your family.", 403);
+                }
+            }
+
+            if (await CountCancelsTodayAsync(bookingPatient.PatientId, today) > CancelsBeforeBookingCloses)
             {
                 return ApiResponse<AppointmentResponse>.Fail("booking-closed", 400);
             }
@@ -249,12 +299,12 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("Pick a valid time slot.", 400);
             }
 
-            if (await CountUpcomingAppointmentsAsync(patient.PatientId, DateTimeHelper.MalaysiaNow()) >= MaxUpcomingAppointments)
+            if (await CountUpcomingAppointmentsAsync(bookingPatient.PatientId, now) >= MaxUpcomingAppointments)
             {
                 return ApiResponse<AppointmentResponse>.Fail("upcoming-limit", 400);
             }
 
-            if (await HasAppointmentInDaySessionAsync(patient.PatientId, start, null))
+            if (await HasAppointmentInDaySessionAsync(bookingPatient.PatientId, start, null))
             {
                 return ApiResponse<AppointmentResponse>.Fail("same-day-session-limit", 400);
             }
@@ -282,7 +332,7 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             var forName = string.IsNullOrWhiteSpace(request.ForName)
-                ? (patient.User?.Name ?? patient.PatientId)
+                ? (bookingPatient.User?.Name ?? bookingPatient.PatientId)
                 : request.ForName.Trim();
             if (forName.Length > 100)
             {
@@ -294,7 +344,7 @@ namespace CarePlus.API.Services.AppointmentServices
             var doctorId = (request.DoctorId ?? "").Trim();
             if (doctorId.Equals("any", StringComparison.OrdinalIgnoreCase))
             {
-                var assigned = await FindOpenDoctorAsync(day, time, DateTimeHelper.MalaysiaNow());
+                var assigned = await FindOpenDoctorAsync(day, time, now);
                 if (assigned == null)
                 {
                     return ApiResponse<AppointmentResponse>.Fail("That slot is already booked.", 400);
@@ -302,7 +352,7 @@ namespace CarePlus.API.Services.AppointmentServices
 
                 doctorId = assigned;
             }
-            else if (!await DoctorIsOpenAsync(doctorId, day, time, DateTimeHelper.MalaysiaNow()))
+            else if (!await DoctorIsOpenAsync(doctorId, day, time, now))
             {
                 return ApiResponse<AppointmentResponse>.Fail("That slot is already booked.", 400);
             }
@@ -311,7 +361,7 @@ namespace CarePlus.API.Services.AppointmentServices
             var row = new Appointment
             {
                 AppointmentId = appointmentId,
-                PatientId = patient.PatientId,
+                PatientId = bookingPatient.PatientId,
                 DoctorId = doctorId,
                 AppointmentDate = day,
                 AppointmentTime = time,
@@ -900,6 +950,22 @@ namespace CarePlus.API.Services.AppointmentServices
 
         private static DateTimeOffset ToOffset(DateTime malaysiaLocal) =>
             new(DateTime.SpecifyKind(malaysiaLocal, DateTimeKind.Unspecified), MalaysiaOffset);
+
+        private static int? CalculateAge(DateTime? dateOfBirth, DateTime today)
+        {
+            if (!dateOfBirth.HasValue || dateOfBirth.Value.Date > today)
+            {
+                return null;
+            }
+
+            var age = today.Year - dateOfBirth.Value.Year;
+            if (dateOfBirth.Value.Date > today.AddYears(-age))
+            {
+                age--;
+            }
+
+            return age;
+        }
 
         private static string FormatDoctorName(string? name)
         {
