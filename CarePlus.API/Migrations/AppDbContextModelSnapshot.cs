@@ -62,6 +62,9 @@ namespace CarePlus.API.Migrations
                     b.Property<int>("RescheduleCount")
                         .HasColumnType("int");
 
+                    b.Property<string>("RoomId")
+                        .HasColumnType("varchar(255)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -78,6 +81,8 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("DoctorId");
 
                     b.HasIndex("PatientId");
+
+                    b.HasIndex("RoomId");
 
                     b.ToTable("Appointments");
                 });
@@ -293,7 +298,7 @@ namespace CarePlus.API.Migrations
                             PaddingChar = "0",
                             Prefix = "STF",
                             Step = 1,
-                            Value = 1L,
+                            Value = 9L,
                             Version = 0L
                         },
                         new
@@ -402,6 +407,18 @@ namespace CarePlus.API.Migrations
                             Prefix = "SCH",
                             Step = 1,
                             Value = 0L,
+                            Version = 0L
+                        },
+                        new
+                        {
+                            Id = 12L,
+                            IsActive = true,
+                            Key = "RoomId",
+                            Length = 4,
+                            PaddingChar = "0",
+                            Prefix = "RM-",
+                            Step = 1,
+                            Value = 5L,
                             Version = 0L
                         });
                 });
@@ -653,6 +670,32 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("StaffId");
 
                     b.ToTable("LeaveApplications");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.MedicalRecord.DoctorReview", b =>
+                {
+                    b.Property<string>("MedicalRecordId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<bool>("IsAnonymous")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.HasKey("MedicalRecordId");
+
+                    b.ToTable("DoctorReviews", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DoctorReviews_Rating", "`Rating` BETWEEN 1 AND 5");
+                        });
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.MedicalRecord.MedRecord", b =>
@@ -1080,6 +1123,9 @@ namespace CarePlus.API.Migrations
                     b.Property<string>("Address")
                         .HasColumnType("longtext");
 
+                    b.Property<DateTime?>("AnnouncementStartAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("date");
 
@@ -1218,9 +1264,20 @@ namespace CarePlus.API.Migrations
                         .IsRequired()
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("PdfFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PdfStorageName")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
                     b.Property<string>("RecordType")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("RecordedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Symptoms")
                         .HasColumnType("longtext");
@@ -1354,6 +1411,38 @@ namespace CarePlus.API.Migrations
                     b.HasKey("RoomId");
 
                     b.ToTable("ClinicRooms");
+
+                    b.HasData(
+                        new
+                        {
+                            RoomId = "RM-0001",
+                            RoomName = "Consultation Room 1",
+                            Status = "Available"
+                        },
+                        new
+                        {
+                            RoomId = "RM-0002",
+                            RoomName = "Consultation Room 2",
+                            Status = "Available"
+                        },
+                        new
+                        {
+                            RoomId = "RM-0003",
+                            RoomName = "Consultation Room 3",
+                            Status = "Available"
+                        },
+                        new
+                        {
+                            RoomId = "RM-0004",
+                            RoomName = "Consultation Room 4",
+                            Status = "Available"
+                        },
+                        new
+                        {
+                            RoomId = "RM-0005",
+                            RoomName = "Consultation Room 5",
+                            Status = "Available"
+                        });
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.RoomAssg.RoomAssignment", b =>
@@ -1375,6 +1464,9 @@ namespace CarePlus.API.Migrations
                         .IsRequired()
                         .HasColumnType("varchar(255)");
 
+                    b.Property<string>("ScheduleId")
+                        .HasColumnType("varchar(255)");
+
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("time");
 
@@ -1383,6 +1475,9 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("DoctorId");
 
                     b.HasIndex("RoomId");
+
+                    b.HasIndex("ScheduleId")
+                        .IsUnique();
 
                     b.ToTable("RoomAssignments");
                 });
@@ -1472,6 +1567,44 @@ namespace CarePlus.API.Migrations
                     b.ToTable("LoginActivities");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.User.RegistrationEmailChallenge", b =>
+                {
+                    b.Property<string>("ChallengeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("varchar(254)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SecretHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ChallengeId");
+
+                    b.HasIndex("Email", "CreatedAt");
+
+                    b.ToTable("RegistrationEmailChallenges");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.User.Staff.Staff", b =>
                 {
                     b.Property<string>("StaffId")
@@ -1540,12 +1673,17 @@ namespace CarePlus.API.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<bool>("EmailVerified")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
+
+                    b.Property<int>("FailedPasswordAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1555,6 +1693,9 @@ namespace CarePlus.API.Migrations
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("PasswordLockoutUntilUtc")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
@@ -1574,6 +1715,12 @@ namespace CarePlus.API.Migrations
 
                     b.HasKey("UserId");
 
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Phone")
+                        .IsUnique();
+
                     b.HasIndex("Username")
                         .IsUnique();
 
@@ -1585,10 +1732,99 @@ namespace CarePlus.API.Migrations
                             UserId = 1L,
                             Email = "admin@gmail.com",
                             EmailVerified = true,
+                            FailedPasswordAttempts = 0,
                             Name = "Admin One",
                             PasswordHash = "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==",
                             Status = "Active",
                             Username = "admin001"
+                        },
+                        new
+                        {
+                            UserId = 2L,
+                            Email = "doctor001@careplus.local",
+                            EmailVerified = true,
+                            FailedPasswordAttempts = 0,
+                            Name = "Doctor One",
+                            PasswordHash = "AQAAAAIAAYagAAAAEGoelPdTS08xnFMkc6zJXJral4MAdthS0khrTQFqxq2lLRXB300vh4F487u+CoAz8w==",
+                            Status = "Active",
+                            Username = "doctor001"
+                        },
+                        new
+                        {
+                            UserId = 3L,
+                            Email = "doctor002@careplus.local",
+                            EmailVerified = true,
+                            FailedPasswordAttempts = 0,
+                            Name = "Doctor Two",
+                            PasswordHash = "AQAAAAIAAYagAAAAENVjvWCqRGeKqDx7qaMq0bZriP0cMVXCvq9/g6Uv8p8KilJeLVp9Lur77q1u6ke5Ig==",
+                            Status = "Active",
+                            Username = "doctor002"
+                        },
+                        new
+                        {
+                            UserId = 4L,
+                            Email = "doctor003@careplus.local",
+                            EmailVerified = true,
+                            FailedPasswordAttempts = 0,
+                            Name = "Doctor Three",
+                            PasswordHash = "AQAAAAIAAYagAAAAEKiHgZFZkJy/7Wj4tG4liN16amXXAenFi7oZG2287Iu2mtbzAoFop17fiM5oig2pdQ==",
+                            Status = "Active",
+                            Username = "doctor003"
+                        },
+                        new
+                        {
+                            UserId = 5L,
+                            Email = "doctor004@careplus.local",
+                            EmailVerified = true,
+                            FailedPasswordAttempts = 0,
+                            Name = "Doctor Four",
+                            PasswordHash = "AQAAAAIAAYagAAAAEPN2650fnLQvqDVcWyy2LH33rvWhntm6s7qfwifGVOMPgWEsjwDoR3fxgvdt/B3jcw==",
+                            Status = "Active",
+                            Username = "doctor004"
+                        },
+                        new
+                        {
+                            UserId = 6L,
+                            Email = "pharmacist001@careplus.local",
+                            EmailVerified = true,
+                            FailedPasswordAttempts = 0,
+                            Name = "Pharmacist One",
+                            PasswordHash = "AQAAAAIAAYagAAAAEG3iHfNMaN+/igy9fme2UrMWqdHuMzctlQftjRzLxm2SzFWEbriRJ6mZG+fKpPyXOw==",
+                            Status = "Active",
+                            Username = "pharmacist001"
+                        },
+                        new
+                        {
+                            UserId = 7L,
+                            Email = "pharmacist002@careplus.local",
+                            EmailVerified = true,
+                            FailedPasswordAttempts = 0,
+                            Name = "Pharmacist Two",
+                            PasswordHash = "AQAAAAIAAYagAAAAEJpqLtK3RlHlxiavCb2iWKGWgiF6Pm2HVlvek7ysaZb6SJ5NB4TLuGnTxVihBcGpRQ==",
+                            Status = "Active",
+                            Username = "pharmacist002"
+                        },
+                        new
+                        {
+                            UserId = 8L,
+                            Email = "pharmacist003@careplus.local",
+                            EmailVerified = true,
+                            FailedPasswordAttempts = 0,
+                            Name = "Pharmacist Three",
+                            PasswordHash = "AQAAAAIAAYagAAAAEMlRRueMa8uoEWnmk+vArUsHppCKM4olXhEt5NpiqYBfXkDPH/4rLJ/cAEGNJTjcqQ==",
+                            Status = "Active",
+                            Username = "pharmacist003"
+                        },
+                        new
+                        {
+                            UserId = 9L,
+                            Email = "pharmacist004@careplus.local",
+                            EmailVerified = true,
+                            FailedPasswordAttempts = 0,
+                            Name = "Pharmacist Four",
+                            PasswordHash = "AQAAAAIAAYagAAAAENKWTF+b0fTQnXoTV+20lfIYjoEhlZquB1pkymPpbza24sKPeXPEWx0NXQGUS8kHyw==",
+                            Status = "Active",
+                            Username = "pharmacist004"
                         });
                 });
 
@@ -1674,6 +1910,48 @@ namespace CarePlus.API.Migrations
                         .IsUnique();
 
                     b.ToTable("Doctors", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            StaffId = "STF000002",
+                            Role = "Doctor",
+                            UserId = 2L,
+                            LicenseNumber = "DOC-LIC-0001",
+                            Qualification = "MBBS",
+                            Specialization = "General Medicine",
+                            YearsOfExperience = 5
+                        },
+                        new
+                        {
+                            StaffId = "STF000003",
+                            Role = "Doctor",
+                            UserId = 3L,
+                            LicenseNumber = "DOC-LIC-0002",
+                            Qualification = "MBBS",
+                            Specialization = "Family Medicine",
+                            YearsOfExperience = 7
+                        },
+                        new
+                        {
+                            StaffId = "STF000004",
+                            Role = "Doctor",
+                            UserId = 4L,
+                            LicenseNumber = "DOC-LIC-0003",
+                            Qualification = "MD",
+                            Specialization = "Internal Medicine",
+                            YearsOfExperience = 9
+                        },
+                        new
+                        {
+                            StaffId = "STF000005",
+                            Role = "Doctor",
+                            UserId = 5L,
+                            LicenseNumber = "DOC-LIC-0004",
+                            Qualification = "MBBS, Paediatrics",
+                            Specialization = "Paediatrics",
+                            YearsOfExperience = 4
+                        });
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.Staff.Pharmacist.Pharmacist", b =>
@@ -1701,6 +1979,48 @@ namespace CarePlus.API.Migrations
                         .IsUnique();
 
                     b.ToTable("Pharmacists", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            StaffId = "STF000006",
+                            Role = "Pharmacist",
+                            UserId = 6L,
+                            Certification = "Registered Pharmacist",
+                            LicenseNumber = "PHA-LIC-0001",
+                            Qualification = "Bachelor of Pharmacy",
+                            YearsOfExperience = 5
+                        },
+                        new
+                        {
+                            StaffId = "STF000007",
+                            Role = "Pharmacist",
+                            UserId = 7L,
+                            Certification = "Registered Pharmacist",
+                            LicenseNumber = "PHA-LIC-0002",
+                            Qualification = "Bachelor of Pharmacy",
+                            YearsOfExperience = 6
+                        },
+                        new
+                        {
+                            StaffId = "STF000008",
+                            Role = "Pharmacist",
+                            UserId = 8L,
+                            Certification = "Registered Pharmacist",
+                            LicenseNumber = "PHA-LIC-0003",
+                            Qualification = "Diploma in Pharmacy",
+                            YearsOfExperience = 3
+                        },
+                        new
+                        {
+                            StaffId = "STF000009",
+                            Role = "Pharmacist",
+                            UserId = 9L,
+                            Certification = "Registered Pharmacist",
+                            LicenseNumber = "PHA-LIC-0004",
+                            Qualification = "Bachelor of Pharmacy",
+                            YearsOfExperience = 8
+                        });
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Appointment.Appointment", b =>
@@ -1717,9 +2037,16 @@ namespace CarePlus.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CarePlus.API.Models.Room.ClinicRoom", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Doctor");
 
                     b.Navigation("Patient");
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.Cart.Cart", b =>
@@ -1844,6 +2171,17 @@ namespace CarePlus.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Staff");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.MedicalRecord.DoctorReview", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.MedicalRecord.MedRecord", "MedicalRecord")
+                        .WithOne()
+                        .HasForeignKey("CarePlus.API.Models.MedicalRecord.DoctorReview", "MedicalRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MedicalRecord");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.MedicalRecord.MedRecord", b =>
@@ -2042,9 +2380,16 @@ namespace CarePlus.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CarePlus.API.Models.WorkSch.WorkSchedule", "Schedule")
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Doctor");
 
                     b.Navigation("Room");
+
+                    b.Navigation("Schedule");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.User.AppSetting", b =>
