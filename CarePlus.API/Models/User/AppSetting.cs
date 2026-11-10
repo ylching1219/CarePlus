@@ -27,6 +27,10 @@ namespace CarePlus.API.Models.User
         public string Notification { get; set; } = "all";
 
         [Required]
+        [MaxLength(10)]
+        public string TextSize { get; set; } = "normal";
+
+        [Required]
         public bool TwoFactorEnabled { get; set; } = false;
 
         [Required]
