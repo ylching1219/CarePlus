@@ -86,6 +86,290 @@ public class NotificationServices : INotificationServices
         return await ReadResponseAsync(userId.Value);
     }
 
+    public async Task<ApiResponse<List<NotificationResponse>>> ListStaffAsync(long userId)
+    {
+        if (!await IsStaffAsync(userId))
+        {
+            return ApiResponse<List<NotificationResponse>>.Fail("This account is not a staff account.", 403);
+        }
+
+        await SynchronizeStaffAsync(userId);
+        return await ReadResponseAsync(userId);
+    }
+
+    public async Task<ApiResponse<List<NotificationResponse>>> MarkStaffReadAsync(long userId, string notificationId)
+    {
+        if (!await IsStaffAsync(userId)) return ApiResponse<List<NotificationResponse>>.Fail("This account is not a staff account.", 403);
+
+        var row = await _db.Notifications.FirstOrDefaultAsync(item => item.UserId == userId && item.NotificationId == notificationId && item.Status != "Deleted");
+        if (row == null) return ApiResponse<List<NotificationResponse>>.Fail("Notification was not found.", 404);
+        row.Status = "Read";
+        await _db.SaveChangesAsync();
+        return await ReadResponseAsync(userId);
+    }
+
+    public async Task<ApiResponse<List<NotificationResponse>>> MarkManyStaffReadAsync(long userId, List<string> notificationIds)
+    {
+        if (!await IsStaffAsync(userId)) return ApiResponse<List<NotificationResponse>>.Fail("This account is not a staff account.", 403);
+
+        var ids = CleanIds(notificationIds);
+        if (ids.Count > 0)
+        {
+            var rows = await _db.Notifications
+                .Where(item => item.UserId == userId && ids.Contains(item.NotificationId) && item.Status != "Deleted")
+                .ToListAsync();
+            foreach (var row in rows) row.Status = "Read";
+            await _db.SaveChangesAsync();
+        }
+
+        return await ReadResponseAsync(userId);
+    }
+
+    public async Task<ApiResponse<List<NotificationResponse>>> MarkAllStaffReadAsync(long userId)
+    {
+        if (!await IsStaffAsync(userId)) return ApiResponse<List<NotificationResponse>>.Fail("This account is not a staff account.", 403);
+
+        var rows = await _db.Notifications.Where(item => item.UserId == userId && item.Status == "Unread").ToListAsync();
+        foreach (var row in rows) row.Status = "Read";
+        await _db.SaveChangesAsync();
+        return await ReadResponseAsync(userId);
+    }
+
+    public async Task<ApiResponse<List<NotificationResponse>>> DeleteManyStaffAsync(long userId, List<string> notificationIds)
+    {
+        if (!await IsStaffAsync(userId)) return ApiResponse<List<NotificationResponse>>.Fail("This account is not a staff account.", 403);
+
+        var ids = CleanIds(notificationIds);
+        if (ids.Count > 0)
+        {
+            var rows = await _db.Notifications
+                .Where(item => item.UserId == userId && ids.Contains(item.NotificationId) && item.Status != "Deleted")
+                .ToListAsync();
+            foreach (var row in rows) row.Status = "Deleted";
+            await _db.SaveChangesAsync();
+        }
+
+        return await ReadResponseAsync(userId);
+    }
+
+    private async Task SynchronizeStaffAsync(long userId)
+    {
+        var staff = await _db.Staffs.AsNoTracking().FirstOrDefaultAsync(row => row.UserId == userId);
+        if (staff == null) return;
+
+        var now = DateTimeHelper.MalaysiaNow();
+        var today = DateOnly.FromDateTime(now);
+        var drafts = new Dictionary<string, NotificationDraft>(StringComparer.Ordinal);
+
+        var schedules = await _db.WorkSchedules
+            .AsNoTracking()
+            .Where(row => row.StaffId == staff.StaffId
+                && row.Status == "Active"
+                && row.WorkingDate >= today
+                && row.WorkingDate <= today.AddDays(14))
+            .OrderBy(row => row.WorkingDate)
+            .ToListAsync();
+        foreach (var schedule in schedules)
+        {
+            var date = schedule.WorkingDate.ToDateTime(TimeOnly.MinValue);
+            Add(drafts, new NotificationDraft(
+                $"staff-schedule:{schedule.ScheduleId}:user:{userId}",
+                "Upcoming schedule",
+                $"You are scheduled for a {schedule.Shift.ToLowerInvariant()} shift on {schedule.WorkingDate:dd MMM yyyy}.",
+                null,
+                null,
+                "CarePlus Clinic",
+                "CC",
+                "schedule_update",
+                "/staff/schedules",
+                date));
+        }
+
+        var ownLeaves = await _db.LeaveApplications
+            .AsNoTracking()
+            .Where(row => row.StaffId == staff.StaffId
+                && row.EndDate >= now.Date
+                && row.CreatedAt >= now.AddDays(-30))
+            .OrderByDescending(row => row.CreatedAt)
+            .Take(25)
+            .ToListAsync();
+        foreach (var leave in ownLeaves)
+        {
+            Add(drafts, new NotificationDraft(
+                $"staff-leave:{leave.LeaveId}:user:{userId}",
+                $"Leave request {leave.Status.ToLowerInvariant()}",
+                $"Your leave request from {leave.StartDate:dd MMM yyyy} to {leave.EndDate:dd MMM yyyy} is {leave.Status.ToLowerInvariant()}.",
+                null,
+                null,
+                "CarePlus Clinic",
+                "CC",
+                "leave_update",
+                "/staff/leave",
+                leave.CreatedAt));
+        }
+
+        if (staff.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+        {
+            var pendingLeaves = await _db.LeaveApplications
+                .AsNoTracking()
+                .Include(row => row.Staff).ThenInclude(row => row.User)
+                .Where(row => row.Status == "Pending")
+                .OrderByDescending(row => row.CreatedAt)
+                .Take(25)
+                .ToListAsync();
+            foreach (var leave in pendingLeaves)
+            {
+                var employee = leave.Staff?.User?.Name ?? leave.StaffId;
+                Add(drafts, new NotificationDraft(
+                    $"staff-leave-review:{leave.LeaveId}:user:{userId}",
+                    "Leave request needs review",
+                    $"{employee} submitted leave from {leave.StartDate:dd MMM yyyy} to {leave.EndDate:dd MMM yyyy}.",
+                    null,
+                    null,
+                    employee,
+                    Initials(employee),
+                    "leave_review",
+                    "/staff/leave",
+                    leave.CreatedAt));
+            }
+        }
+
+        if (staff.Role.Equals("Doctor", StringComparison.OrdinalIgnoreCase))
+        {
+            var appointments = await _db.Appointments
+                .AsNoTracking()
+                .Include(row => row.Patient).ThenInclude(row => row.User)
+                .Where(row => row.Doctor.UserId == userId && row.Status == "Scheduled")
+                .OrderBy(row => row.AppointmentDate)
+                .ThenBy(row => row.AppointmentTime)
+                .Take(50)
+                .ToListAsync();
+            foreach (var appointment in appointments)
+            {
+                var start = appointment.AppointmentDate.Date + appointment.AppointmentTime;
+                if (start <= now || start > now.AddDays(14)) continue;
+
+                var patient = appointment.Patient?.User?.Name ?? appointment.ForName;
+                Add(drafts, new NotificationDraft(
+                    $"staff-appointment:{appointment.AppointmentId}:user:{userId}",
+                    "Upcoming appointment",
+                    $"{patient} has an appointment with you on {FormatDateTime(start)}.",
+                    null,
+                    null,
+                    patient,
+                    Initials(patient),
+                    "staff_appointment",
+                    "/staff/appointments",
+                    start));
+            }
+        }
+
+        if (staff.Role.Equals("Pharmacist", StringComparison.OrdinalIgnoreCase))
+        {
+            var orders = await _db.MedicineOrders
+                .AsNoTracking()
+                .Include(row => row.Patient).ThenInclude(row => row.User)
+                .Where(row => row.Status != "delivered"
+                    && row.Status != "picked_up"
+                    && row.Status != "cancelled")
+                .OrderByDescending(row => row.OrderDate)
+                .Take(50)
+                .ToListAsync();
+            foreach (var order in orders)
+            {
+                var patient = order.Patient?.User?.Name ?? "A patient";
+                Add(drafts, new NotificationDraft(
+                    $"staff-medicine-order:{order.OrderId}:user:{userId}",
+                    "Medicine order update",
+                    $"{patient}'s medicine order {order.OrderId} is {order.Status.ToLowerInvariant()}.",
+                    null,
+                    null,
+                    "CarePlus Pharmacy",
+                    "CP",
+                    "medicine_update",
+                    "/staff/medicine",
+                    order.OrderDate));
+            }
+        }
+
+        var announcements = await _db.Notifications
+            .AsNoTracking()
+            .Where(row => row.UserId == null
+                && row.Type == "announcement"
+                && row.IsPublished
+                && row.Status != "Deleted"
+                && row.CreatedAt <= now)
+            .ToListAsync();
+        foreach (var announcement in announcements)
+        {
+            Add(drafts, new NotificationDraft(
+                $"announcement:{announcement.NotificationId}:user:{userId}",
+                announcement.Title,
+                announcement.Message,
+                null,
+                null,
+                announcement.Actor,
+                announcement.Initials,
+                "announcement",
+                $"/announcements#{announcement.NotificationId}",
+                announcement.CreatedAt));
+        }
+
+        await MergeGeneratedNotificationsAsync(userId, drafts);
+    }
+
+    private async Task MergeGeneratedNotificationsAsync(long userId, Dictionary<string, NotificationDraft> drafts)
+    {
+        var existing = await _db.Notifications.Where(row => row.UserId == userId).ToListAsync();
+        var byId = existing.ToDictionary(row => row.NotificationId, StringComparer.Ordinal);
+        foreach (var draft in drafts.Values)
+        {
+            if (!byId.TryGetValue(draft.Id, out var row))
+            {
+                row = new Notification
+                {
+                    NotificationId = draft.Id,
+                    UserId = userId,
+                    CreatedAt = draft.CreatedAt,
+                    Status = "Unread",
+                };
+                _db.Notifications.Add(row);
+                byId[draft.Id] = row;
+            }
+
+            row.Title = draft.Title;
+            row.Message = draft.Message;
+            row.TitleZh = draft.TitleZh;
+            row.MessageZh = draft.MessageZh;
+            row.Actor = draft.Actor;
+            row.Initials = draft.Initials;
+            row.Type = draft.Type;
+            row.Href = draft.Href;
+        }
+
+        var preference = await _db.AppSettings.AsNoTracking()
+            .Where(row => row.UserId == userId)
+            .Select(row => row.Notification)
+            .FirstOrDefaultAsync() ?? "all";
+        foreach (var row in byId.Values)
+        {
+            if (row.Status == "Deleted") continue;
+            if (preference.Equals("none", StringComparison.OrdinalIgnoreCase)
+                || (preference.Equals("reminder", StringComparison.OrdinalIgnoreCase) && !IsReminder(row.Type)))
+            {
+                row.Status = "Read";
+            }
+        }
+
+        var currentIds = drafts.Keys.ToHashSet(StringComparer.Ordinal);
+        foreach (var row in existing.Where(row => row.Status == "Unread" && IsGenerated(row.NotificationId) && !currentIds.Contains(row.NotificationId)))
+        {
+            row.Status = "Read";
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
     private async Task SynchronizeAsync(string patientId, long userId)
     {
         var now = DateTimeHelper.MalaysiaNow();
@@ -291,14 +575,21 @@ public class NotificationServices : INotificationServices
 
     private async Task<long?> UserIdAsync(string patientId) => await _db.Patients.Where(row => row.PatientId == patientId).Select(row => (long?)row.UserId).FirstOrDefaultAsync();
 
+    private async Task<bool> IsStaffAsync(long userId) => await _db.Staffs.AnyAsync(row => row.UserId == userId);
+
     private static void Add(Dictionary<string, NotificationDraft> drafts, NotificationDraft draft) => drafts[draft.Id] = draft;
 
-    private static bool IsReminder(string type) => type is "appointment_reminder" or "payment_reminder" or "medicine_update";
+    private static bool IsReminder(string type) => type is "appointment_reminder" or "payment_reminder" or "medicine_update" or "staff_appointment" or "schedule_update";
 
     private static bool IsGenerated(string id) => id.StartsWith("appointment-reminder:", StringComparison.Ordinal)
         || id.StartsWith("payment-reminder:", StringComparison.Ordinal)
         || id.StartsWith("medicine-update:", StringComparison.Ordinal)
         || id.StartsWith("family-invite:", StringComparison.Ordinal)
+        || id.StartsWith("staff-schedule:", StringComparison.Ordinal)
+        || id.StartsWith("staff-leave:", StringComparison.Ordinal)
+        || id.StartsWith("staff-leave-review:", StringComparison.Ordinal)
+        || id.StartsWith("staff-appointment:", StringComparison.Ordinal)
+        || id.StartsWith("staff-medicine-order:", StringComparison.Ordinal)
         || id.StartsWith("announcement:", StringComparison.Ordinal);
 
     private static List<string> CleanIds(IEnumerable<string>? ids) => (ids ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id.Trim()).Distinct(StringComparer.Ordinal).Take(100).ToList();
@@ -317,8 +608,8 @@ public class NotificationServices : INotificationServices
         string Id,
         string Title,
         string Message,
-        string TitleZh,
-        string MessageZh,
+        string? TitleZh,
+        string? MessageZh,
         string Actor,
         string Initials,
         string Type,

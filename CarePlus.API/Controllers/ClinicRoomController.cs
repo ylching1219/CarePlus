@@ -34,4 +34,24 @@ public class ClinicRoomController : ControllerBase
     {
         return Ok(await _clinicRoomServices.UpdateAsync(request));
     }
+
+    [HttpGet("Assignments")]
+    public async Task<IActionResult> Assignments(
+        [FromQuery] DateOnly? date = null,
+        [FromQuery] string? scheduleId = null)
+    {
+        return Ok(await _clinicRoomServices.RetrieveAssignmentsAsync(date, scheduleId));
+    }
+
+    [HttpPost("Assignments")]
+    public async Task<IActionResult> Assign(RoomAssignmentCreateRequest request)
+    {
+        return Ok(await _clinicRoomServices.AssignAsync(request));
+    }
+
+    [HttpDelete("Assignments/{id}")]
+    public async Task<IActionResult> RemoveAssignment(string id)
+    {
+        return Ok(await _clinicRoomServices.RemoveAssignmentAsync(id));
+    }
 }

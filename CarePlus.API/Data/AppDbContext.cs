@@ -133,6 +133,11 @@ namespace CarePlus.API.Data
                 .WithMany()
                 .HasForeignKey(a => a.DoctorId);
             modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Room)
+                .WithMany()
+                .HasForeignKey(a => a.RoomId)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<Appointment>()
                 .Property(a => a.AppointmentDate)
                 .HasColumnType("date");
             modelBuilder.Entity<Appointment>()
@@ -207,6 +212,18 @@ namespace CarePlus.API.Data
                 .HasOne(r => r.Doctor)
                 .WithMany()
                 .HasForeignKey(r => r.DoctorId);
+            modelBuilder.Entity<RoomAssignment>()
+                .HasOne(r => r.Room)
+                .WithMany()
+                .HasForeignKey(r => r.RoomId);
+            modelBuilder.Entity<RoomAssignment>()
+                .HasOne(r => r.Schedule)
+                .WithMany()
+                .HasForeignKey(r => r.ScheduleId)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<RoomAssignment>()
+                .HasIndex(r => r.ScheduleId)
+                .IsUnique();
             modelBuilder.Entity<RoomAssignment>()
                 .Property(r => r.AssignmentDate)
                 .HasConversion(
@@ -449,6 +466,14 @@ namespace CarePlus.API.Data
                 new VisitType { VisitTypeId = "VT03", Name = "Mental wellness", Description = "Stress, sleep, mood, or a quiet talk with a doctor.", Price = 60m, IsActive = true }
             );
 
+            modelBuilder.Entity<ClinicRoom>().HasData(
+                new ClinicRoom { RoomId = "RM-0001", RoomName = "Consultation Room 1", Status = "Available" },
+                new ClinicRoom { RoomId = "RM-0002", RoomName = "Consultation Room 2", Status = "Available" },
+                new ClinicRoom { RoomId = "RM-0003", RoomName = "Consultation Room 3", Status = "Available" },
+                new ClinicRoom { RoomId = "RM-0004", RoomName = "Consultation Room 4", Status = "Available" },
+                new ClinicRoom { RoomId = "RM-0005", RoomName = "Consultation Room 5", Status = "Available" }
+            );
+
             modelBuilder.Entity<User>().HasData(
                 new User
                 {
@@ -457,6 +482,94 @@ namespace CarePlus.API.Data
                     Name = "Admin One",
                     Email = "admin@gmail.com",
                     PasswordHash = "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 2,
+                    Username = "doctor001",
+                    Name = "Doctor One",
+                    Email = "doctor001@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEGoelPdTS08xnFMkc6zJXJral4MAdthS0khrTQFqxq2lLRXB300vh4F487u+CoAz8w==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 3,
+                    Username = "doctor002",
+                    Name = "Doctor Two",
+                    Email = "doctor002@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAENVjvWCqRGeKqDx7qaMq0bZriP0cMVXCvq9/g6Uv8p8KilJeLVp9Lur77q1u6ke5Ig==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 4,
+                    Username = "doctor003",
+                    Name = "Doctor Three",
+                    Email = "doctor003@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEKiHgZFZkJy/7Wj4tG4liN16amXXAenFi7oZG2287Iu2mtbzAoFop17fiM5oig2pdQ==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 5,
+                    Username = "doctor004",
+                    Name = "Doctor Four",
+                    Email = "doctor004@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEPN2650fnLQvqDVcWyy2LH33rvWhntm6s7qfwifGVOMPgWEsjwDoR3fxgvdt/B3jcw==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 6,
+                    Username = "pharmacist001",
+                    Name = "Pharmacist One",
+                    Email = "pharmacist001@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEG3iHfNMaN+/igy9fme2UrMWqdHuMzctlQftjRzLxm2SzFWEbriRJ6mZG+fKpPyXOw==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 7,
+                    Username = "pharmacist002",
+                    Name = "Pharmacist Two",
+                    Email = "pharmacist002@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEJpqLtK3RlHlxiavCb2iWKGWgiF6Pm2HVlvek7ysaZb6SJ5NB4TLuGnTxVihBcGpRQ==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 8,
+                    Username = "pharmacist003",
+                    Name = "Pharmacist Three",
+                    Email = "pharmacist003@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEMlRRueMa8uoEWnmk+vArUsHppCKM4olXhEt5NpiqYBfXkDPH/4rLJ/cAEGNJTjcqQ==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 9,
+                    Username = "pharmacist004",
+                    Name = "Pharmacist Four",
+                    Email = "pharmacist004@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAENKWTF+b0fTQnXoTV+20lfIYjoEhlZquB1pkymPpbza24sKPeXPEWx0NXQGUS8kHyw==",
                     Phone = null,
                     Status = "Active",
                     EmailVerified = true
@@ -471,6 +584,92 @@ namespace CarePlus.API.Data
                     Role = "Admin",
                     AccessLevel = 3,
                     Department = "Administration"
+                }
+            );
+
+            modelBuilder.Entity<Doctor>().HasData(
+                new Doctor
+                {
+                    StaffId = "STF000002",
+                    UserId = 2,
+                    Role = "Doctor",
+                    LicenseNumber = "DOC-LIC-0001",
+                    Specialization = "General Medicine",
+                    Qualification = "MBBS",
+                    YearsOfExperience = 5
+                },
+                new Doctor
+                {
+                    StaffId = "STF000003",
+                    UserId = 3,
+                    Role = "Doctor",
+                    LicenseNumber = "DOC-LIC-0002",
+                    Specialization = "Family Medicine",
+                    Qualification = "MBBS",
+                    YearsOfExperience = 7
+                },
+                new Doctor
+                {
+                    StaffId = "STF000004",
+                    UserId = 4,
+                    Role = "Doctor",
+                    LicenseNumber = "DOC-LIC-0003",
+                    Specialization = "Internal Medicine",
+                    Qualification = "MD",
+                    YearsOfExperience = 9
+                },
+                new Doctor
+                {
+                    StaffId = "STF000005",
+                    UserId = 5,
+                    Role = "Doctor",
+                    LicenseNumber = "DOC-LIC-0004",
+                    Specialization = "Paediatrics",
+                    Qualification = "MBBS, Paediatrics",
+                    YearsOfExperience = 4
+                }
+            );
+
+            modelBuilder.Entity<Pharmacist>().HasData(
+                new Pharmacist
+                {
+                    StaffId = "STF000006",
+                    UserId = 6,
+                    Role = "Pharmacist",
+                    LicenseNumber = "PHA-LIC-0001",
+                    Qualification = "Bachelor of Pharmacy",
+                    Certification = "Registered Pharmacist",
+                    YearsOfExperience = 5
+                },
+                new Pharmacist
+                {
+                    StaffId = "STF000007",
+                    UserId = 7,
+                    Role = "Pharmacist",
+                    LicenseNumber = "PHA-LIC-0002",
+                    Qualification = "Bachelor of Pharmacy",
+                    Certification = "Registered Pharmacist",
+                    YearsOfExperience = 6
+                },
+                new Pharmacist
+                {
+                    StaffId = "STF000008",
+                    UserId = 8,
+                    Role = "Pharmacist",
+                    LicenseNumber = "PHA-LIC-0003",
+                    Qualification = "Diploma in Pharmacy",
+                    Certification = "Registered Pharmacist",
+                    YearsOfExperience = 3
+                },
+                new Pharmacist
+                {
+                    StaffId = "STF000009",
+                    UserId = 9,
+                    Role = "Pharmacist",
+                    LicenseNumber = "PHA-LIC-0004",
+                    Qualification = "Bachelor of Pharmacy",
+                    Certification = "Registered Pharmacist",
+                    YearsOfExperience = 8
                 }
             );
 
@@ -526,7 +725,7 @@ namespace CarePlus.API.Data
                 {
                     Id = 9,
                     Key = "StaffId",
-                    Value = 1,
+                    Value = 9,
                     Step = 1,
                     Prefix = "STF",
                     Length = 6,
@@ -638,6 +837,18 @@ namespace CarePlus.API.Data
                     Step = 1,
                     Prefix = "SCH",
                     Length = 6,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 12,
+                    Key = "RoomId",
+                    Value = 5,
+                    Step = 1,
+                    Prefix = "RM-",
+                    Length = 4,
                     PaddingChar = '0',
                     IsActive = true,
                     Version = 0,
