@@ -18,10 +18,10 @@ namespace CarePlus.API.Services.AppointmentServices
         public const int CancelsBeforeBookingCloses = 3;
 
         private static readonly TimeSpan MalaysiaOffset = TimeSpan.FromHours(8);
-        private static readonly TimeSpan MorningStart = TimeSpan.FromHours(8);
-        private static readonly TimeSpan MorningEnd = TimeSpan.FromHours(17);
+        private static readonly TimeSpan MorningStart = TimeSpan.FromHours(6);
+        private static readonly TimeSpan MorningEnd = TimeSpan.FromHours(18);
         private static readonly TimeSpan NightStart = TimeSpan.FromHours(18);
-        private static readonly TimeSpan NightEnd = TimeSpan.FromHours(22);
+        private static readonly TimeSpan NightEnd = TimeSpan.FromHours(6);
         private readonly AppDbContext _db;
         private readonly ICounterServices _counters;
 
@@ -87,6 +87,46 @@ namespace CarePlus.API.Services.AppointmentServices
             var now = DateTimeHelper.MalaysiaNow();
             var slots = await BuildSlotsAsync(day, doctorKey, now);
             return ApiResponse<BookingSlotsResponse>.Ok(slots);
+        }
+
+        public async Task<ApiResponse<List<BookingDoctorResponse>>> GetAvailableDoctorsAsync(
+            string? date,
+            string? time)
+        {
+            var now = DateTimeHelper.MalaysiaNow();
+
+            var day = now.Date;
+            if (!string.IsNullOrWhiteSpace(date)
+                && !TryParseDate(date, out day))
+            {
+                return ApiResponse<List<BookingDoctorResponse>>.Fail(
+                    "Pick a valid appointment date.", 400);
+            }
+
+            var appointmentTime = GetNextSlotTime(now.TimeOfDay);
+            if (!string.IsNullOrWhiteSpace(time)
+                && !TimeSpan.TryParseExact(
+                    time.Trim(),
+                    @"hh\:mm",
+                    CultureInfo.InvariantCulture,
+                    out appointmentTime))
+            {
+                return ApiResponse<List<BookingDoctorResponse>>.Fail(
+                    "Pick a valid appointment time.", 400);
+            }
+
+            var activeDoctors = await ListActiveDoctorsAsync();
+            var availableDoctors = new List<BookingDoctorResponse>();
+
+            foreach (var doctor in activeDoctors)
+            {
+                if (await DoctorIsOpenAsync(doctor.Id, day, appointmentTime, now))
+                {
+                    availableDoctors.Add(doctor);
+                }
+            }
+
+            return ApiResponse<List<BookingDoctorResponse>>.Ok(availableDoctors);
         }
 
         public async Task<ApiResponse<List<AppointmentResponse>>> ListUpcomingAsync(long userId)
@@ -289,6 +329,93 @@ namespace CarePlus.API.Services.AppointmentServices
             return ApiResponse<AppointmentResponse>.Ok(ToResponse(saved!));
         }
 
+        public async Task<ApiResponse<AppointmentResponse>> BookForStaffAsync(
+            StaffAppointmentBookRequest request)
+        {
+            var patientId = (request.PatientId ?? "").Trim();
+            var patient = await _db.Patients
+                .Include(row => row.User)
+                .FirstOrDefaultAsync(row => row.PatientId == patientId);
+            if (patient == null || !string.Equals(patient.User?.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("Active patient not found.", 404);
+            }
+
+            if (!TryParseStart(request.StartAt, out var start))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("Pick a valid time slot.", 400);
+            }
+
+            var now = DateTimeHelper.MalaysiaNow();
+            if (start < now.AddMinutes(30))
+            {
+                return ApiResponse<AppointmentResponse>.Fail(
+                    "Appointments must be booked at least 30 minutes in advance.", 400);
+            }
+
+            var doctorId = (request.DoctorId ?? "").Trim();
+            var activeDoctor = await _db.Doctors
+                .AsNoTracking()
+                .Include(row => row.User)
+                .AnyAsync(row =>
+                    row.StaffId == doctorId
+                    && row.User.Status == "Active");
+            if (!activeDoctor)
+            {
+                return ApiResponse<AppointmentResponse>.Fail(
+                    "Active doctor not found.", 404);
+            }
+
+            var requestedType = (request.Type ?? "").Trim();
+            var normalizedType = requestedType.ToUpperInvariant();
+            var visitType = await _db.VisitTypes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item =>
+                    item.IsActive
+                    && (item.VisitTypeId.ToUpper() == normalizedType
+                        || item.Name.ToUpper() == normalizedType));
+            if (visitType == null)
+            {
+                return ApiResponse<AppointmentResponse>.Fail("Pick a visit type.", 400);
+            }
+
+            var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+            if (notes != null && notes.Length > 500)
+            {
+                return ApiResponse<AppointmentResponse>.Fail("Keep the notes under 500 characters.", 400);
+            }
+
+            if (await HasAppointmentInDaySessionAsync(patient.PatientId, start, null))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("same-day-session-limit", 400);
+            }
+
+            if (!await DoctorIsOpenAsync(doctorId, start.Date, start.TimeOfDay, now))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("That slot is already booked.", 400);
+            }
+
+            var appointmentId = await _counters.GenerateNextIdAsync("AppointmentId");
+            _db.Appointments.Add(new Appointment
+            {
+                AppointmentId = appointmentId,
+                PatientId = patient.PatientId,
+                DoctorId = doctorId,
+                AppointmentDate = start.Date,
+                AppointmentTime = start.TimeOfDay,
+                ForName = patient.User?.Name ?? patient.PatientId,
+                VisitType = visitType.VisitTypeId,
+                Notes = notes,
+                RescheduleCount = 0,
+                Status = "Scheduled",
+                CheckInStatus = "Pending",
+            });
+            await _db.SaveChangesAsync();
+
+            var saved = await LoadAppointmentAsync(appointmentId);
+            return ApiResponse<AppointmentResponse>.Ok(ToResponse(saved!));
+        }
+
         public async Task<ApiResponse<AppointmentResponse>> CancelAsync(long userId, string appointmentId)
         {
             var patient = await FindPatientAsync(userId);
@@ -354,6 +481,71 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             if (!await DoctorIsOpenAsync(row.DoctorId, start.Date, start.TimeOfDay, DateTimeHelper.MalaysiaNow(), row.AppointmentId))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("That slot is already booked.", 400);
+            }
+
+            row.AppointmentDate = start.Date;
+            row.AppointmentTime = start.TimeOfDay;
+            row.RescheduleCount += 1;
+            row.LastRescheduledAt = now;
+            await _db.SaveChangesAsync();
+
+            var saved = await LoadAppointmentAsync(row.AppointmentId);
+            return ApiResponse<AppointmentResponse>.Ok(ToResponse(saved!));
+        }
+
+        public async Task<ApiResponse<AppointmentResponse>> CancelForStaffAsync(string appointmentId)
+        {
+            var row = await _db.Appointments.FirstOrDefaultAsync(item => item.AppointmentId == appointmentId);
+            var now = DateTimeHelper.MalaysiaNow();
+            if (row == null || row.Status != "Scheduled" || ToStart(row) <= now)
+            {
+                return ApiResponse<AppointmentResponse>.Fail("Appointment cannot be cancelled.", 400);
+            }
+
+            row.Status = "Cancelled";
+            row.CancelledAt = now;
+            await _db.SaveChangesAsync();
+
+            var saved = await LoadAppointmentAsync(row.AppointmentId);
+            return ApiResponse<AppointmentResponse>.Ok(ToResponse(saved!));
+        }
+
+        public async Task<ApiResponse<AppointmentResponse>> RescheduleForStaffAsync(
+            string appointmentId,
+            AppointmentRescheduleRequest request)
+        {
+            var row = await _db.Appointments.FirstOrDefaultAsync(item => item.AppointmentId == appointmentId);
+            var now = DateTimeHelper.MalaysiaNow();
+            if (row == null || row.Status != "Scheduled" || ToStart(row) <= now)
+            {
+                return ApiResponse<AppointmentResponse>.Fail("Appointment cannot be rescheduled.", 400);
+            }
+
+            if (!TryParseStart(request.StartAt, out var start))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("Pick a valid time slot.", 400);
+            }
+
+            if (start < now.AddMinutes(30))
+            {
+                return ApiResponse<AppointmentResponse>.Fail(
+                    "Appointments must be booked at least 30 minutes in advance.", 400);
+            }
+
+            if (start == ToStart(row))
+            {
+                var same = await LoadAppointmentAsync(row.AppointmentId);
+                return ApiResponse<AppointmentResponse>.Ok(ToResponse(same!));
+            }
+
+            if (await HasAppointmentInDaySessionAsync(row.PatientId, start, row.AppointmentId))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("same-day-session-limit", 400);
+            }
+
+            if (!await DoctorIsOpenAsync(row.DoctorId, start.Date, start.TimeOfDay, now, row.AppointmentId))
             {
                 return ApiResponse<AppointmentResponse>.Fail("That slot is already booked.", 400);
             }
@@ -492,8 +684,7 @@ namespace CarePlus.API.Services.AppointmentServices
             var openTimes = new SortedSet<TimeSpan>();
             foreach (var schedule in schedules)
             {
-                var (startTime, endTime) = ShiftBounds(schedule.Shift);
-                for (var cursor = startTime; cursor + TimeSpan.FromMinutes(SlotMinutes) <= endTime; cursor += TimeSpan.FromMinutes(SlotMinutes))
+                foreach (var cursor in ShiftTimes(schedule.Shift))
                 {
                     openTimes.Add(cursor);
                 }
@@ -544,7 +735,7 @@ namespace CarePlus.API.Services.AppointmentServices
 
         private async Task<bool> DoctorIsOpenAsync(string doctorId, DateTime day, TimeSpan time, DateTime now, string? ignoreAppointmentId = null)
         {
-            if (day + time <= now)
+            if (day + time < now.AddMinutes(30))
             {
                 return false;
             }
@@ -585,10 +776,50 @@ namespace CarePlus.API.Services.AppointmentServices
                 ? (NightStart, NightEnd)
                 : (MorningStart, MorningEnd);
 
+        private static IEnumerable<TimeSpan> ShiftTimes(string shift)
+        {
+            if (shift.Equals("Night", StringComparison.OrdinalIgnoreCase))
+            {
+                for (var cursor = NightStart; cursor < TimeSpan.FromDays(1); cursor += TimeSpan.FromMinutes(SlotMinutes))
+                {
+                    yield return cursor;
+                }
+
+                for (var cursor = TimeSpan.Zero; cursor + TimeSpan.FromMinutes(SlotMinutes) <= NightEnd; cursor += TimeSpan.FromMinutes(SlotMinutes))
+                {
+                    yield return cursor;
+                }
+
+                yield break;
+            }
+
+            for (var cursor = MorningStart; cursor + TimeSpan.FromMinutes(SlotMinutes) <= MorningEnd; cursor += TimeSpan.FromMinutes(SlotMinutes))
+            {
+                yield return cursor;
+            }
+        }
+
         private static bool IsTimeWithinShift(TimeSpan time, string shift)
         {
+            var slotEnd = time + TimeSpan.FromMinutes(SlotMinutes);
+            if (shift.Equals("Night", StringComparison.OrdinalIgnoreCase))
+            {
+                return (time >= NightStart && slotEnd <= TimeSpan.FromDays(1))
+                    || (time < NightEnd && slotEnd <= NightEnd);
+            }
+
             var (start, end) = ShiftBounds(shift);
-            return time >= start && time + TimeSpan.FromMinutes(SlotMinutes) <= end;
+            return time >= start && slotEnd <= end;
+        }
+
+        private static TimeSpan GetNextSlotTime(TimeSpan currentTime)
+        {
+            var totalMinutes = Math.Ceiling(currentTime.TotalMinutes / SlotMinutes)
+                * SlotMinutes;
+
+            return totalMinutes >= TimeSpan.FromDays(1).TotalMinutes
+                ? TimeSpan.Zero
+                : TimeSpan.FromMinutes(totalMinutes);
         }
 
         private async Task<HashSet<string>> StaffOnLeaveAsync(IEnumerable<string> staffIds, DateTime day)
