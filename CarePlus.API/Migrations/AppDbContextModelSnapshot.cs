@@ -487,6 +487,30 @@ namespace CarePlus.API.Migrations
                             Step = 1,
                             Value = 5L,
                             Version = 0L
+                        },
+                        new
+                        {
+                            Id = 13L,
+                            IsActive = true,
+                            Key = "PrescriptionId",
+                            Length = 4,
+                            PaddingChar = "0",
+                            Prefix = "RX",
+                            Step = 1,
+                            Value = 0L,
+                            Version = 0L
+                        },
+                        new
+                        {
+                            Id = 14L,
+                            IsActive = true,
+                            Key = "PrescriptionItemId",
+                            Length = 4,
+                            PaddingChar = "0",
+                            Prefix = "RXI",
+                            Step = 1,
+                            Value = 0L,
+                            Version = 0L
                         });
                 });
 

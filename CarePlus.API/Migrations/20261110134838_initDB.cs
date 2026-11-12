@@ -182,6 +182,7 @@ namespace CarePlus.API.Migrations
                     Appearance = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false, defaultValue: "light"),
                     Language = table.Column<string>(type: "varchar(5)", maxLength: 5, nullable: true),
                     Notification = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false, defaultValue: "all"),
+                    TextSize = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false),
                     TwoFactorEnabled = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: false),
                     HasCompletedTutorial = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: false)
                 },
@@ -343,6 +344,29 @@ namespace CarePlus.API.Migrations
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "UserId",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ChatThreads",
+                columns: table => new
+                {
+                    ChatThreadId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
+                    PatientId = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false),
+                    Title = table.Column<string>(type: "varchar(120)", maxLength: 120, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatThreads", x => x.ChatThreadId);
+                    table.ForeignKey(
+                        name: "FK_ChatThreads_Patients_PatientId",
+                        column: x => x.PatientId,
+                        principalTable: "Patients",
+                        principalColumn: "PatientId",
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySQL:Charset", "utf8mb4");
@@ -553,6 +577,32 @@ namespace CarePlus.API.Migrations
                         column: x => x.StaffId,
                         principalTable: "Staffs",
                         principalColumn: "StaffId",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ChatMessages",
+                columns: table => new
+                {
+                    ChatMessageId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
+                    ChatThreadId = table.Column<long>(type: "bigint", nullable: false),
+                    Role = table.Column<string>(type: "varchar(16)", maxLength: 16, nullable: false),
+                    Content = table.Column<string>(type: "longtext", nullable: false),
+                    Disclaimer = table.Column<string>(type: "varchar(1000)", maxLength: 1000, nullable: true),
+                    SourcesJson = table.Column<string>(type: "longtext", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatMessages", x => x.ChatMessageId);
+                    table.CheckConstraint("CK_ChatMessages_Role", "`Role` IN ('user', 'assistant')");
+                    table.ForeignKey(
+                        name: "FK_ChatMessages_ChatThreads_ChatThreadId",
+                        column: x => x.ChatThreadId,
+                        principalTable: "ChatThreads",
+                        principalColumn: "ChatThreadId",
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySQL:Charset", "utf8mb4");
@@ -797,6 +847,7 @@ namespace CarePlus.API.Migrations
                     QueueId = table.Column<string>(type: "varchar(255)", nullable: false),
                     PatientId = table.Column<string>(type: "varchar(255)", nullable: false),
                     AppointmentId = table.Column<string>(type: "varchar(255)", nullable: true),
+                    RoomId = table.Column<string>(type: "varchar(255)", nullable: true),
                     QueueType = table.Column<string>(type: "longtext", nullable: false),
                     Status = table.Column<string>(type: "longtext", nullable: false, defaultValueSql: "('Waiting')"),
                     CheckInTime = table.Column<DateTime>(type: "datetime(6)", nullable: false)
@@ -809,6 +860,12 @@ namespace CarePlus.API.Migrations
                         column: x => x.AppointmentId,
                         principalTable: "Appointments",
                         principalColumn: "AppointmentId");
+                    table.ForeignKey(
+                        name: "FK_QueueEntries_ClinicRooms_RoomId",
+                        column: x => x.RoomId,
+                        principalTable: "ClinicRooms",
+                        principalColumn: "RoomId",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_QueueEntries_Patients_PatientId",
                         column: x => x.PatientId,
@@ -1083,8 +1140,8 @@ namespace CarePlus.API.Migrations
 
             migrationBuilder.InsertData(
                 table: "appSetting",
-                columns: new[] { "Id", "Appearance", "Language", "Notification", "UserId" },
-                values: new object[] { 1L, "dark", null, "all", 1L });
+                columns: new[] { "Id", "Appearance", "Language", "Notification", "TextSize", "UserId" },
+                values: new object[] { 1L, "dark", null, "all", "normal", 1L });
 
             migrationBuilder.InsertData(
                 table: "Admins",
@@ -1153,6 +1210,16 @@ namespace CarePlus.API.Migrations
                 name: "IX_CartItems_MedicineId",
                 table: "CartItems",
                 column: "MedicineId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChatMessages_ChatThreadId_CreatedAt",
+                table: "ChatMessages",
+                columns: new[] { "ChatThreadId", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChatThreads_PatientId_UpdatedAt",
+                table: "ChatThreads",
+                columns: new[] { "PatientId", "UpdatedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Counters_Key",
@@ -1330,6 +1397,11 @@ namespace CarePlus.API.Migrations
                 column: "PatientId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_QueueEntries_RoomId",
+                table: "QueueEntries",
+                column: "RoomId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RegistrationEmailChallenges_Email_CreatedAt",
                 table: "RegistrationEmailChallenges",
                 columns: new[] { "Email", "CreatedAt" });
@@ -1407,6 +1479,9 @@ namespace CarePlus.API.Migrations
                 name: "CartItems");
 
             migrationBuilder.DropTable(
+                name: "ChatMessages");
+
+            migrationBuilder.DropTable(
                 name: "Counters");
 
             migrationBuilder.DropTable(
@@ -1462,6 +1537,9 @@ namespace CarePlus.API.Migrations
 
             migrationBuilder.DropTable(
                 name: "ShoppingCarts");
+
+            migrationBuilder.DropTable(
+                name: "ChatThreads");
 
             migrationBuilder.DropTable(
                 name: "Pharmacists");
