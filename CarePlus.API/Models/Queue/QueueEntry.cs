@@ -23,6 +23,7 @@ namespace CarePlus.API.Models.Queue
 
         [Required]
         public string QueueType { get; set; } = null!; 
+        [ConcurrencyCheck]
         public string Status { get; set; } = "Waiting";
         public DateTime CheckInTime { get; set; } 
     }

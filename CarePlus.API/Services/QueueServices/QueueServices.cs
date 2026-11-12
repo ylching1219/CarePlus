@@ -1,8 +1,15 @@
 using CarePlus.API.Data;
+using CarePlus.API.DTO.MedicalRecordDTO;
 using CarePlus.API.DTO.QueueDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.Appointment;
+using CarePlus.API.Models.Prescription;
+using CarePlus.API.Models.PrescriptionItem;
 using CarePlus.API.Models.Queue;
+using CarePlus.API.Models.Room;
+using CarePlus.API.Models.RoomAssg;
+using CarePlus.API.Services.CounterServices.Interface;
+using CarePlus.API.Services.MedicalRecordServices.Interface;
 using CarePlus.API.Services.QueueServices.Interface;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
@@ -27,10 +34,14 @@ namespace CarePlus.API.Services.QueueServices
         };
 
         private readonly AppDbContext _db;
+        private readonly IMedicalRecordServices _medicalRecords;
+        private readonly ICounterServices _counters;
 
-        public QueueServices(AppDbContext db)
+        public QueueServices(AppDbContext db, IMedicalRecordServices medicalRecords, ICounterServices counters)
         {
             _db = db;
+            _medicalRecords = medicalRecords;
+            _counters = counters;
         }
 
         public async Task<ApiResponse<QueueOverviewResponse>> GetOverviewAsync(long userId, string? appointmentId)
@@ -72,7 +83,7 @@ namespace CarePlus.API.Services.QueueServices
 
             return ApiResponse<QueueOverviewResponse>.Ok(new QueueOverviewResponse
             {
-                ActiveQueue = active == null ? null : await ToStatusAsync(active),
+                ActiveQueue = active == null ? null : await ToStatusAsync(active, await ResolveQueueRoomAsync(active)),
                 CheckIn = active == null && appointment != null ? ToCheckIn(appointment, now) : null,
             });
         }
@@ -103,7 +114,9 @@ namespace CarePlus.API.Services.QueueServices
             if (existing != null)
             {
                 await transaction.CommitAsync();
-                return ApiResponse<QueueStatusResponse>.Ok(await ToStatusAsync(existing), "You are already checked in.");
+                return ApiResponse<QueueStatusResponse>.Ok(
+                    await ToStatusAsync(existing, await ResolveQueueRoomAsync(existing)),
+                    "You are already checked in.");
             }
 
             if (!appointment.Status.Equals("Scheduled", StringComparison.OrdinalIgnoreCase))
@@ -125,6 +138,7 @@ namespace CarePlus.API.Services.QueueServices
                 return ApiResponse<QueueStatusResponse>.Fail("The 30-minute check-in window has closed. This appointment will be cancelled automatically.", 400);
             }
 
+            var room = await GetAssignedRoomAsync(appointment);
             var entry = new QueueEntry
             {
                 QueueId = $"QUEUE-{appointment.AppointmentId}",
@@ -134,17 +148,73 @@ namespace CarePlus.API.Services.QueueServices
                 Status = "Waiting",
                 CheckInTime = now,
                 Appointment = appointment,
-                RoomId = await AssignedRoomIdAsync(appointment),
+                RoomId = room?.RoomId,
             };
             appointment.CheckInStatus = "CheckedIn";
             _db.QueueEntries.Add(entry);
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            return ApiResponse<QueueStatusResponse>.Ok(await ToStatusAsync(entry), "Check-in successful. Your queue number is ready.");
+            return ApiResponse<QueueStatusResponse>.Ok(await ToStatusAsync(entry, room), "Check-in successful. Your queue number is ready.");
         }
 
-        public async Task<ApiResponse<QueueStatusResponse>> UpdateStatusAsync(long userId, string role, string queueId, string status)
+        public async Task<ApiResponse<List<StaffQueueEntryResponse>>> GetStaffQueueAsync(long userId, string role, DateOnly? date)
+        {
+            var isAdmin = role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+            if (!isAdmin && !role.Equals("Doctor", StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiResponse<List<StaffQueueEntryResponse>>.Fail("You do not have permission to view the appointment queue.", 403);
+            }
+
+            var day = date?.ToDateTime(TimeOnly.MinValue) ?? DateTimeHelper.MalaysiaNow().Date;
+            var entries = await QueueQuery()
+                .Where(row => row.Appointment != null && row.Appointment.AppointmentDate == day
+                    && (isAdmin || row.Appointment.Doctor.UserId == userId))
+                .Include(row => row.Patient).ThenInclude(patient => patient.User)
+                .OrderBy(row => row.CheckInTime)
+                .ThenBy(row => row.QueueId)
+                .ToListAsync();
+
+            if (entries.Count == 0) return ApiResponse<List<StaffQueueEntryResponse>>.Ok([]);
+
+            // Keep the patient-facing number within each doctor, date and shift queue.
+            var numbers = entries.GroupBy(row => row.QueueType)
+                .SelectMany(group => group.Select((row, index) => new { row.QueueId, Number = QueueNumber(index + 1) }))
+                .ToDictionary(row => row.QueueId, row => row.Number);
+            var visitTypeIds = entries.Select(row => row.Appointment!.VisitType).Distinct().ToList();
+            var visitTypes = await _db.VisitTypes.AsNoTracking()
+                .Where(row => visitTypeIds.Contains(row.VisitTypeId))
+                .ToDictionaryAsync(row => row.VisitTypeId, row => row.Name);
+            var doctorIds = entries.Where(row => ActiveStatuses.Contains(StaffStatus(row, row.Appointment!)))
+                .Select(row => row.Appointment!.DoctorId)
+                .Distinct()
+                .ToArray();
+            var assignments = await LoadRoomAssignmentsAsync(day, doctorIds);
+            var assignmentsByDoctor = assignments.ToLookup(row => row.DoctorId, StringComparer.OrdinalIgnoreCase);
+
+            return ApiResponse<List<StaffQueueEntryResponse>>.Ok(entries.Select(row =>
+            {
+                var appointment = row.Appointment!;
+                var status = StaffStatus(row, appointment);
+                var room = ActiveStatuses.Contains(status)
+                    ? FindAssignedRoom(appointment, assignmentsByDoctor[appointment.DoctorId])
+                    : row.Room;
+                return new StaffQueueEntryResponse
+                {
+                    QueueId = row.QueueId,
+                    QueueNumber = numbers[row.QueueId],
+                    AppointmentId = appointment.AppointmentId,
+                    PatientName = string.IsNullOrWhiteSpace(appointment.ForName) ? row.Patient.User.Name : appointment.ForName,
+                    DoctorName = DoctorName(appointment),
+                    VisitType = visitTypes.GetValueOrDefault(appointment.VisitType, appointment.VisitType),
+                    RoomName = room?.RoomName,
+                    CheckedInAt = ToIso(row.CheckInTime),
+                    Status = status,
+                };
+            }).ToList());
+        }
+
+        public async Task<ApiResponse<QueueStatusResponse>> UpdateStatusAsync(long userId, string role, string queueId, string status, string? expectedStatus = null)
         {
             if (!role.Equals("Admin", StringComparison.OrdinalIgnoreCase)
                 && !role.Equals("Doctor", StringComparison.OrdinalIgnoreCase))
@@ -159,7 +229,7 @@ namespace CarePlus.API.Services.QueueServices
             }
 
             var entry = await QueueQuery(tracking: true).FirstOrDefaultAsync(row => row.QueueId == queueId);
-            if (entry == null)
+            if (entry?.Appointment is not Appointment appointment)
             {
                 return ApiResponse<QueueStatusResponse>.Fail("Queue entry was not found.", 404);
             }
@@ -170,33 +240,154 @@ namespace CarePlus.API.Services.QueueServices
                     .Where(row => row.UserId == userId)
                     .Select(row => row.StaffId)
                     .FirstOrDefaultAsync();
-                if (doctorId == null || entry.Appointment?.DoctorId != doctorId)
+                if (doctorId == null || appointment.DoctorId != doctorId)
                 {
                     return ApiResponse<QueueStatusResponse>.Fail("You can only update your own appointment queue.", 403);
                 }
             }
 
-            entry.Status = normalized;
-            if (entry.RoomId == null && entry.Appointment != null)
+            if (expectedStatus != null && (appointment.Status != "Scheduled"
+                || !entry.Status.Equals(expectedStatus, StringComparison.OrdinalIgnoreCase)))
             {
-                entry.RoomId = await AssignedRoomIdAsync(entry.Appointment);
-            }
-            if (entry.Appointment != null)
-            {
-                entry.Appointment.CheckInStatus = normalized switch
-                {
-                    "Completed" => "Completed",
-                    "Skipped" => "Missed",
-                    "Cancelled" => "Cancelled",
-                    _ => normalized,
-                };
-                if (normalized == "Completed") entry.Appointment.Status = "Completed";
-                if (normalized == "Skipped") entry.Appointment.Status = "Missed";
-                if (normalized == "Cancelled") entry.Appointment.Status = "Cancelled";
+                return ApiResponse<QueueStatusResponse>.Fail("This queue entry has changed. Review its latest status.", 409);
             }
 
-            await _db.SaveChangesAsync();
-            return ApiResponse<QueueStatusResponse>.Ok(await ToStatusAsync(entry));
+            return await SaveStatusAsync(entry, appointment, normalized);
+        }
+
+        public async Task<ApiResponse<QueueStatusResponse>> CompleteConsultationAsync(
+            long userId,
+            string queueId,
+            QueueConsultationRequest request)
+        {
+            if (request.PrescriptionItems.Any(item => item is null))
+            {
+                return ApiResponse<QueueStatusResponse>.Fail("Each prescription item must include medicine details.", 400);
+            }
+
+            await using var transaction = await _db.Database.BeginTransactionAsync();
+            var entry = await QueueQuery(tracking: true).FirstOrDefaultAsync(row =>
+                row.QueueId == queueId && row.Appointment != null && row.Appointment.Doctor.UserId == userId);
+            if (entry?.Appointment is not Appointment appointment)
+            {
+                return ApiResponse<QueueStatusResponse>.Fail("Consultation was not found in your queue.", 404);
+            }
+
+            if (entry.Status != "InConsultation" || appointment.Status != "Scheduled")
+            {
+                return ApiResponse<QueueStatusResponse>.Fail("This consultation is no longer in progress. Review the queue for its latest status.", 409);
+            }
+
+            var medicineIds = request.PrescriptionItems.Select(item => item.MedicineId.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var availableMedicineIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (medicineIds.Length > 0)
+            {
+                availableMedicineIds = await _db.Medicines.AsNoTracking()
+                    .Where(medicine => medicineIds.Contains(medicine.MedicineId) && medicine.Status == "Available")
+                    .Select(medicine => medicine.MedicineId)
+                    .ToDictionaryAsync(id => id, StringComparer.OrdinalIgnoreCase);
+                if (medicineIds.Any(id => !availableMedicineIds.ContainsKey(id)))
+                {
+                    return ApiResponse<QueueStatusResponse>.Fail("A selected medicine is no longer available. Choose an available medicine.", 400);
+                }
+            }
+
+            var consultationDate = DateTimeHelper.MalaysiaNow();
+            var record = await _medicalRecords.CreateAsync(userId, new MedicalRecordCreateRequest
+            {
+                PatientId = appointment.PatientId,
+                ConsultationDate = consultationDate,
+                Diagnosis = request.Diagnosis,
+                Notes = request.Notes,
+            });
+            if (!record.IsSuccess || record.Data == null)
+            {
+                return ApiResponse<QueueStatusResponse>.Fail(record.RespMessage, record.RespCode);
+            }
+
+            if (request.PrescriptionItems.Count > 0)
+            {
+                try
+                {
+                    var prescription = new Prescription
+                    {
+                        PrescriptionId = await _counters.GenerateNextIdAsync("PrescriptionId"),
+                        MedicalRecordId = record.Data.MedicalRecordId,
+                        DoctorId = appointment.DoctorId,
+                        PatientId = appointment.PatientId,
+                        CreatedAt = consultationDate,
+                    };
+                    var items = new List<PrescriptionItem>(request.PrescriptionItems.Count);
+                    foreach (var item in request.PrescriptionItems)
+                    {
+                        items.Add(new PrescriptionItem
+                        {
+                            PrescriptionItemId = await _counters.GenerateNextIdAsync("PrescriptionItemId"),
+                            Prescription = prescription,
+                            MedicineId = availableMedicineIds[item.MedicineId.Trim()],
+                            Dosage = item.Dosage.Trim(),
+                            Quantity = item.Quantity,
+                            Instructions = item.Instructions.Trim(),
+                        });
+                    }
+
+                    _db.Prescriptions.Add(prescription);
+                    _db.PrescriptionItems.AddRange(items);
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    return ApiResponse<QueueStatusResponse>.Fail("Another prescription was saved at the same time. Try ending the consultation again.", 409);
+                }
+            }
+
+            var result = await SaveStatusAsync(entry, appointment, "Completed");
+            if (result.IsSuccess)
+            {
+                await transaction.CommitAsync();
+            }
+            return result;
+        }
+
+        private async Task<ApiResponse<QueueStatusResponse>> SaveStatusAsync(
+            QueueEntry entry,
+            Appointment appointment,
+            string normalized)
+        {
+            var room = entry.Room;
+            if (ActiveStatuses.Contains(normalized))
+            {
+                room = await GetAssignedRoomAsync(appointment);
+            }
+            else if (ActiveStatuses.Contains(StaffStatus(entry, appointment)) || room == null)
+            {
+                room = await GetAssignedRoomAsync(appointment) ?? room;
+            }
+
+            entry.RoomId = room?.RoomId;
+            entry.Status = normalized;
+
+            appointment.CheckInStatus = normalized switch
+            {
+                "Completed" => "Completed",
+                "Skipped" => "Missed",
+                "Cancelled" => "Cancelled",
+                _ => normalized,
+            };
+            if (normalized == "Completed") appointment.Status = "Completed";
+            if (normalized == "Skipped") appointment.Status = "Missed";
+            if (normalized == "Cancelled") appointment.Status = "Cancelled";
+
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return ApiResponse<QueueStatusResponse>.Fail("This queue entry has changed. Review its latest status.", 409);
+            }
+            return ApiResponse<QueueStatusResponse>.Ok(await ToStatusAsync(entry, room));
         }
 
         private IQueryable<QueueEntry> QueueQuery(bool tracking = false)
@@ -219,7 +410,7 @@ namespace CarePlus.API.Services.QueueServices
             return tracking ? query : query.AsNoTracking();
         }
 
-        private async Task<QueueStatusResponse> ToStatusAsync(QueueEntry entry)
+        private async Task<QueueStatusResponse> ToStatusAsync(QueueEntry entry, ClinicRoom? room)
         {
             var group = await _db.QueueEntries.AsNoTracking()
                 .Where(row => row.QueueType == entry.QueueType)
@@ -234,26 +425,18 @@ namespace CarePlus.API.Services.QueueServices
             if (!entry.Status.Equals("Waiting", StringComparison.OrdinalIgnoreCase)) peopleAhead = 0;
 
             var appointment = entry.Appointment!;
-            var roomName = entry.Room?.RoomName;
-            if (roomName == null && entry.RoomId != null)
-            {
-                roomName = await _db.ClinicRooms.AsNoTracking()
-                    .Where(row => row.RoomId == entry.RoomId)
-                    .Select(row => row.RoomName)
-                    .FirstOrDefaultAsync();
-            }
             return new QueueStatusResponse
             {
                 QueueId = entry.QueueId,
-                QueueNumber = $"Q{Math.Max(position, 1):000}",
+                QueueNumber = QueueNumber(Math.Max(position, 1)),
                 AppointmentId = entry.AppointmentId ?? "",
                 Status = entry.Status,
                 CheckedInAt = ToIso(entry.CheckInTime),
                 AppointmentAt = ToIso(StartAt(appointment)),
                 DoctorName = DoctorName(appointment),
                 VisitType = appointment.VisitType,
-                RoomId = entry.RoomId,
-                RoomName = roomName,
+                RoomId = room?.RoomId,
+                RoomName = room?.RoomName,
                 PeopleAhead = peopleAhead,
                 EstimatedWaitMinutes = peopleAhead * EstimatedMinutesPerPatient,
             };
@@ -290,23 +473,52 @@ namespace CarePlus.API.Services.QueueServices
             .Select(row => row.PatientId)
             .FirstOrDefaultAsync();
 
-        private async Task<string?> AssignedRoomIdAsync(Appointment appointment)
+        private Task<ClinicRoom?> ResolveQueueRoomAsync(QueueEntry entry) =>
+            entry.Appointment is Appointment appointment && ActiveStatuses.Contains(StaffStatus(entry, appointment))
+                ? GetAssignedRoomAsync(appointment)
+                : Task.FromResult(entry.Room);
+
+        private async Task<ClinicRoom?> GetAssignedRoomAsync(Appointment appointment)
         {
-            var date = DateOnly.FromDateTime(appointment.AppointmentDate);
-            var time = TimeOnly.FromTimeSpan(appointment.AppointmentTime);
+            var assignments = await LoadRoomAssignmentsAsync(appointment.AppointmentDate, [appointment.DoctorId]);
+            return FindAssignedRoom(appointment, assignments);
+        }
+
+        private async Task<List<RoomAssignment>> LoadRoomAssignmentsAsync(DateTime day, string[] doctorIds)
+        {
+            if (doctorIds.Length == 0)
+            {
+                return [];
+            }
+
+            var date = DateOnly.FromDateTime(day);
             return await _db.RoomAssignments.AsNoTracking()
-                .Where(row => row.DoctorId == appointment.DoctorId
+                .Where(row => doctorIds.Contains(row.DoctorId)
                     && row.AssignmentDate == date
-                    && row.StartTime <= time
-                    && row.EndTime > time
+                    && row.Schedule != null
+                    && row.Schedule.Status == "Active"
                     && row.Room.Status != "Maintenance"
                     && row.Room.Status != "Inactive")
+                .Include(row => row.Room)
                 .OrderBy(row => row.StartTime)
-                .Select(row => row.RoomId)
-                .FirstOrDefaultAsync();
+                .ToListAsync();
+        }
+
+        private static ClinicRoom? FindAssignedRoom(Appointment appointment, IEnumerable<RoomAssignment> assignments)
+        {
+            var time = TimeOnly.FromTimeSpan(appointment.AppointmentTime);
+            return assignments.FirstOrDefault(row => time.IsBetween(row.StartTime, row.EndTime))?.Room;
         }
 
         private static DateTime StartAt(Appointment row) => row.AppointmentDate.Date + row.AppointmentTime;
+        private static string QueueNumber(int position) => $"Q{position:000}";
+        private static string StaffStatus(QueueEntry entry, Appointment appointment) => appointment.Status switch
+        {
+            "Completed" => "Completed",
+            "Missed" => "Skipped",
+            "Cancelled" => "Cancelled",
+            _ => entry.Status,
+        };
         private static string QueueType(Appointment row) => $"appointment:{row.DoctorId}:{row.AppointmentDate:yyyyMMdd}:{(row.AppointmentTime < TimeSpan.FromHours(18) ? "morning" : "night")}";
         private static string DoctorName(Appointment row) => string.IsNullOrWhiteSpace(row.Doctor?.User?.Name) ? "CarePlus doctor" : $"Dr {row.Doctor.User.Name.Trim().Replace("Dr ", "", StringComparison.OrdinalIgnoreCase)}";
         private static string ToIso(DateTime value) => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Unspecified), MalaysiaOffset).ToString("yyyy-MM-ddTHH:mm:sszzz", CultureInfo.InvariantCulture);
