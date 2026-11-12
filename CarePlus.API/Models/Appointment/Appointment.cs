@@ -1,4 +1,4 @@
-﻿using CarePlus.API.Models.User.Staff.Doctor;
+using CarePlus.API.Models.User.Staff.Doctor;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
