@@ -20,6 +20,9 @@ public class MedicalRecordCreateRequest
     [Required]
     public string PatientId { get; set; } = string.Empty;
 
+    // Required when an Admin creates a record on behalf of a doctor.
+    public string? DoctorId { get; set; }
+
     [Required]
     public DateTime ConsultationDate { get; set; }
 

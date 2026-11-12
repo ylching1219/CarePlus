@@ -8,7 +8,7 @@ namespace CarePlus.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Doctor")]
+[Authorize(Roles = "Admin,Doctor")]
 public class MedicalRecordController : ControllerBase
 {
     private readonly IMedicalRecordServices _medicalRecords;
@@ -26,7 +26,7 @@ public class MedicalRecordController : ControllerBase
             return Unauthorized(ApiResponse<List<MedicalRecordResponse>>.Fail("Invalid token.", 401));
         }
 
-        return Ok(await _medicalRecords.RetrieveForDoctorAsync(userId));
+        return Ok(await _medicalRecords.RetrieveAsync(userId, User.FindFirstValue(ClaimTypes.Role) ?? string.Empty));
     }
 
     [HttpPost("Create")]
@@ -37,7 +37,7 @@ public class MedicalRecordController : ControllerBase
             return Unauthorized(ApiResponse<MedicalRecordResponse>.Fail("Invalid token.", 401));
         }
 
-        return Ok(await _medicalRecords.CreateAsync(userId, request));
+        return Ok(await _medicalRecords.CreateAsync(userId, User.FindFirstValue(ClaimTypes.Role) ?? string.Empty, request));
     }
 
     [HttpPut("Update")]
@@ -48,7 +48,7 @@ public class MedicalRecordController : ControllerBase
             return Unauthorized(ApiResponse<MedicalRecordResponse>.Fail("Invalid token.", 401));
         }
 
-        return Ok(await _medicalRecords.UpdateAsync(userId, request));
+        return Ok(await _medicalRecords.UpdateAsync(userId, User.FindFirstValue(ClaimTypes.Role) ?? string.Empty, request));
     }
 
     private bool TryGetUserId(out long userId) =>

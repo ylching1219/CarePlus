@@ -48,12 +48,12 @@ namespace CarePlus.API.Controllers
             return Ok(await _queue.UpdateStatusAsync(userId, User.FindFirstValue(ClaimTypes.Role) ?? "", queueId, request.Status, request.ExpectedStatus));
         }
 
-        [Authorize(Roles = "Doctor")]
+        [Authorize(Roles = "Admin,Doctor")]
         [HttpPost("{queueId}/consultation/complete")]
         public async Task<IActionResult> CompleteConsultation(string queueId, QueueConsultationRequest request)
         {
             if (!TryUserId(out var userId)) return Unauthorized(ApiResponse<QueueStatusResponse>.Fail("Invalid token.", 401));
-            return Ok(await _queue.CompleteConsultationAsync(userId, queueId, request));
+            return Ok(await _queue.CompleteConsultationAsync(userId, User.FindFirstValue(ClaimTypes.Role) ?? "", queueId, request));
         }
 
         private bool TryUserId(out long userId) => long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);

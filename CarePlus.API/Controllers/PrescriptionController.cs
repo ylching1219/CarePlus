@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CarePlus.API.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Doctor,Pharmacist")]
+[Authorize(Roles = "Admin,Doctor,Pharmacist")]
 [Route("api/[controller]")]
 public class PrescriptionController(PrescriptionServices prescriptions) : ControllerBase
 {
@@ -19,7 +19,7 @@ public class PrescriptionController(PrescriptionServices prescriptions) : Contro
             return Unauthorized(ApiResponse<List<PrescriptionSummaryResponse>>.Fail("Invalid token.", 401));
         }
 
-        var rows = await prescriptions.RetrieveAsync(userId, User.IsInRole("Pharmacist"), cancellationToken);
+        var rows = await prescriptions.RetrieveAsync(userId, User.IsInRole("Pharmacist"), User.IsInRole("Admin"), cancellationToken);
         return Ok(ApiResponse<List<PrescriptionSummaryResponse>>.Ok(rows));
     }
 
@@ -31,7 +31,7 @@ public class PrescriptionController(PrescriptionServices prescriptions) : Contro
             return Unauthorized(ApiResponse<List<PrescriptionItemResponse>>.Fail("Invalid token.", 401));
         }
 
-        var items = await prescriptions.RetrieveItemsAsync(userId, User.IsInRole("Pharmacist"), prescriptionId, cancellationToken);
+        var items = await prescriptions.RetrieveItemsAsync(userId, User.IsInRole("Pharmacist"), User.IsInRole("Admin"), prescriptionId, cancellationToken);
         return items == null
             ? NotFound(ApiResponse<List<PrescriptionItemResponse>>.Fail("Prescription not found.", 404))
             : Ok(ApiResponse<List<PrescriptionItemResponse>>.Ok(items));

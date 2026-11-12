@@ -257,17 +257,31 @@ namespace CarePlus.API.Services.QueueServices
 
         public async Task<ApiResponse<QueueStatusResponse>> CompleteConsultationAsync(
             long userId,
+            string role,
             string queueId,
             QueueConsultationRequest request)
         {
+            var isAdmin = role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+            var isDoctor = role.Equals("Doctor", StringComparison.OrdinalIgnoreCase);
+            if (!isAdmin && !isDoctor)
+            {
+                return ApiResponse<QueueStatusResponse>.Fail("You do not have permission to complete consultations.", 403);
+            }
+
             if (request.PrescriptionItems.Any(item => item is null))
             {
                 return ApiResponse<QueueStatusResponse>.Fail("Each prescription item must include medicine details.", 400);
             }
 
             await using var transaction = await _db.Database.BeginTransactionAsync();
-            var entry = await QueueQuery(tracking: true).FirstOrDefaultAsync(row =>
-                row.QueueId == queueId && row.Appointment != null && row.Appointment.Doctor.UserId == userId);
+            var entryQuery = QueueQuery(tracking: true)
+                .Where(row => row.QueueId == queueId && row.Appointment != null);
+            if (isDoctor)
+            {
+                entryQuery = entryQuery.Where(row => row.Appointment!.Doctor.UserId == userId);
+            }
+
+            var entry = await entryQuery.FirstOrDefaultAsync();
             if (entry?.Appointment is not Appointment appointment)
             {
                 return ApiResponse<QueueStatusResponse>.Fail("Consultation was not found in your queue.", 404);
@@ -295,9 +309,10 @@ namespace CarePlus.API.Services.QueueServices
             }
 
             var consultationDate = DateTimeHelper.MalaysiaNow();
-            var record = await _medicalRecords.CreateAsync(userId, new MedicalRecordCreateRequest
+            var record = await _medicalRecords.CreateAsync(userId, role, new MedicalRecordCreateRequest
             {
                 PatientId = appointment.PatientId,
+                DoctorId = appointment.DoctorId,
                 ConsultationDate = consultationDate,
                 Diagnosis = request.Diagnosis,
                 Notes = request.Notes,
