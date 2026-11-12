@@ -8,9 +8,9 @@ namespace CarePlus.API.Services.PrescriptionServices;
 public class PrescriptionServices(AppDbContext db)
 {
     public async Task<List<PrescriptionSummaryResponse>> RetrieveAsync(
-        long userId, bool isPharmacist, CancellationToken cancellationToken)
+        long userId, bool isPharmacist, bool isAdmin, CancellationToken cancellationToken)
     {
-        var rows = await AccessiblePrescriptions(userId, isPharmacist)
+        var rows = await AccessiblePrescriptions(userId, isPharmacist, isAdmin)
             .OrderByDescending(row => row.CreatedAt)
             .ThenBy(row => row.PrescriptionId)
             .Select(row => new
@@ -34,9 +34,9 @@ public class PrescriptionServices(AppDbContext db)
     }
 
     public async Task<List<PrescriptionItemResponse>?> RetrieveItemsAsync(
-        long userId, bool isPharmacist, string prescriptionId, CancellationToken cancellationToken)
+        long userId, bool isPharmacist, bool isAdmin, string prescriptionId, CancellationToken cancellationToken)
     {
-        var prescription = AccessiblePrescriptions(userId, isPharmacist)
+        var prescription = AccessiblePrescriptions(userId, isPharmacist, isAdmin)
             .Where(row => row.PrescriptionId == prescriptionId);
         if (!await prescription.AnyAsync(cancellationToken))
         {
@@ -56,10 +56,12 @@ public class PrescriptionServices(AppDbContext db)
             .ToListAsync(cancellationToken);
     }
 
-    private IQueryable<Prescription> AccessiblePrescriptions(long userId, bool isPharmacist)
+    private IQueryable<Prescription> AccessiblePrescriptions(long userId, bool isPharmacist, bool isAdmin)
     {
         var prescriptions = db.Prescriptions.AsNoTracking();
-        return isPharmacist
+        return isAdmin
+            ? prescriptions
+            : isPharmacist
             ? prescriptions.Where(_ => db.Pharmacists.Any(pharmacist => pharmacist.UserId == userId))
             : prescriptions.Where(row => row.Doctor.UserId == userId);
     }

@@ -1,11 +1,13 @@
 using CarePlus.API.DTO.MedicineBatchDTO;
 using CarePlus.API.Services.MedicineBatchServices.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CarePlus.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Admin,Pharmacist")]
     public class MedicineBatchController : ControllerBase
     {
         private readonly IMedicineBatchServices _medicineBatchServices;

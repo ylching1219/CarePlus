@@ -18,7 +18,7 @@ namespace CarePlus.API.Controllers
         }
 
         [HttpPost("Create")]
-        [Authorize(Roles = "Pharmacist")]
+        [Authorize(Roles = "Admin,Pharmacist")]
         public async Task<IActionResult> CreateMedicine(
             MedicineRegisterRequest request)
         {
@@ -38,7 +38,7 @@ namespace CarePlus.API.Controllers
         }
 
         [HttpPut("Update")]
-        [Authorize(Roles = "Pharmacist")]
+        [Authorize(Roles = "Admin,Pharmacist")]
         public async Task<IActionResult> UpdateMedicine(
             MedicineUpdateRequest request)
         {
