@@ -5,6 +5,7 @@ namespace CarePlus.API.Services.AppointmentServices.Interface
     public interface IAppointmentServices
     {
         Task<ApiResponse<BookingCatalogResponse>> GetCatalogAsync(long userId);
+        Task<ApiResponse<List<string>>> GetAvailableDatesAsync(long userId, string doctorId, int days);
         Task<ApiResponse<BookingSlotsResponse>> GetSlotsAsync(long userId, string date, string doctorId);
         Task<ApiResponse<List<BookingDoctorResponse>>> GetAvailableDoctorsAsync(
             string? date,
