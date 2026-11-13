@@ -43,6 +43,33 @@ namespace CarePlus.API.Repository
             return await _context.Users.FirstOrDefaultAsync(u => u.UserId == id);
         }
 
+        public async Task<Dictionary<long, (string Name, string Username, string? Role)>> GetUserSummariesAsync(long[] userIds)
+        {
+            if (userIds.Length == 0)
+            {
+                return [];
+            }
+
+            return await _context.Users
+                .Where(user => userIds.Contains(user.UserId))
+                .Select(user => new
+                {
+                    user.UserId,
+                    user.Name,
+                    user.Username,
+                    Role = _context.Staffs
+                        .Where(staff => staff.UserId == user.UserId)
+                        .Select(staff => staff.Role)
+                        .FirstOrDefault()
+                        ?? (_context.Patients.Any(patient => patient.UserId == user.UserId)
+                            ? "Patient"
+                            : null)
+                })
+                .ToDictionaryAsync(
+                    user => user.UserId,
+                    user => (user.Name, user.Username, (string?)user.Role));
+        }
+
         public async Task<bool> UpdateUserAsync(User user)
         {
             _context.Users.Update(user);

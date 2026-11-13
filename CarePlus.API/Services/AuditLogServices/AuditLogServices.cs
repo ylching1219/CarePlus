@@ -1,5 +1,6 @@
 using CarePlus.API.Data;
 using CarePlus.API.DTO.AuditLogDTO;
+using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.AuditLogServices.Interface;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,10 +9,12 @@ namespace CarePlus.API.Services.AuditLogServices
     public class AuditLogServices : IAuditLogServices
     {
         private readonly AppDbContext _db;
+        private readonly IUserRepository _userRepository;
 
-        public AuditLogServices(AppDbContext db)
+        public AuditLogServices(AppDbContext db, IUserRepository userRepository)
         {
             _db = db;
+            _userRepository = userRepository;
         }
 
         public async Task<ApiResponse<object>> RetrieveAsync(
@@ -29,6 +32,7 @@ namespace CarePlus.API.Services.AuditLogServices
                 .Select(ToResponse())
                 .ToListAsync();
 
+            await PopulateActorsAsync(logs);
             return ApiResponse<object>.Ok(logs);
         }
 
@@ -40,9 +44,13 @@ namespace CarePlus.API.Services.AuditLogServices
                 .Select(ToResponse())
                 .FirstOrDefaultAsync();
 
-            return log == null
-                ? ApiResponse<object>.Fail("Audit log not found.", 404)
-                : ApiResponse<object>.Ok(log);
+            if (log == null)
+            {
+                return ApiResponse<object>.Fail("Audit log not found.", 404);
+            }
+
+            await PopulateActorsAsync([log]);
+            return ApiResponse<object>.Ok(log);
         }
 
         public Task<List<AuditLogRetrieveResponse>> ExportAsync(
@@ -56,6 +64,28 @@ namespace CarePlus.API.Services.AuditLogServices
                 .OrderByDescending(log => log.DateTime)
                 .Select(ToResponse())
                 .ToListAsync();
+        }
+
+        private async Task PopulateActorsAsync(IReadOnlyCollection<AuditLogRetrieveResponse> logs)
+        {
+            var userIds = logs
+                .Select(log => long.TryParse(log.UserId, out var id) ? id : (long?)null)
+                .Where(id => id.HasValue)
+                .Select(id => id.GetValueOrDefault())
+                .Distinct()
+                .ToArray();
+
+            var actors = await _userRepository.GetUserSummariesAsync(userIds);
+
+            foreach (var log in logs)
+            {
+                if (long.TryParse(log.UserId, out var userId) && actors.TryGetValue(userId, out var actor))
+                {
+                    log.ActorName = actor.Name;
+                    log.ActorUsername = actor.Username;
+                    log.ActorRole = actor.Role;
+                }
+            }
         }
 
         private IQueryable<Models.Common.AuditLog> BuildQuery(

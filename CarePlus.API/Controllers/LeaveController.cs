@@ -1,9 +1,10 @@
 using CarePlus.API.DTO.LeaveDTO;
+using CarePlus.API.Extension;
+using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.LeaveServices.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.RegularExpressions;
 
 namespace CarePlus.API.Controllers
 {
@@ -13,6 +14,7 @@ namespace CarePlus.API.Controllers
     public class LeaveController : ControllerBase
     {
         private readonly ILeaveServices _leaveServices;
+        private readonly IStaffRepository _staffRepository;
         private readonly IWebHostEnvironment _environment;
 
         private static readonly HashSet<string> AllowedExtensions =
@@ -28,9 +30,11 @@ namespace CarePlus.API.Controllers
 
         public LeaveController(
             ILeaveServices leaveServices,
+            IStaffRepository staffRepository,
             IWebHostEnvironment environment)
         {
             _leaveServices = leaveServices;
+            _staffRepository = staffRepository;
             _environment = environment;
         }
 
@@ -55,26 +59,22 @@ namespace CarePlus.API.Controllers
                     "Upload a PDF, JPG, PNG, DOC, or DOCX file under 10 MB.", 400));
             }
 
+            var staff = await _staffRepository.GetStaffByIdAsync(request.StaffId);
+            if (staff == null)
+            {
+                return NotFound(ApiResponse<object>.Fail("Staff not found.", 404));
+            }
+
             var root = string.IsNullOrWhiteSpace(_environment.WebRootPath)
                 ? Path.Combine(_environment.ContentRootPath, "wwwroot")
                 : _environment.WebRootPath;
             var folder = Path.Combine(root, "leave-documents");
             Directory.CreateDirectory(folder);
 
-            var originalName = Path.GetFileName(file.FileName);
-            var baseName = Path.GetFileNameWithoutExtension(originalName);
-            var invalidCharacters = new string(Path.GetInvalidFileNameChars());
-            var safeBaseName = string.Concat(baseName.Select(character =>
-                invalidCharacters.Contains(character) ? '_' : character));
-            safeBaseName = Regex.Replace(safeBaseName.Trim(), @"\s+", "-");
-            safeBaseName = string.IsNullOrWhiteSpace(safeBaseName)
-                ? "support-document"
-                : safeBaseName;
-            safeBaseName = safeBaseName.Length > 100
-                ? safeBaseName[..100]
-                : safeBaseName;
-
-            var storedName = $"{Guid.NewGuid():N}-{safeBaseName}{extension.ToLowerInvariant()}";
+            var storedName = UploadFileNameHelper.Generate(
+                "leave",
+                staff.User?.Username ?? staff.StaffId,
+                extension);
             var storedPath = Path.Combine(folder, storedName);
             var documentReference = $"leave-documents/{storedName}";
 

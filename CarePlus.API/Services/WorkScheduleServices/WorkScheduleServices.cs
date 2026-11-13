@@ -1,5 +1,6 @@
 using CarePlus.API.Data;
 using CarePlus.API.DTO.WorkScheduleDTO;
+using CarePlus.API.Models.Room;
 using CarePlus.API.Models.RoomAssg;
 using CarePlus.API.Models.WorkSch;
 using CarePlus.API.Repository.Interface;
@@ -68,6 +69,62 @@ namespace CarePlus.API.Services.WorkScheduleServices
                         "Work schedules are only available for Doctor and Pharmacist staff.", 400);
                 }
 
+                ClinicRoom? room = null;
+                TimeOnly roomStart = default;
+                TimeOnly roomEnd = default;
+                if (string.Equals(staff.Role, "Doctor", StringComparison.OrdinalIgnoreCase))
+                {
+                    var roomId = request.RoomId?.Trim();
+                    if (string.IsNullOrWhiteSpace(roomId))
+                    {
+                        return ApiResponse<object>.Fail(
+                            "A clinic room is required for doctor schedules.", 400);
+                    }
+
+                    room = await _db.ClinicRooms
+                        .FirstOrDefaultAsync(item => item.RoomId == roomId);
+                    if (room == null)
+                    {
+                        return ApiResponse<object>.Fail("Clinic room not found.", 404);
+                    }
+
+                    if (!string.Equals(room.Status, "Available", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ApiResponse<object>.Fail(
+                            "Only available clinic rooms can be assigned.", 409);
+                    }
+
+                    (roomStart, roomEnd) = ShiftBounds(shift);
+                    var requestedStart = request.WorkingDate.ToDateTime(roomStart);
+                    var requestedEnd = request.WorkingDate.ToDateTime(roomEnd);
+                    if (requestedEnd <= requestedStart)
+                    {
+                        requestedEnd = requestedEnd.AddDays(1);
+                    }
+
+                    var roomAssignments = await _db.RoomAssignments
+                        .AsNoTracking()
+                        .Where(item => item.RoomId == room.RoomId)
+                        .ToListAsync();
+                    var roomConflict = roomAssignments.Any(item =>
+                    {
+                        var existingStart = item.AssignmentDate.ToDateTime(item.StartTime);
+                        var existingEnd = item.AssignmentDate.ToDateTime(item.EndTime);
+                        if (existingEnd <= existingStart)
+                        {
+                            existingEnd = existingEnd.AddDays(1);
+                        }
+
+                        return requestedStart < existingEnd && existingStart < requestedEnd;
+                    });
+
+                    if (roomConflict)
+                    {
+                        return ApiResponse<object>.Fail(
+                            "This clinic room is already assigned during that shift.", 409);
+                    }
+                }
+
                 var overlaps = await _workScheduleRepo.HasActiveScheduleOnDateAsync(
                     staffId,
                     request.WorkingDate);
@@ -87,10 +144,32 @@ namespace CarePlus.API.Services.WorkScheduleServices
                     Status = "Active"
                 };
 
-                await _workScheduleRepo.CreateWorkScheduleAsync(workSchedule);
+                await using var transaction = await _db.Database.BeginTransactionAsync();
+                await _db.WorkSchedules.AddAsync(workSchedule);
+
+                RoomAssignment? roomAssignment = null;
+                if (room != null)
+                {
+                    roomAssignment = new RoomAssignment
+                    {
+                        AssignmentId = $"RA-{Guid.NewGuid():N}"[..11].ToUpperInvariant(),
+                        ScheduleId = workSchedule.ScheduleId,
+                        RoomId = room.RoomId,
+                        DoctorId = staffId,
+                        AssignmentDate = request.WorkingDate,
+                        StartTime = roomStart,
+                        EndTime = roomEnd,
+                        Room = room,
+                        Schedule = workSchedule,
+                    };
+                    await _db.RoomAssignments.AddAsync(roomAssignment);
+                }
+
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 workSchedule.Staff = staff;
-                return ApiResponse<object>.Ok(ToResponse(workSchedule, null));
+                return ApiResponse<object>.Ok(ToResponse(workSchedule, roomAssignment));
             }
             catch (Exception ex)
             {
@@ -276,6 +355,14 @@ namespace CarePlus.API.Services.WorkScheduleServices
                 var roomAssignment = await LoadRoomAssignmentAsync(
                     schedule.ScheduleId,
                     trackChanges: true);
+                if (status == "Active"
+                    && string.Equals(schedule.Staff?.Role, "Doctor", StringComparison.OrdinalIgnoreCase)
+                    && roomAssignment == null)
+                {
+                    return ApiResponse<object>.Fail(
+                        "A clinic room is required before activating a doctor schedule.", 400);
+                }
+
                 if (roomAssignment != null)
                 {
                     var (startTime, endTime) = ShiftBounds(shift);

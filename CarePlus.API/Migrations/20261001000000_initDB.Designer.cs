@@ -194,6 +194,73 @@ namespace CarePlus.API.Migrations
                     b.ToTable("CartItems");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatMessage", b =>
+                {
+                    b.Property<long>("ChatMessageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ChatThreadId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Disclaimer")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("SourcesJson")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("ChatMessageId");
+
+                    b.HasIndex("ChatThreadId", "CreatedAt");
+
+                    b.ToTable("ChatMessages", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ChatMessages_Role", "`Role` IN ('user', 'assistant')");
+                        });
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatThread", b =>
+                {
+                    b.Property<long>("ChatThreadId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PatientId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ChatThreadId");
+
+                    b.HasIndex("PatientId", "UpdatedAt");
+
+                    b.ToTable("ChatThreads");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.Common.AuditLog", b =>
                 {
                     b.Property<string>("LogId")
@@ -395,7 +462,7 @@ namespace CarePlus.API.Migrations
                             Key = "AppointmentId",
                             Length = 4,
                             PaddingChar = "0",
-                            Prefix = "Apt",
+                            Prefix = "APT",
                             Step = 1,
                             Value = 0L,
                             Version = 0L
@@ -422,6 +489,30 @@ namespace CarePlus.API.Migrations
                             Prefix = "RM-",
                             Step = 1,
                             Value = 5L,
+                            Version = 0L
+                        },
+                        new
+                        {
+                            Id = 13L,
+                            IsActive = true,
+                            Key = "PrescriptionId",
+                            Length = 4,
+                            PaddingChar = "0",
+                            Prefix = "RX",
+                            Step = 1,
+                            Value = 0L,
+                            Version = 0L
+                        },
+                        new
+                        {
+                            Id = 14L,
+                            IsActive = true,
+                            Key = "PrescriptionItemId",
+                            Length = 4,
+                            PaddingChar = "0",
+                            Prefix = "RXI",
+                            Step = 1,
+                            Value = 0L,
                             Version = 0L
                         });
                 });
@@ -816,7 +907,7 @@ namespace CarePlus.API.Migrations
                     b.HasData(
                         new
                         {
-                            MedicineId = "Med0001",
+                            MedicineId = "MED0001",
                             Description = "For a bacterial infection. Finish the course unless the doctor tells you to stop.",
                             DescriptionZh = "?????????????,???????",
                             Form = "capsule",
@@ -833,7 +924,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0002",
+                            MedicineId = "MED0002",
                             Description = "For fever or pain. Do not take more than 4 g in 24 hours.",
                             DescriptionZh = "????????24 ??????? 4 ??",
                             Form = "tablet",
@@ -850,7 +941,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0003",
+                            MedicineId = "MED0003",
                             Description = "For allergy symptoms. Take it at the same time each day.",
                             DescriptionZh = "??????????????????",
                             Form = "tablet",
@@ -867,7 +958,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0004",
+                            MedicineId = "MED0004",
                             Description = "For pain or swelling after a visit. Take it with food.",
                             DescriptionZh = "????????????????",
                             Form = "tablet",
@@ -884,7 +975,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0005",
+                            MedicineId = "MED0005",
                             Description = "For hay fever and itchy skin. It can make some people sleepy.",
                             DescriptionZh = "????????????????????",
                             Form = "tablet",
@@ -901,7 +992,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0006",
+                            MedicineId = "MED0006",
                             Description = "For a skin infection. Take it on an empty stomach and finish the course.",
                             DescriptionZh = "???????????,???????",
                             Form = "capsule",
@@ -1381,7 +1472,11 @@ namespace CarePlus.API.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("RoomId")
+                        .HasColumnType("varchar(255)");
+
                     b.Property<string>("Status")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("longtext")
@@ -1392,6 +1487,8 @@ namespace CarePlus.API.Migrations
                     b.HasIndex("AppointmentId");
 
                     b.HasIndex("PatientId");
+
+                    b.HasIndex("RoomId");
 
                     b.ToTable("QueueEntries");
                 });
@@ -1514,6 +1611,11 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("varchar(10)")
                         .HasDefaultValue("all");
 
+                    b.Property<string>("TextSize")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint(1)")
@@ -1536,6 +1638,7 @@ namespace CarePlus.API.Migrations
                             Appearance = "dark",
                             HasCompletedTutorial = false,
                             Notification = "all",
+                            TextSize = "normal",
                             TwoFactorEnabled = false,
                             UserId = 1L
                         });
@@ -2082,6 +2185,28 @@ namespace CarePlus.API.Migrations
                     b.Navigation("Medicine");
                 });
 
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatMessage", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.Chat.ChatThread", "ChatThread")
+                        .WithMany("Messages")
+                        .HasForeignKey("ChatThreadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChatThread");
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatThread", b =>
+                {
+                    b.HasOne("CarePlus.API.Models.Patient.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
+                });
+
             modelBuilder.Entity("CarePlus.API.Models.DeliveryAddress.DeliveryAddress", b =>
                 {
                     b.HasOne("CarePlus.API.Models.Patient.Patient", "Patient")
@@ -2364,9 +2489,16 @@ namespace CarePlus.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CarePlus.API.Models.Room.ClinicRoom", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Appointment");
 
                     b.Navigation("Patient");
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("CarePlus.API.Models.RoomAssg.RoomAssignment", b =>
@@ -2475,6 +2607,11 @@ namespace CarePlus.API.Migrations
                         .HasForeignKey("CarePlus.API.Models.User.Staff.Pharmacist.Pharmacist", "StaffId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CarePlus.API.Models.Chat.ChatThread", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

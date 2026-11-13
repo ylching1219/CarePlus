@@ -182,6 +182,7 @@ namespace CarePlus.API.Migrations
                     Appearance = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false, defaultValue: "light"),
                     Language = table.Column<string>(type: "varchar(5)", maxLength: 5, nullable: true),
                     Notification = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false, defaultValue: "all"),
+                    TextSize = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false),
                     TwoFactorEnabled = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: false),
                     HasCompletedTutorial = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: false)
                 },
@@ -343,6 +344,29 @@ namespace CarePlus.API.Migrations
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "UserId",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ChatThreads",
+                columns: table => new
+                {
+                    ChatThreadId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
+                    PatientId = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false),
+                    Title = table.Column<string>(type: "varchar(120)", maxLength: 120, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatThreads", x => x.ChatThreadId);
+                    table.ForeignKey(
+                        name: "FK_ChatThreads_Patients_PatientId",
+                        column: x => x.PatientId,
+                        principalTable: "Patients",
+                        principalColumn: "PatientId",
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySQL:Charset", "utf8mb4");
@@ -553,6 +577,32 @@ namespace CarePlus.API.Migrations
                         column: x => x.StaffId,
                         principalTable: "Staffs",
                         principalColumn: "StaffId",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ChatMessages",
+                columns: table => new
+                {
+                    ChatMessageId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
+                    ChatThreadId = table.Column<long>(type: "bigint", nullable: false),
+                    Role = table.Column<string>(type: "varchar(16)", maxLength: 16, nullable: false),
+                    Content = table.Column<string>(type: "longtext", nullable: false),
+                    Disclaimer = table.Column<string>(type: "varchar(1000)", maxLength: 1000, nullable: true),
+                    SourcesJson = table.Column<string>(type: "longtext", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatMessages", x => x.ChatMessageId);
+                    table.CheckConstraint("CK_ChatMessages_Role", "`Role` IN ('user', 'assistant')");
+                    table.ForeignKey(
+                        name: "FK_ChatMessages_ChatThreads_ChatThreadId",
+                        column: x => x.ChatThreadId,
+                        principalTable: "ChatThreads",
+                        principalColumn: "ChatThreadId",
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySQL:Charset", "utf8mb4");
@@ -797,6 +847,7 @@ namespace CarePlus.API.Migrations
                     QueueId = table.Column<string>(type: "varchar(255)", nullable: false),
                     PatientId = table.Column<string>(type: "varchar(255)", nullable: false),
                     AppointmentId = table.Column<string>(type: "varchar(255)", nullable: true),
+                    RoomId = table.Column<string>(type: "varchar(255)", nullable: true),
                     QueueType = table.Column<string>(type: "longtext", nullable: false),
                     Status = table.Column<string>(type: "longtext", nullable: false, defaultValueSql: "('Waiting')"),
                     CheckInTime = table.Column<DateTime>(type: "datetime(6)", nullable: false)
@@ -809,6 +860,12 @@ namespace CarePlus.API.Migrations
                         column: x => x.AppointmentId,
                         principalTable: "Appointments",
                         principalColumn: "AppointmentId");
+                    table.ForeignKey(
+                        name: "FK_QueueEntries_ClinicRooms_RoomId",
+                        column: x => x.RoomId,
+                        principalTable: "ClinicRooms",
+                        principalColumn: "RoomId",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_QueueEntries_Patients_PatientId",
                         column: x => x.PatientId,
@@ -1021,9 +1078,11 @@ namespace CarePlus.API.Migrations
                     { 7L, true, "InvoiceId", 4, "0", "INV", 1, 0L, 0L },
                     { 8L, true, "PaymentId", 4, "0", "PAY", 1, 0L, 0L },
                     { 9L, true, "StaffId", 6, "0", "STF", 1, 9L, 0L },
-                    { 10L, true, "AppointmentId", 4, "0", "Apt", 1, 0L, 0L },
+                    { 10L, true, "AppointmentId", 4, "0", "APT", 1, 0L, 0L },
                     { 11L, true, "ScheduleId", 6, "0", "SCH", 1, 0L, 0L },
-                    { 12L, true, "RoomId", 4, "0", "RM-", 1, 5L, 0L }
+                    { 12L, true, "RoomId", 4, "0", "RM-", 1, 5L, 0L },
+                    { 13L, true, "PrescriptionId", 4, "0", "RX", 1, 0L, 0L },
+                    { 14L, true, "PrescriptionItemId", 4, "0", "RXI", 1, 0L, 0L }
                 });
 
             migrationBuilder.InsertData(
@@ -1031,12 +1090,12 @@ namespace CarePlus.API.Migrations
                 columns: new[] { "MedicineId", "Description", "DescriptionZh", "Form", "ImageKey", "Kind", "MedicineName", "Method", "MethodZh", "NameZh", "Pack", "PackZh", "Price", "Status" },
                 values: new object[,]
                 {
-                    { "Med0001", "For a bacterial infection. Finish the course unless the doctor tells you to stop.", "用于细菌感染。除非医生叫停，请把疗程吃完。", "capsule", "amox", "antibiotic", "Amoxicillin 500 mg capsules", "1 capsule, 3 times a day", "每日 3 次，每次 1 粒", "阿莫西林 500 毫克胶囊", "16 capsules", "16 粒", 12.50m, "Available" },
-                    { "Med0002", "For fever or pain. Do not take more than 4 g in 24 hours.", "用来退烧或止痛。24 小时内不要超过 4 克。", "tablet", "para", "analgesic", "Paracetamol 500 mg tablets", "1 to 2 tablets, up to 4 times a day", "每次 1 至 2 片，每日最多 4 次", "扑热息痛 500 毫克片", "20 tablets", "20 片", 8.90m, "Available" },
-                    { "Med0003", "For allergy symptoms. Take it at the same time each day.", "针对过敏症状。尽量每天同一时间服用。", "tablet", "lora", "antihistamine", "Loratadine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "氯雷他定 10 毫克片", "10 tablets", "10 片", 16.50m, "Available" },
-                    { "Med0004", "For pain or swelling after a visit. Take it with food.", "用于就诊后的疼痛或肿。饭后服用。", "tablet", "para", "analgesic", "Ibuprofen 200 mg tablets", "1 tablet, up to 3 times a day", "每次 1 片，每日最多 3 次", "布洛芬 200 毫克片", "24 tablets", "24 片", 9.50m, "Available" },
-                    { "Med0005", "For hay fever and itchy skin. It can make some people sleepy.", "用于花粉过敏和皮肤发痒。有些人吃了会困。", "tablet", "lora", "antihistamine", "Cetirizine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "西替利嗪 10 毫克片", "10 tablets", "10 片", 11.00m, "Available" },
-                    { "Med0006", "For a skin infection. Take it on an empty stomach and finish the course.", "用于皮肤感染。空腹服用，并把疗程吃完。", "capsule", "amox", "antibiotic", "Cloxacillin 500 mg capsules", "1 capsule, 4 times a day", "每日 4 次，每次 1 粒", "氯唑西林 500 毫克胶囊", "20 capsules", "20 粒", 14.80m, "Available" }
+                    { "MED0001", "For a bacterial infection. Finish the course unless the doctor tells you to stop.", "用于细菌感染。除非医生叫停，请把疗程吃完。", "capsule", "amox", "antibiotic", "Amoxicillin 500 mg capsules", "1 capsule, 3 times a day", "每日 3 次，每次 1 粒", "阿莫西林 500 毫克胶囊", "16 capsules", "16 粒", 12.50m, "Available" },
+                    { "MED0002", "For fever or pain. Do not take more than 4 g in 24 hours.", "用来退烧或止痛。24 小时内不要超过 4 克。", "tablet", "para", "analgesic", "Paracetamol 500 mg tablets", "1 to 2 tablets, up to 4 times a day", "每次 1 至 2 片，每日最多 4 次", "扑热息痛 500 毫克片", "20 tablets", "20 片", 8.90m, "Available" },
+                    { "MED0003", "For allergy symptoms. Take it at the same time each day.", "针对过敏症状。尽量每天同一时间服用。", "tablet", "lora", "antihistamine", "Loratadine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "氯雷他定 10 毫克片", "10 tablets", "10 片", 16.50m, "Available" },
+                    { "MED0004", "For pain or swelling after a visit. Take it with food.", "用于就诊后的疼痛或肿。饭后服用。", "tablet", "para", "analgesic", "Ibuprofen 200 mg tablets", "1 tablet, up to 3 times a day", "每次 1 片，每日最多 3 次", "布洛芬 200 毫克片", "24 tablets", "24 片", 9.50m, "Available" },
+                    { "MED0005", "For hay fever and itchy skin. It can make some people sleepy.", "用于花粉过敏和皮肤发痒。有些人吃了会困。", "tablet", "lora", "antihistamine", "Cetirizine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "西替利嗪 10 毫克片", "10 tablets", "10 片", 11.00m, "Available" },
+                    { "MED0006", "For a skin infection. Take it on an empty stomach and finish the course.", "用于皮肤感染。空腹服用，并把疗程吃完。", "capsule", "amox", "antibiotic", "Cloxacillin 500 mg capsules", "1 capsule, 4 times a day", "每日 4 次，每次 1 粒", "氯唑西林 500 毫克胶囊", "20 capsules", "20 粒", 14.80m, "Available" }
                 });
 
             migrationBuilder.InsertData(
@@ -1083,8 +1142,8 @@ namespace CarePlus.API.Migrations
 
             migrationBuilder.InsertData(
                 table: "appSetting",
-                columns: new[] { "Id", "Appearance", "Language", "Notification", "UserId" },
-                values: new object[] { 1L, "dark", null, "all", 1L });
+                columns: new[] { "Id", "Appearance", "Language", "Notification", "TextSize", "UserId" },
+                values: new object[] { 1L, "dark", null, "all", "normal", 1L });
 
             migrationBuilder.InsertData(
                 table: "Admins",
@@ -1153,6 +1212,16 @@ namespace CarePlus.API.Migrations
                 name: "IX_CartItems_MedicineId",
                 table: "CartItems",
                 column: "MedicineId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChatMessages_ChatThreadId_CreatedAt",
+                table: "ChatMessages",
+                columns: new[] { "ChatThreadId", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChatThreads_PatientId_UpdatedAt",
+                table: "ChatThreads",
+                columns: new[] { "PatientId", "UpdatedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Counters_Key",
@@ -1330,6 +1399,11 @@ namespace CarePlus.API.Migrations
                 column: "PatientId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_QueueEntries_RoomId",
+                table: "QueueEntries",
+                column: "RoomId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RegistrationEmailChallenges_Email_CreatedAt",
                 table: "RegistrationEmailChallenges",
                 columns: new[] { "Email", "CreatedAt" });
@@ -1407,6 +1481,9 @@ namespace CarePlus.API.Migrations
                 name: "CartItems");
 
             migrationBuilder.DropTable(
+                name: "ChatMessages");
+
+            migrationBuilder.DropTable(
                 name: "Counters");
 
             migrationBuilder.DropTable(
@@ -1462,6 +1539,9 @@ namespace CarePlus.API.Migrations
 
             migrationBuilder.DropTable(
                 name: "ShoppingCarts");
+
+            migrationBuilder.DropTable(
+                name: "ChatThreads");
 
             migrationBuilder.DropTable(
                 name: "Pharmacists");

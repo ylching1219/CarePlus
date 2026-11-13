@@ -12,5 +12,7 @@ namespace CarePlus.API.DTO.WorkScheduleDTO
         [StringLength(20)]
         [Required(ErrorMessage = "Shift is required.")]
         public string Shift { get; init; } = string.Empty;
+
+        public string? RoomId { get; init; }
     }
 }

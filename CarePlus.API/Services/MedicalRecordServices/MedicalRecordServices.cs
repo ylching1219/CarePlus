@@ -16,18 +16,73 @@ public class MedicalRecordServices : IMedicalRecordServices
         _db = db;
     }
 
-    public async Task<ApiResponse<List<MedicalRecordResponse>>> RetrieveForDoctorAsync(long userId)
+    public async Task<ApiResponse<List<MedicalRecordResponse>>> RetrieveAsync(long userId, string role)
     {
-        var doctor = await FindDoctorAsync(userId);
-        if (doctor == null)
+        var isAdmin = role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        var isDoctor = role.Equals("Doctor", StringComparison.OrdinalIgnoreCase);
+        if (!isAdmin && !isDoctor)
+        {
+            return ApiResponse<List<MedicalRecordResponse>>.Fail(
+                "You do not have permission to view medical records.", 403);
+        }
+
+        var doctor = isDoctor ? await FindDoctorAsync(userId) : null;
+        if (isDoctor && doctor == null)
         {
             return ApiResponse<List<MedicalRecordResponse>>.Fail(
                 "This account is not a doctor account.", 403);
         }
 
+        var query = _db.MedicalRecords
+            .AsNoTracking()
+            .Include(record => record.Patient)
+                .ThenInclude(patient => patient.User)
+            .Include(record => record.Doctor)
+                .ThenInclude(recordDoctor => recordDoctor.User)
+            .AsQueryable();
+
+        if (doctor != null)
+        {
+            query = query.Where(record => record.DoctorId == doctor.StaffId);
+        }
+
+        var records = await query
+            .OrderByDescending(record => record.ConsultationDate)
+            .ToListAsync();
+
+        return ApiResponse<List<MedicalRecordResponse>>.Ok(
+            records.Select(ToResponse).ToList());
+    }
+
+    public async Task<ApiResponse<List<MedicalRecordResponse>>> RetrieveForPatientAsync(
+        long userId,
+        string role,
+        string patientId)
+    {
+        var isAdmin = role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        var isDoctor = role.Equals("Doctor", StringComparison.OrdinalIgnoreCase);
+        if (!isAdmin && !isDoctor)
+        {
+            return ApiResponse<List<MedicalRecordResponse>>.Fail(
+                "You do not have permission to view patient medical records.", 403);
+        }
+
+        if (isDoctor && await FindDoctorAsync(userId) == null)
+        {
+            return ApiResponse<List<MedicalRecordResponse>>.Fail(
+                "This account is not a doctor account.", 403);
+        }
+
+        var normalizedPatientId = patientId.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedPatientId)
+            || !await _db.Patients.AnyAsync(patient => patient.PatientId == normalizedPatientId))
+        {
+            return ApiResponse<List<MedicalRecordResponse>>.Fail("Patient not found.", 404);
+        }
+
         var records = await _db.MedicalRecords
             .AsNoTracking()
-            .Where(record => record.DoctorId == doctor.StaffId)
+            .Where(record => record.PatientId == normalizedPatientId)
             .Include(record => record.Patient)
                 .ThenInclude(patient => patient.User)
             .Include(record => record.Doctor)
@@ -41,13 +96,25 @@ public class MedicalRecordServices : IMedicalRecordServices
 
     public async Task<ApiResponse<MedicalRecordResponse>> CreateAsync(
         long userId,
+        string role,
         MedicalRecordCreateRequest request)
     {
-        var doctor = await FindDoctorAsync(userId);
+        var isAdmin = role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        var isDoctor = role.Equals("Doctor", StringComparison.OrdinalIgnoreCase);
+        if (!isAdmin && !isDoctor)
+        {
+            return ApiResponse<MedicalRecordResponse>.Fail(
+                "You do not have permission to create medical records.", 403);
+        }
+
+        var doctor = isAdmin
+            ? await FindDoctorByStaffIdAsync(request.DoctorId)
+            : await FindDoctorAsync(userId);
         if (doctor == null)
         {
             return ApiResponse<MedicalRecordResponse>.Fail(
-                "This account is not a doctor account.", 403);
+                isAdmin ? "A valid doctor is required." : "This account is not a doctor account.",
+                isAdmin ? 400 : 403);
         }
 
         var validationError = ValidateRecord(request.PatientId, request.ConsultationDate, request.Diagnosis);
@@ -84,10 +151,19 @@ public class MedicalRecordServices : IMedicalRecordServices
 
     public async Task<ApiResponse<MedicalRecordResponse>> UpdateAsync(
         long userId,
+        string role,
         MedicalRecordUpdateRequest request)
     {
-        var doctor = await FindDoctorAsync(userId);
-        if (doctor == null)
+        var isAdmin = role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        var isDoctor = role.Equals("Doctor", StringComparison.OrdinalIgnoreCase);
+        if (!isAdmin && !isDoctor)
+        {
+            return ApiResponse<MedicalRecordResponse>.Fail(
+                "You do not have permission to update medical records.", 403);
+        }
+
+        var doctor = isDoctor ? await FindDoctorAsync(userId) : null;
+        if (isDoctor && doctor == null)
         {
             return ApiResponse<MedicalRecordResponse>.Fail(
                 "This account is not a doctor account.", 403);
@@ -99,17 +175,24 @@ public class MedicalRecordServices : IMedicalRecordServices
             return ApiResponse<MedicalRecordResponse>.Fail(validationError, 400);
         }
 
-        var record = await _db.MedicalRecords
+        var recordQuery = _db.MedicalRecords
             .Include(row => row.Patient)
                 .ThenInclude(patient => patient.User)
             .Include(row => row.Doctor)
                 .ThenInclude(recordDoctor => recordDoctor.User)
-            .FirstOrDefaultAsync(row => row.MedicalRecordId == request.MedicalRecordId.Trim()
-                && row.DoctorId == doctor.StaffId);
+            .Where(row => row.MedicalRecordId == request.MedicalRecordId.Trim());
+
+        if (doctor != null)
+        {
+            recordQuery = recordQuery.Where(row => row.DoctorId == doctor.StaffId);
+        }
+
+        var record = await recordQuery.FirstOrDefaultAsync();
         if (record == null)
         {
             return ApiResponse<MedicalRecordResponse>.Fail(
-                "Medical record not found or does not belong to you.", 404);
+                isAdmin ? "Medical record not found." : "Medical record not found or does not belong to you.",
+                404);
         }
 
         record.ConsultationDate = request.ConsultationDate;
@@ -124,6 +207,11 @@ public class MedicalRecordServices : IMedicalRecordServices
         _db.Doctors
             .Include(doctor => doctor.User)
             .FirstOrDefaultAsync(doctor => doctor.UserId == userId);
+
+    private Task<Models.User.Staff.Doctor.Doctor?> FindDoctorByStaffIdAsync(string? staffId) =>
+        _db.Doctors
+            .Include(doctor => doctor.User)
+            .FirstOrDefaultAsync(doctor => doctor.StaffId == staffId);
 
     private static MedicalRecordResponse ToResponse(MedRecord record) => new()
     {
