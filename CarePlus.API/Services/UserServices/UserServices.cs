@@ -607,6 +607,13 @@ namespace CarePlus.API.Services.UserServices
                 return ApiResponse<object>.Fail("Only patient accounts can be deleted here.", 400);
             }
 
+            var hasUnpaidInvoice = await _db.Invoices.AnyAsync(row =>
+                row.PatientId == patient.PatientId && row.PaymentStatus != "Paid");
+            if (hasUnpaidInvoice)
+            {
+                return ApiResponse<object>.Fail("Pay all outstanding invoices before deleting your account.", 409);
+            }
+
             var ownedGroup = await _db.FamilyGroups.FirstOrDefaultAsync(group => group.CreatedBy == patient.PatientId);
             if (ownedGroup != null)
             {
