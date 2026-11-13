@@ -1,5 +1,6 @@
 using CarePlus.API.Data;
 using CarePlus.API.Extension;
+using CarePlus.API.Filters;
 using CarePlus.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddServices(builder.Configuration);
-builder.Services.AddControllers().ConfigureApiBehaviorOptions(opt =>
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<RejectDangerousMarkupFilter>();
+}).ConfigureApiBehaviorOptions(opt =>
 {
     opt.InvalidModelStateResponseFactory = context =>
     {

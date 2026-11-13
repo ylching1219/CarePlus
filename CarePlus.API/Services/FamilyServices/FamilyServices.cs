@@ -423,12 +423,9 @@ public class FamilyServices : Interface.IFamilyServices
             return Fail("Family name must be between 2 and 100 characters.", 400);
         }
 
-        // ponytail: block HTML/script junk so invite emails cannot carry a poisoned family name
-        if (name.IndexOfAny(['<', '>', '`']) >= 0
-            || name.Contains("javascript:", StringComparison.OrdinalIgnoreCase)
-            || Regex.IsMatch(name, @"[\u0000-\u001F\u007F]"))
+        if (PlainTextGuard.ContainsDangerousMarkup(name))
         {
-            return Fail("Family name cannot contain HTML or script characters.", 400);
+            return Fail("Text fields cannot contain HTML or script characters.", 400);
         }
 
         return null;
