@@ -45,7 +45,8 @@ public class FamilyServices : Interface.IFamilyServices
         var nameError = ValidateFamilyName(request.Name, out var name);
         if (nameError != null) return nameError;
 
-        if (await HasAnyFamilyMembershipAsync(patientId))
+        // Pending invites are not membership; only an active family blocks create.
+        if (await HasAnyActiveFamilyMembershipAsync(patientId))
         {
             return Fail("You already belong to a family.", 409);
         }
@@ -109,7 +110,15 @@ public class FamilyServices : Interface.IFamilyServices
         if (targetPatient == null) return Fail("No active patient account was found for this email.", 404);
         if (targetPatient.PatientId == patientId) return Fail("You cannot invite yourself.", 400);
 
-        if (await HasAnyFamilyMembershipAsync(targetPatient.PatientId)) return Fail("This patient already belongs to a family.", 409);
+        if (await HasAnyActiveFamilyMembershipAsync(targetPatient.PatientId))
+        {
+            return Fail("This patient already belongs to a family.", 409);
+        }
+
+        if (await HasPendingFamilyInviteAsync(targetPatient.PatientId))
+        {
+            return Fail("This patient already has a pending family invitation.", 409);
+        }
 
         if (relation.Equals("parent", StringComparison.OrdinalIgnoreCase))
         {
@@ -412,8 +421,11 @@ public class FamilyServices : Interface.IFamilyServices
             .FirstOrDefaultAsync(row => row.PatientId == patientId && row.Status == "Active");
     }
 
-    private Task<bool> HasAnyFamilyMembershipAsync(string patientId) => _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && (row.Status == "Active" || row.Status == "Pending"));
-    private Task<bool> HasAnyActiveFamilyMembershipAsync(string patientId) => _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && row.Status == "Active");
+    private Task<bool> HasAnyActiveFamilyMembershipAsync(string patientId) =>
+        _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && row.Status == "Active");
+
+    private Task<bool> HasPendingFamilyInviteAsync(string patientId) =>
+        _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && row.Status == "Pending");
 
     private static ApiResponse<FamilyOverviewResponse>? ValidateFamilyName(string? raw, out string name)
     {
@@ -434,8 +446,10 @@ public class FamilyServices : Interface.IFamilyServices
     private static string PlainText(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
-        var withoutTags = Regex.Replace(value, "<[^>]*>", " ");
+        // Include unclosed tags like "<body style=..." so poisoned names cannot leak into the UI.
+        var withoutTags = Regex.Replace(value, "<[^>]*>?", " ");
         withoutTags = WebUtility.HtmlDecode(withoutTags);
+        withoutTags = withoutTags.Replace("<", " ", StringComparison.Ordinal).Replace(">", " ", StringComparison.Ordinal);
         return Regex.Replace(withoutTags, @"\s+", " ").Trim();
     }
 
