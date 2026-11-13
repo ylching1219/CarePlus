@@ -45,10 +45,10 @@ namespace CarePlus.API.Services.MedicineServices
 
                 return ApiResponse<object>.Ok(Map(medicine));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -67,10 +67,10 @@ namespace CarePlus.API.Services.MedicineServices
 
                 return ApiResponse<object>.Ok(result);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -89,10 +89,10 @@ namespace CarePlus.API.Services.MedicineServices
 
                 return ApiResponse<object>.Ok(Map(medicine));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -165,10 +165,10 @@ namespace CarePlus.API.Services.MedicineServices
 
                 return ApiResponse<object>.Ok(null);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 

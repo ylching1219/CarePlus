@@ -1,9 +1,9 @@
+using System.Security.Claims;
 using CarePlus.API.DTO.LeaveDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.LeaveServices.Interface;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CarePlus.API.Controllers
@@ -59,7 +59,21 @@ namespace CarePlus.API.Controllers
                     "Upload a PDF, JPG, PNG, DOC, or DOCX file under 10 MB.", 400));
             }
 
-            var staff = await _staffRepository.GetStaffByIdAsync(request.StaffId);
+            var callerStaffId = User.FindFirstValue("staffId");
+            var isAdmin = User.IsInRole("Admin");
+            var staffId = isAdmin ? request.StaffId : callerStaffId;
+            if (string.IsNullOrWhiteSpace(staffId))
+            {
+                return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
+            if (!isAdmin && !string.Equals(request.StaffId, staffId, StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse<object>.Fail("You can only create leave for your own account.", 403));
+            }
+
+            var staff = await _staffRepository.GetStaffByIdAsync(staffId);
             if (staff == null)
             {
                 return NotFound(ApiResponse<object>.Fail("Staff not found.", 404));
@@ -71,10 +85,7 @@ namespace CarePlus.API.Controllers
             var folder = Path.Combine(root, "leave-documents");
             Directory.CreateDirectory(folder);
 
-            var storedName = UploadFileNameHelper.Generate(
-                "leave",
-                staff.User?.Username ?? staff.StaffId,
-                extension);
+            var storedName = UploadFileNameHelper.GenerateOpaque(extension);
             var storedPath = Path.Combine(folder, storedName);
             var documentReference = $"leave-documents/{storedName}";
 
@@ -85,7 +96,7 @@ namespace CarePlus.API.Controllers
 
             var result = await _leaveServices.CreateLeaveAsync(new LeaveCreateRequest
             {
-                StaffId = request.StaffId,
+                StaffId = staffId,
                 StartDate = request.StartDate,
                 EndDate = request.EndDate,
                 Reason = request.Reason,
@@ -103,18 +114,55 @@ namespace CarePlus.API.Controllers
         [HttpGet("Retrieve")]
         public async Task<IActionResult> RetrieveLeaves()
         {
-            return Ok(await _leaveServices.RetrieveAllLeavesAsync());
+            if (User.IsInRole("Admin"))
+            {
+                return Ok(await _leaveServices.RetrieveAllLeavesAsync());
+            }
+
+            var staffId = User.FindFirstValue("staffId");
+            if (string.IsNullOrWhiteSpace(staffId))
+            {
+                return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _leaveServices.RetrieveLeavesByStaffIdAsync(staffId));
         }
 
         [HttpGet("RetrieveById/{leaveId}")]
         public async Task<IActionResult> RetrieveLeaveById(string leaveId)
         {
-            return Ok(await _leaveServices.RetrieveLeaveByIdAsync(leaveId));
+            var result = await _leaveServices.RetrieveLeaveByIdAsync(leaveId);
+            if (!result.IsSuccess || result.Data is not LeaveRetrieveResponse leave)
+            {
+                return Ok(result);
+            }
+
+            if (!User.IsInRole("Admin"))
+            {
+                var staffId = User.FindFirstValue("staffId");
+                if (!string.Equals(leave.StaffId, staffId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        ApiResponse<object>.Fail("You can only view your own leave requests.", 403));
+                }
+            }
+
+            return Ok(result);
         }
 
         [HttpGet("RetrieveByStaffId/{staffId}")]
         public async Task<IActionResult> RetrieveLeavesByStaffId(string staffId)
         {
+            if (!User.IsInRole("Admin"))
+            {
+                var callerStaffId = User.FindFirstValue("staffId");
+                if (!string.Equals(callerStaffId, staffId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        ApiResponse<object>.Fail("You can only view your own leave requests.", 403));
+                }
+            }
+
             return Ok(await _leaveServices
                 .RetrieveLeavesByStaffIdAsync(staffId));
         }

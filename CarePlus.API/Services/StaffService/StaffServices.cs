@@ -71,9 +71,9 @@ namespace CarePlus.API.Services.StaffService
                     Name = request.Name,
                 });
             } 
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -102,9 +102,9 @@ namespace CarePlus.API.Services.StaffService
 
                 return ApiResponse<object>.Fail("No staff found", 404);
             }
-            catch(Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -132,9 +132,9 @@ namespace CarePlus.API.Services.StaffService
 
                 return ApiResponse<object>.Fail("No staff found", 404);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -163,9 +163,9 @@ namespace CarePlus.API.Services.StaffService
 
                 return ApiResponse<object>.Fail($"No staff found in this {role}", 404);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -227,9 +227,9 @@ namespace CarePlus.API.Services.StaffService
 
                 return ApiResponse<object>.Ok(null);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
     }

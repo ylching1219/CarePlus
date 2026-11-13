@@ -5,6 +5,7 @@ using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Services.PatientServices.Interface;
 using CarePlus.API.Services.EmailVerificationServices.Interface;
 using CarePlus.API.Services.PasswordResetServices.Interface;
+using CarePlus.API.Extension;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using CarePlus.API.Services.RegistrationEmailVerificationServices.Interface;
@@ -37,9 +38,10 @@ namespace CarePlus.API.Controllers
 
         [AllowAnonymous]
         [HttpPost("Login")]
+        [EnableRateLimiting("login")]
         public async Task<IActionResult> PatientLogin(UserLoginRequest request)
         {
-            return Ok(await _userServices.PatientLoginAsync(request));
+            return this.ApiResult(await _userServices.PatientLoginAsync(request));
         }
 
         [HttpPost("Login/VerifyTwoFactor")]
@@ -81,6 +83,7 @@ namespace CarePlus.API.Controllers
 
         [AllowAnonymous]
         [HttpGet("UsernameAvailability")]
+        [EnableRateLimiting("username-check")]
         public async Task<IActionResult> UsernameAvailability([FromQuery] string username)
         {
             return Ok(await _userServices.CheckUsernameAvailabilityAsync(username));

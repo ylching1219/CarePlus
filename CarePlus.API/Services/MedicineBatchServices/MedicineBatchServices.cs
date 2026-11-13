@@ -51,10 +51,10 @@ namespace CarePlus.API.Services.MedicineBatchServices
                     ExpiryDate = medicineBatch.ExpiryDate
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -74,10 +74,10 @@ namespace CarePlus.API.Services.MedicineBatchServices
                 return ApiResponse<object>.Ok(
                     medicineBatches.Select(ToResponse).ToList());
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -97,10 +97,10 @@ namespace CarePlus.API.Services.MedicineBatchServices
 
                 return ApiResponse<object>.Ok(ToResponse(medicineBatch));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -139,10 +139,10 @@ namespace CarePlus.API.Services.MedicineBatchServices
 
                 return ApiResponse<object>.Ok(ToResponse(medicineBatch));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 

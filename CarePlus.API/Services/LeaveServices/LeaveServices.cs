@@ -95,10 +95,10 @@ namespace CarePlus.API.Services.LeaveServices
 
                 return ApiResponse<object>.Ok(ToResponse(leave));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -117,10 +117,10 @@ namespace CarePlus.API.Services.LeaveServices
                 return ApiResponse<object>.Ok(
                     leaves.Select(ToResponse).ToList());
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -139,10 +139,10 @@ namespace CarePlus.API.Services.LeaveServices
 
                 return ApiResponse<object>.Ok(ToResponse(leave));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -172,10 +172,10 @@ namespace CarePlus.API.Services.LeaveServices
                 return ApiResponse<object>.Ok(
                     leaves.Select(ToResponse).ToList());
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -228,10 +228,10 @@ namespace CarePlus.API.Services.LeaveServices
 
                 return ApiResponse<object>.Ok(ToResponse(leave));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 

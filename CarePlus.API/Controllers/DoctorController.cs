@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using CarePlus.API.DTO.StaffDTO;
 using CarePlus.API.Services.StaffService.Interface;
 using Microsoft.AspNetCore.Authorization;
@@ -53,6 +54,21 @@ namespace CarePlus.API.Controllers
         [HttpPut("Update")]
         public async Task<IActionResult> UpdateDoctor(DoctorUpdateRequest request)
         {
+            if (!User.IsInRole("Admin"))
+            {
+                var staffId = User.FindFirstValue("staffId");
+                if (string.IsNullOrWhiteSpace(staffId))
+                {
+                    return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+                }
+
+                if (!string.Equals(request.StaffId, staffId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        ApiResponse<object>.Fail("You can only update your own doctor profile.", 403));
+                }
+            }
+
             return Ok(await _doctorServices.UpdateDoctorAsync(request));
         }
     }

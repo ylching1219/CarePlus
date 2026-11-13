@@ -3,7 +3,6 @@ using CarePlus.API.Extension;
 using CarePlus.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -79,6 +78,28 @@ builder.Services.AddRateLimiter(options =>
             AutoReplenishment = true
         });
     });
+    options.AddPolicy("login", context =>
+    {
+        var partition = $"login:{context.Connection.RemoteIpAddress}";
+        return RateLimitPartition.GetFixedWindowLimiter(partition, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(15),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+    options.AddPolicy("username-check", context =>
+    {
+        var partition = $"username-check:{context.Connection.RemoteIpAddress}";
+        return RateLimitPartition.GetFixedWindowLimiter(partition, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(15),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
 });
 
 builder.Services.AddCors(options =>
@@ -125,20 +146,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Client");
-var profileFolder = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "profiles");
-Directory.CreateDirectory(profileFolder);
-app.UseStaticFiles(new StaticFileOptions
-{
-    RequestPath = "/api/profiles",
-    FileProvider = new PhysicalFileProvider(profileFolder)
-});
-var leaveDocumentFolder = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "leave-documents");
-Directory.CreateDirectory(leaveDocumentFolder);
-app.UseStaticFiles(new StaticFileOptions
-{
-    RequestPath = "/api/leave-documents",
-    FileProvider = new PhysicalFileProvider(leaveDocumentFolder)
-});
+var webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(Path.Combine(webRoot, "profiles"));
+Directory.CreateDirectory(Path.Combine(webRoot, "leave-documents"));
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();

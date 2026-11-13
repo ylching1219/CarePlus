@@ -81,9 +81,9 @@ namespace CarePlus.API.Services.StaffService
                     YearsOfExperience = doctor.YearsOfExperience
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -116,9 +116,9 @@ namespace CarePlus.API.Services.StaffService
 
                 return ApiResponse<object>.Ok(result);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -149,9 +149,9 @@ namespace CarePlus.API.Services.StaffService
                     YearsOfExperience = doctor.YearsOfExperience
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -282,9 +282,9 @@ namespace CarePlus.API.Services.StaffService
                     YearsOfExperience = doctor.YearsOfExperience
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
     }

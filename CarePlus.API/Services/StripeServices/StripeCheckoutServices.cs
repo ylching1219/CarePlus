@@ -1,6 +1,7 @@
 using CarePlus.API.DTO.InvoiceDTO;
 using CarePlus.API.DTO.StripeDTO;
 using CarePlus.API.Options;
+using CarePlus.API.Services.CartServices.Interface;
 using CarePlus.API.Services.InvoiceServices.Interface;
 using CarePlus.API.Services.StripeServices.Interface;
 using Microsoft.Extensions.Options;
@@ -20,12 +21,18 @@ namespace CarePlus.API.Services.StripeServices
         };
 
         private readonly IInvoiceServices _invoices;
+        private readonly ICartServices _cart;
         private readonly StripeOptions _stripe;
         private readonly IConfiguration _config;
 
-        public StripeCheckoutServices(IInvoiceServices invoices, IOptions<StripeOptions> stripe, IConfiguration config)
+        public StripeCheckoutServices(
+            IInvoiceServices invoices,
+            ICartServices cart,
+            IOptions<StripeOptions> stripe,
+            IConfiguration config)
         {
             _invoices = invoices;
+            _cart = cart;
             _stripe = stripe.Value;
             _config = config;
         }
@@ -130,9 +137,9 @@ namespace CarePlus.API.Services.StripeServices
                     PublishableKey = _stripe.PublishableKey,
                 });
             }
-            catch (StripeException ex)
+            catch (StripeException)
             {
-                return ApiResponse<CheckoutSessionResponse>.Fail(ex.Message, 502);
+                return ApiResponse<CheckoutSessionResponse>.Fail("Payment provider error.", 502);
             }
         }
 
@@ -147,7 +154,15 @@ namespace CarePlus.API.Services.StripeServices
                 return ApiResponse<CheckoutSessionResponse>.Fail("Choose card or FPX.", 400);
             }
 
-            var amountCents = ToCents(request.Amount);
+            // ponytail: ignore client Amount; charge server cart total only
+            var cart = await _cart.ListAsync(userId);
+            if (!cart.IsSuccess || cart.Data == null || cart.Data.Lines.Count == 0)
+            {
+                return ApiResponse<CheckoutSessionResponse>.Fail("Your cart is empty.", 400);
+            }
+
+            var amount = cart.Data.Lines.Sum(line => line.UnitPrice * line.Qty);
+            var amountCents = ToCents(amount);
             if (amountCents < 200)
             {
                 return ApiResponse<CheckoutSessionResponse>.Fail("Amount is too small for Stripe Checkout.", 400);
@@ -214,9 +229,9 @@ namespace CarePlus.API.Services.StripeServices
                     PublishableKey = _stripe.PublishableKey,
                 });
             }
-            catch (StripeException ex)
+            catch (StripeException)
             {
-                return ApiResponse<CheckoutSessionResponse>.Fail(ex.Message, 502);
+                return ApiResponse<CheckoutSessionResponse>.Fail("Payment provider error.", 502);
             }
         }
 
@@ -237,9 +252,9 @@ namespace CarePlus.API.Services.StripeServices
                 StripeConfiguration.ApiKey = _stripe.SecretKey;
                 session = await new SessionService().GetAsync(sessionId);
             }
-            catch (StripeException ex)
+            catch (StripeException)
             {
-                return ApiResponse<CompletedCheckoutResponse>.Fail(ex.Message, 502);
+                return ApiResponse<CompletedCheckoutResponse>.Fail("Payment provider error.", 502);
             }
 
             if (!string.Equals(session.ClientReferenceId, userId.ToString(), StringComparison.Ordinal)
