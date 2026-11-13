@@ -54,6 +54,7 @@ namespace CarePlus.API.Controllers
             return Ok(await _staffServices.RetrieveStaffByRoleAsync(role));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut("UpdateStaff")]
         public async Task<IActionResult> UpdateStaff(StaffUpdateRequest request)
         {

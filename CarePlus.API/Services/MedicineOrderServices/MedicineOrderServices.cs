@@ -2,12 +2,16 @@ using CarePlus.API.Data;
 using CarePlus.API.DTO.MedicineOrderDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.OrderItem;
+using CarePlus.API.Options;
 using InvoiceRow = CarePlus.API.Models.Invoice.Invoice;
 using PaymentRow = CarePlus.API.Models.Payment.Payment;
 using CarePlus.API.Services.CounterServices.Interface;
 using CarePlus.API.Services.MedicineOrderServices.Interface;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using OrderRow = CarePlus.API.Models.MedicineOrder.MedicineOrder;
+using Stripe;
+using Stripe.Checkout;
 
 namespace CarePlus.API.Services.MedicineOrderServices
 {
@@ -16,12 +20,18 @@ namespace CarePlus.API.Services.MedicineOrderServices
         private readonly AppDbContext _db;
         private readonly AddressGeocoder _geocoder;
         private readonly ICounterServices _counters;
+        private readonly StripeOptions _stripe;
 
-        public MedicineOrderServices(AppDbContext db, AddressGeocoder geocoder, ICounterServices counters)
+        public MedicineOrderServices(
+            AppDbContext db,
+            AddressGeocoder geocoder,
+            ICounterServices counters,
+            IOptions<StripeOptions> stripe)
         {
             _db = db;
             _geocoder = geocoder;
             _counters = counters;
+            _stripe = stripe.Value;
         }
 
         public async Task<ApiResponse<List<MedicineOrderResponse>>> ListAsync(long userId)
@@ -186,6 +196,24 @@ namespace CarePlus.API.Services.MedicineOrderServices
             }
 
             var cashOnDelivery = IsCashOnDelivery(order.PaymentMethod);
+            var paid = false;
+            if (!cashOnDelivery)
+            {
+                var stripePaid = await VerifyStripeMedicinePaymentAsync(userId, request.StripeSessionId, order.TotalAmount);
+                if (stripePaid != null)
+                {
+                    return stripePaid;
+                }
+
+                paid = true;
+                if (!string.IsNullOrWhiteSpace(request.StripeSessionId))
+                {
+                    var shortId = request.StripeSessionId.Trim();
+                    shortId = shortId.Length > 8 ? shortId[^8..] : shortId;
+                    order.PaymentMethod = Truncate($"{order.PaymentMethod} · Stripe {shortId}", 80);
+                }
+            }
+
             var invoiceId = await _counters.GenerateNextIdAsync("InvoiceId");
             var paymentId = await _counters.GenerateNextIdAsync("PaymentId");
             _db.MedicineOrders.Add(order);
@@ -197,7 +225,7 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 OrderId = orderId,
                 TotalAmount = order.TotalAmount,
                 IssueAt = now,
-                PaymentStatus = cashOnDelivery ? "Pending" : "Paid",
+                PaymentStatus = paid ? "Paid" : "Pending",
             });
             _db.Payments.Add(new PaymentRow
             {
@@ -206,7 +234,7 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 TotalAmount = order.TotalAmount,
                 PaymentMethod = order.PaymentMethod,
                 TransactionDate = now,
-                Status = cashOnDelivery ? "Pending" : "Paid",
+                Status = paid ? "Paid" : "Pending",
             });
 
             var cart = await _db.Carts.FirstOrDefaultAsync(row => row.PatientId == patient.PatientId);
@@ -282,6 +310,70 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 || value.Equals("Cash on delivery", StringComparison.OrdinalIgnoreCase)
                 || value.Contains("货到付款", StringComparison.Ordinal);
         }
+
+        /// <returns>Failure response, or null when the Stripe session is paid for this user.</returns>
+        private async Task<ApiResponse<MedicineOrderResponse>?> VerifyStripeMedicinePaymentAsync(
+            long userId,
+            string? sessionId,
+            decimal expectedTotal)
+        {
+            var id = sessionId?.Trim() ?? "";
+            if (id.Length == 0)
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail(
+                    "Card and FPX orders need a completed Stripe checkout session.",
+                    400);
+            }
+
+            if (string.IsNullOrWhiteSpace(_stripe.SecretKey))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Stripe is not configured.", 503);
+            }
+
+            Session session;
+            try
+            {
+                StripeConfiguration.ApiKey = _stripe.SecretKey;
+                session = await new SessionService().GetAsync(id);
+            }
+            catch (StripeException)
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Stripe session could not be verified.", 400);
+            }
+
+            if (!string.Equals(session.ClientReferenceId, userId.ToString(), StringComparison.Ordinal)
+                && (!session.Metadata.TryGetValue("userId", out var metaUser) || metaUser != userId.ToString()))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("This checkout belongs to another account.", 403);
+            }
+
+            if (session.Metadata.TryGetValue("kind", out var kind)
+                && !string.Equals(kind, "medicine", StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("This Stripe session is not a medicine checkout.", 400);
+            }
+
+            if (!string.Equals(session.PaymentStatus, "paid", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(session.Status, "complete", StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Payment is not complete yet.", 400);
+            }
+
+            if (session.Metadata.TryGetValue("amountCents", out var amountRaw)
+                && long.TryParse(amountRaw, out var amountCents))
+            {
+                var paidAmount = amountCents / 100m;
+                if (Math.Abs(paidAmount - expectedTotal) > 0.009m)
+                {
+                    return ApiResponse<MedicineOrderResponse>.Fail("Paid amount does not match the order total.", 400);
+                }
+            }
+
+            return null;
+        }
+
+        private static string Truncate(string value, int max)
+            => value.Length <= max ? value : value[..max];
 
         private async Task SettleDeliveredCashOrdersAsync(string patientId)
         {

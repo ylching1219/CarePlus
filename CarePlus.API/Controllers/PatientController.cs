@@ -1,4 +1,4 @@
-﻿using CarePlus.API.Services.UserServices.Interface;
+using CarePlus.API.Services.UserServices.Interface;
 using Microsoft.AspNetCore.Mvc;
 using CarePlus.API.DTO.PatientDTO;
 using CarePlus.API.DTO.UserDTO;
@@ -35,6 +35,7 @@ namespace CarePlus.API.Controllers
             _registrationEmailVerificationServices = registrationEmailVerificationServices;
         }
 
+        [AllowAnonymous]
         [HttpPost("Login")]
         public async Task<IActionResult> PatientLogin(UserLoginRequest request)
         {
@@ -57,24 +58,28 @@ namespace CarePlus.API.Controllers
             return Ok(await _userServices.ResendPatientLoginTwoFactorAsync(request));
         }
 
+        [AllowAnonymous]
         [HttpPost("Register")]
         public async Task<IActionResult> PatientRegister(PatientRegisterRequest request)
         {
             return Ok(await _patientServices.RegisterPatientAsync(request));
         }
 
+        [AllowAnonymous]
         [HttpPost("VerifyEmail")]
         public async Task<IActionResult> VerifyEmail(EmailVerificationRequest request)
         {
             return Ok(await _emailVerificationServices.VerifyCodeAsync(request));
         }
 
+        [AllowAnonymous]
         [HttpPost("ResendEmailVerification")]
         public async Task<IActionResult> ResendEmailVerification(EmailVerificationResendRequest request)
         {
             return Ok(await _emailVerificationServices.ResendCodeAsync(request.ChallengeId));
         }
 
+        [AllowAnonymous]
         [HttpGet("UsernameAvailability")]
         public async Task<IActionResult> UsernameAvailability([FromQuery] string username)
         {
@@ -131,6 +136,7 @@ namespace CarePlus.API.Controllers
             return Ok(await _passwordResetServices.ResetPasswordAsync(request, cancellationToken));
         }
 
+        [Authorize(Roles = "Admin,Doctor,Pharmacist")]
         [HttpGet("Retrieve")]
         public async Task<IActionResult> PatientRetrieve()
         {

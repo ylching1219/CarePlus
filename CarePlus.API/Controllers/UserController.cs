@@ -24,6 +24,7 @@ namespace CarePlus.API.Controllers
             _twoFactorServices = twoFactorServices;
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("Register")]
         public async Task<IActionResult> UserRegister(UserRegisterRequest request)
         {
@@ -31,12 +32,14 @@ namespace CarePlus.API.Controllers
             return Ok(await _userServices.RegisterUserAsync(request));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("Retrieve")]
         public async Task<IActionResult> UserRetrieve()
         {
             return Ok(await _userServices.RetrieveAllUserAsync());
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("RetrieveById/{userId}")]
         public async Task<IActionResult> UserRetrieveById(int userId)
         {
@@ -75,12 +78,14 @@ namespace CarePlus.API.Controllers
         }
 
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("RetrieveActiveUser")]
         public async Task<IActionResult> ActiveUserRetrieve()
         {
             return Ok(await _userServices.RetrieveAllActiveUserAsync());
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut("UpdateUser")]
         public async Task<IActionResult> UpdateUser(UserUpdateRequest request)
         {
