@@ -57,6 +57,9 @@ public class FamilyServices : Interface.IFamilyServices
         if (parentAgeError != null) return Fail(parentAgeError, 403);
 
         await using var transaction = await _db.Database.BeginTransactionAsync();
+        // Creating your own family declines every pending invite for this patient.
+        await DeclinePendingInvitesForPatientAsync(patientId);
+
         var group = new FamilyGroup
         {
             GroupName = name,
@@ -426,6 +429,44 @@ public class FamilyServices : Interface.IFamilyServices
 
     private Task<bool> HasPendingFamilyInviteAsync(string patientId) =>
         _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && row.Status == "Pending");
+
+    private async Task DeclinePendingInvitesForPatientAsync(string patientId)
+    {
+        var pending = await _db.FamilyMembers
+            .Include(row => row.Patient).ThenInclude(row => row.User)
+            .Include(row => row.FamilyGroup).ThenInclude(row => row.Patient).ThenInclude(row => row.User)
+            .Where(row => row.PatientId == patientId && row.Status == "Pending")
+            .ToListAsync();
+
+        foreach (var member in pending)
+        {
+            var invitationNotification = await _db.Notifications
+                .FirstOrDefaultAsync(row => row.NotificationId == $"family-invite:{member.FamilyMemberId}" && row.UserId == member.Patient.UserId);
+            if (invitationNotification != null)
+            {
+                invitationNotification.Status = "Read";
+            }
+
+            var inviteeName = member.Patient.User.Name;
+            await UpsertNotificationAsync(
+                member.FamilyGroup.Patient.UserId,
+                $"family-invite-declined:{member.FamilyMemberId}",
+                "Family invitation declined",
+                $"{inviteeName} declined your family invitation.",
+                "家庭邀请已拒绝",
+                $"{inviteeName}拒绝了您的家庭邀请。",
+                inviteeName,
+                "family_invitation_declined",
+                "/family",
+                DateTimeHelper.MalaysiaNow());
+            _db.FamilyMembers.Remove(member);
+        }
+
+        if (pending.Count > 0)
+        {
+            await _db.SaveChangesAsync();
+        }
+    }
 
     private static ApiResponse<FamilyOverviewResponse>? ValidateFamilyName(string? raw, out string name)
     {
