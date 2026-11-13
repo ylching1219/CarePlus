@@ -5,6 +5,7 @@ using CarePlus.API.Data;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.User;
+using CarePlus.API.Services.EmailServices;
 using CarePlus.API.Services.EmailServices.Interface;
 using CarePlus.API.Services.TwoFactorServices.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -89,16 +90,14 @@ public class TwoFactorServices : ITwoFactorServices
 
         try
         {
-            var emailBody = $"""
-                <html>
-                  <body style="font-family:Arial,sans-serif;color:#172b35;line-height:1.5">
-                    <h2>CarePlus two-factor authentication code</h2>
-                    <p>Your CarePlus verification code is:</p>
-                    <p style="font-size:36px;letter-spacing:10px;font-weight:700;line-height:1.2;margin:8px 0 20px 0;color:#0b2638"><strong>{code}</strong></p>
-                    <p>This code expires in {CodeLifetimeMinutes} minutes. If you did not request this, you can ignore this email.</p>
-                  </body>
-                </html>
-                """;
+            var emailBody = CarePlusEmailHtml.Otp(
+                purpose == "enable" ? "Two-factor authentication" : "Security change",
+                purpose == "enable"
+                    ? "Use this code to turn on two-factor authentication for your CarePlus account."
+                    : "Use this code to turn off two-factor authentication for your CarePlus account.",
+                code,
+                CodeLifetimeMinutes,
+                "If you did not request this, you can ignore this email.");
 
             await _emailSender.SendAsync(
                 user.Email,
@@ -298,16 +297,12 @@ public class TwoFactorServices : ITwoFactorServices
 
         try
         {
-            var emailBody = $"""
-                <html>
-                  <body style="font-family:Arial,sans-serif;color:#172b35;line-height:1.5">
-                    <h2>CarePlus sign-in verification code</h2>
-                    <p>Your CarePlus login verification code is:</p>
-                    <p style="font-size:36px;letter-spacing:10px;font-weight:700;line-height:1.2;margin:8px 0 20px 0;color:#0b2638"><strong>{code}</strong></p>
-                    <p>This code expires in {CodeLifetimeMinutes} minutes. If you did not try to sign in, you can ignore this email.</p>
-                  </body>
-                </html>
-                """;
+            var emailBody = CarePlusEmailHtml.Otp(
+                "Sign-in verification",
+                "Use this code to finish signing in to your CarePlus account.",
+                code,
+                CodeLifetimeMinutes,
+                "If you did not try to sign in, you can ignore this email.");
 
             await _emailSender.SendAsync(
                 user.Email,

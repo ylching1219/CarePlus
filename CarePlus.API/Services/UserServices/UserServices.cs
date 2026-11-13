@@ -9,6 +9,7 @@ using CarePlus.API.Models.Payment;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.User;
 using CarePlus.API.Repository.Interface;
+using CarePlus.API.Services.EmailServices;
 using CarePlus.API.Services.EmailServices.Interface;
 using CarePlus.API.Services.JWTServices.Interface;
 using CarePlus.API.Services.TwoFactorServices.Interface;
@@ -1088,29 +1089,10 @@ namespace CarePlus.API.Services.UserServices
                     return;
                 }
 
-                var safeName = WebUtility.HtmlEncode(user.Name);
-                var safeDevice = WebUtility.HtmlEncode(device.Replace(" · ", " on ", StringComparison.Ordinal));
-                var safeIp = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(ipAddress) ? "Unknown" : ipAddress);
-                var emailBody = $"""
-                    <html>
-                      <body style="margin:0;padding:0;background:#111827;font-family:Arial,sans-serif;color:#e5e7eb;line-height:1.5">
-                        <div style="max-width:520px;margin:0 auto;padding:28px 20px">
-                          <p style="margin:0 0 8px 0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af">CarePlus</p>
-                          <h1 style="margin:0 0 20px 0;font-size:22px;color:#ffffff">New login notification</h1>
-                          <p style="margin:0 0 12px 0">Hi {safeName},</p>
-                          <p style="margin:0 0 20px 0">A sign-in to your CarePlus account was detected from a new or unrecognized device.</p>
-                          <div style="background:#1f2937;border-radius:12px;padding:16px 18px;margin:0 0 20px 0">
-                            <p style="margin:0 0 4px 0;font-size:12px;color:#9ca3af">Device</p>
-                            <p style="margin:0 0 14px 0;font-size:16px;font-weight:700;color:#ffffff">{safeDevice}</p>
-                            <p style="margin:0 0 4px 0;font-size:12px;color:#9ca3af">IP address</p>
-                            <p style="margin:0;font-size:16px;font-weight:700;color:#ffffff">{safeIp}</p>
-                          </div>
-                          <p style="margin:0 0 16px 0;color:#d1d5db">If this was you, no action is needed. If you do not recognize this sign-in, change your password and review account activity in Settings → Security.</p>
-                          <p style="margin:0;font-size:12px;color:#9ca3af">Clinic care for patients and families.</p>
-                        </div>
-                      </body>
-                    </html>
-                    """;
+                var emailBody = CarePlusEmailHtml.NewLogin(
+                    user.Name,
+                    device.Replace(" · ", " on ", StringComparison.Ordinal),
+                    ipAddress);
 
                 await _emailSender.SendAsync(
                     user.Email,
