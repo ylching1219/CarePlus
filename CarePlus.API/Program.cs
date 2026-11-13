@@ -85,7 +85,15 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("Client", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
+        // ponytail: local Vite + optional Client:BaseUrl for hosted frontend
+        var origins = new List<string> { "http://localhost:5173", "http://localhost:5174" };
+        var clientBaseUrl = builder.Configuration["Client:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(clientBaseUrl))
+        {
+            origins.Add(clientBaseUrl.TrimEnd('/'));
+        }
+
+        policy.WithOrigins(origins.Distinct(StringComparer.OrdinalIgnoreCase).ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
