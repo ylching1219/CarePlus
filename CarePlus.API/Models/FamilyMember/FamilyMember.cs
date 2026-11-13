@@ -1,5 +1,4 @@
 ﻿using CarePlus.API.Extension;
-using CarePlus.API.Models.User.Patient;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -18,13 +17,16 @@ namespace CarePlus.API.Models.FamilyMember
 
         [Required]
         public string PatientId { get; set; } = null!;
-        public Patient Patient { get; set; } = null!;
+        public Patient.Patient Patient { get; set; } = null!;
 
         [Required]
         public string Relationship { get; set; } = null!;
 
         [Required]
         public string AccessLevel { get; set; } = "View";
+
+        [MaxLength(100)]
+        public string? DisplayName { get; set; }
 
         public DateTime JoinAt { get; set; } = DateTimeHelper.MalaysiaNow();
 

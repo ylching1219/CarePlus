@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CarePlus.API.Models.User.Patient
+namespace CarePlus.API.Models.Patient
 {
     [Table("Patients")]
     public class Patient
@@ -13,7 +13,11 @@ namespace CarePlus.API.Models.User.Patient
         [Required]
         public long UserId { get; set; }
 
-        public User User { get; set; } = null!;
+        public User.User User { get; set; } = null!;
+
+        [Required]
+        [MaxLength(20)]
+        public string IdentityCardNumber { get; set; } = null!;
 
         public DateTime? DateOfBirth { get; set; }
 
@@ -21,5 +25,11 @@ namespace CarePlus.API.Models.User.Patient
         public char Gender { get; set; }
 
         public string? Address { get; set; }
+
+        [MaxLength(255)]
+        public string? ProfilePicture { get; set; }
+
+        // Existing patients remain null; new accounts only receive later announcements.
+        public DateTime? AnnouncementStartAt { get; set; }
     }
 }

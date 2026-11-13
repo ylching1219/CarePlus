@@ -1,8 +1,10 @@
-﻿using CarePlus.API.Extension;
+using CarePlus.API.Extension;
 using CarePlus.API.Models.Appointment;
 using CarePlus.API.Models.Cart;
 using CarePlus.API.Models.CartItem;
+using CarePlus.API.Models.Chat;
 using CarePlus.API.Models.Common;
+using CarePlus.API.Models.DeliveryAddress;
 using CarePlus.API.Models.DispenseRec;
 using CarePlus.API.Models.FamilyGroup;
 using CarePlus.API.Models.FamilyMember;
@@ -22,21 +24,42 @@ using CarePlus.API.Models.Queue;
 using CarePlus.API.Models.Room;
 using CarePlus.API.Models.RoomAssg;
 using CarePlus.API.Models.User;
-using CarePlus.API.Models.User.Patient;
+using CarePlus.API.Models.Patient;
 using CarePlus.API.Models.User.Staff;
 using CarePlus.API.Models.User.Staff.Admin;
 using CarePlus.API.Models.User.Staff.Doctor;
 using CarePlus.API.Models.User.Staff.Pharmacist;
 using CarePlus.API.Models.WorkSch;
 using Microsoft.EntityFrameworkCore;
-using System.Threading;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Security.Claims;
 
 namespace CarePlus.API.Data
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        private readonly IHttpContextAccessor? _httpContextAccessor;
+        private bool _isSavingWithAudit;
+
+        private static readonly HashSet<Type> AuditExcludedTypes = new()
         {
+            typeof(AuditLog),
+            typeof(Counter),
+            typeof(AppSetting),
+            typeof(Cart),
+            typeof(CartItem),
+            typeof(Notification),
+            typeof(ChatThread),
+            typeof(ChatMessage),
+            typeof(LoginActivity),
+            typeof(RegistrationEmailChallenge)
+        };
+
+        public AppDbContext(
+            DbContextOptions<AppDbContext> options,
+            IHttpContextAccessor? httpContextAccessor = null) : base(options)
+        {
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public DbSet<User> Users { get; set; } = null!;
@@ -52,10 +75,12 @@ namespace CarePlus.API.Data
         public DbSet<Medicine> Medicines { get; set; } = null!;
         public DbSet<MedicineBatch> MedicineBatches { get; set; } = null!;  
         public DbSet<MedRecord> MedicalRecords { get; set; } = null!;
+        public DbSet<DoctorReview> DoctorReviews { get; set; } = null!;
         public DbSet<Prescription> Prescriptions { get; set; } = null!;
         public DbSet<PrescriptionItem> PrescriptionItems { get; set; } = null!;
         public DbSet<DispenseRec> DispenseRecords { get; set; } = null!;
         public DbSet<Appointment> Appointments { get; set; } = null!;
+        public DbSet<VisitType> VisitTypes { get; set; } = null!;
         public DbSet<PersonalHealthRec> PersonalHealthRecords { get; set; } = null!;
         public DbSet<QueueEntry> QueueEntries { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
@@ -67,27 +92,41 @@ namespace CarePlus.API.Data
         public DbSet<OrderItem> OrderItems { get; set; } = null!;
         public DbSet<Invoice> Invoices { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
-
+        public DbSet<Counter> Counters { get; set; } = null!;
+        public DbSet<LoginActivity> LoginActivities { get; set; } = null!;
+        public DbSet<DeliveryAddress> DeliveryAddresses { get; set; } = null!;
+        public DbSet<AppSetting> AppSettings { get; set; } = null!;
+        public DbSet<PaymentCard> PaymentCards { get; set; } = null!;
+        public DbSet<TwoFactorChallenge> TwoFactorChallenges { get; set; } = null!;
+        public DbSet<RegistrationEmailChallenge> RegistrationEmailChallenges { get; set; } = null!;
+        public DbSet<ChatThread> ChatThreads { get; set; } = null!;
+        public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
+        public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<Staff>().ToTable("Staffs");
-            modelBuilder.Entity<Doctor>().ToTable("Doctors");
-            modelBuilder.Entity<Pharmacist>().ToTable("Pharmacists");
-            modelBuilder.Entity<Admin>().ToTable("Admins");
+            modelBuilder.Entity<User>().Property(u => u.Status).HasDefaultValue("Active");
+            modelBuilder.Entity<User>().Property(u => u.FailedPasswordAttempts).HasDefaultValue(0);
 
             modelBuilder.Entity<Patient>()
                 .HasOne(p => p.User)
                 .WithOne()
                 .HasForeignKey<Patient>(p => p.UserId);
+            modelBuilder.Entity<Patient>()
+                .Property(p => p.DateOfBirth)
+                .HasColumnType("date");
 
+            modelBuilder.Entity<Staff>().ToTable("Staffs");
             modelBuilder.Entity<Staff>()
                 .HasOne(s => s.User)
                 .WithOne()
                 .HasForeignKey<Staff>(s => s.UserId);
+            modelBuilder.Entity<Doctor>().ToTable("Doctors");
+            modelBuilder.Entity<Pharmacist>().ToTable("Pharmacists");
+            modelBuilder.Entity<Admin>().ToTable("Admins");
 
             modelBuilder.Entity<Appointment>()
                 .HasOne(a => a.Patient)
@@ -98,16 +137,37 @@ namespace CarePlus.API.Data
                 .HasOne(a => a.Doctor)
                 .WithMany()
                 .HasForeignKey(a => a.DoctorId);
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Room)
+                .WithMany()
+                .HasForeignKey(a => a.RoomId)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<Appointment>()
+                .Property(a => a.AppointmentDate)
+                .HasColumnType("date");
+            modelBuilder.Entity<Appointment>()
+                .Property(a => a.AppointmentTime)
+                .HasColumnType("time");
+            modelBuilder.Entity<Appointment>().Property(a => a.Status).HasDefaultValueSql("('Scheduled')");
+            modelBuilder.Entity<Appointment>().Property(a => a.CheckInStatus).HasDefaultValueSql("('Pending')");
 
             modelBuilder.Entity<DispenseRec>()
                 .HasOne(d => d.Pharmacist)
                 .WithMany()
                 .HasForeignKey(d => d.PharmacistId);
+            modelBuilder.Entity<DispenseRec>().Property(d => d.Status).HasDefaultValueSql("('Dispensed')");
 
             modelBuilder.Entity<Leave>()
                 .HasOne(l => l.Staff)
                 .WithMany()
                 .HasForeignKey(l => l.StaffId);
+            modelBuilder.Entity<Leave>().Property(l => l.SupportDocument).HasMaxLength(500);
+            modelBuilder.Entity<Leave>().Property(l => l.CreatedAt)
+                .HasColumnType("datetime(6)")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
+            modelBuilder.Entity<Leave>().Property(l => l.Status).HasDefaultValueSql("('Pending')");
+
+            modelBuilder.Entity<ClinicRoom>().Property(r => r.Status).HasDefaultValueSql("('Available')");
 
             modelBuilder.Entity<MedRecord>()
                 .HasOne(m => m.Patient)
@@ -118,6 +178,18 @@ namespace CarePlus.API.Data
                 .HasOne(m => m.Doctor)
                 .WithMany()
                 .HasForeignKey(m => m.DoctorId);
+
+            modelBuilder.Entity<DoctorReview>(entity =>
+            {
+                entity.HasKey(review => review.MedicalRecordId);
+                entity.Property(review => review.Description).HasMaxLength(1000);
+                entity.ToTable("DoctorReviews", table =>
+                    table.HasCheckConstraint("CK_DoctorReviews_Rating", "`Rating` BETWEEN 1 AND 5"));
+                entity.HasOne(review => review.MedicalRecord)
+                    .WithOne()
+                    .HasForeignKey<DoctorReview>(review => review.MedicalRecordId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<PersonalHealthRec>()
                 .HasOne(h => h.Patient)
@@ -133,35 +205,131 @@ namespace CarePlus.API.Data
                 .HasOne(p => p.Doctor)
                 .WithMany()
                 .HasForeignKey(p => p.DoctorId);
+            modelBuilder.Entity<Prescription>().Property(p => p.Status).HasDefaultValueSql("('Pending')");
 
             modelBuilder.Entity<QueueEntry>()
                 .HasOne(q => q.Patient)
                 .WithMany()
                 .HasForeignKey(q => q.PatientId);
+            modelBuilder.Entity<QueueEntry>()
+                .HasOne(q => q.Room)
+                .WithMany()
+                .HasForeignKey(q => q.RoomId)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<QueueEntry>().Property(q => q.Status).HasDefaultValueSql("('Waiting')");
 
             modelBuilder.Entity<RoomAssignment>()
                 .HasOne(r => r.Doctor)
                 .WithMany()
                 .HasForeignKey(r => r.DoctorId);
+            modelBuilder.Entity<RoomAssignment>()
+                .HasOne(r => r.Room)
+                .WithMany()
+                .HasForeignKey(r => r.RoomId);
+            modelBuilder.Entity<RoomAssignment>()
+                .HasOne(r => r.Schedule)
+                .WithMany()
+                .HasForeignKey(r => r.ScheduleId)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<RoomAssignment>()
+                .HasIndex(r => r.ScheduleId)
+                .IsUnique();
+            modelBuilder.Entity<RoomAssignment>()
+                .Property(r => r.AssignmentDate)
+                .HasConversion(
+                    date => date.ToDateTime(TimeOnly.MinValue),
+                    value => DateOnly.FromDateTime(value))
+                .HasColumnType("date");
+            modelBuilder.Entity<RoomAssignment>()
+                .Property(r => r.StartTime)
+                .HasConversion(
+                    time => time.ToTimeSpan(),
+                    value => TimeOnly.FromTimeSpan(value))
+                .HasColumnType("time");
+            modelBuilder.Entity<RoomAssignment>()
+                .Property(r => r.EndTime)
+                .HasConversion(
+                    time => time.ToTimeSpan(),
+                    value => TimeOnly.FromTimeSpan(value))
+                .HasColumnType("time");
 
             modelBuilder.Entity<WorkSchedule>()
                 .HasOne(w => w.Staff)
                 .WithMany()
                 .HasForeignKey(w => w.StaffId);
+            modelBuilder.Entity<WorkSchedule>()
+                .Property(w => w.WorkingDate)
+                .HasConversion(
+                    date => date.ToDateTime(TimeOnly.MinValue),
+                    value => DateOnly.FromDateTime(value))
+                .HasColumnType("date");
+            modelBuilder.Entity<WorkSchedule>().Property(w => w.Shift).HasMaxLength(20).HasDefaultValue("Morning");
+            modelBuilder.Entity<WorkSchedule>().Property(w => w.Status).HasDefaultValueSql("('Active')");
 
             modelBuilder.Entity<Notification>()
                 .HasOne(n => n.User)
                 .WithMany()
-                .HasForeignKey(n => n.UserId);
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Notification>().Property(n => n.Status).HasMaxLength(20).HasDefaultValueSql("('Unread')");
+            modelBuilder.Entity<Notification>().Property(n => n.Actor).HasMaxLength(255).HasDefaultValue("CarePlus Clinic");
+            modelBuilder.Entity<Notification>().Property(n => n.Initials).HasMaxLength(8).HasDefaultValue("CC");
+            modelBuilder.Entity<Notification>().Property(n => n.Href).HasMaxLength(500).HasDefaultValue("/notifications");
+            modelBuilder.Entity<Notification>().Property(n => n.IsPublished).HasDefaultValue(true);
+            modelBuilder.Entity<Notification>().HasIndex(row => new { row.Type, row.UserId, row.CreatedAt });
 
-            modelBuilder.Entity<Medicine>()
-                .Property(m => m.Price)
-                .HasPrecision(18, 2);
+            modelBuilder.Entity<ChatThread>(entity =>
+            {
+                entity.Property(thread => thread.Title).HasMaxLength(120);
+                entity.Property(thread => thread.CreatedAt).HasColumnType("datetime(6)");
+                entity.Property(thread => thread.UpdatedAt).HasColumnType("datetime(6)");
+                entity.HasIndex(thread => new { thread.PatientId, thread.UpdatedAt });
+                entity.HasOne(thread => thread.Patient)
+                    .WithMany()
+                    .HasForeignKey(thread => thread.PatientId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ChatMessage>(entity =>
+            {
+                entity.Property(message => message.Role).HasMaxLength(16);
+                entity.Property(message => message.Content).HasColumnType("longtext");
+                entity.Property(message => message.Disclaimer).HasMaxLength(1000);
+                entity.Property(message => message.SourcesJson).HasColumnType("longtext");
+                entity.Property(message => message.CreatedAt).HasColumnType("datetime(6)");
+                entity.HasIndex(message => new { message.ChatThreadId, message.CreatedAt });
+                entity.ToTable("ChatMessages", table =>
+                    table.HasCheckConstraint("CK_ChatMessages_Role", "`Role` IN ('user', 'assistant')"));
+                entity.HasOne(message => message.ChatThread)
+                    .WithMany(thread => thread.Messages)
+                    .HasForeignKey(message => message.ChatThreadId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Medicine>().Property(m => m.Price).HasPrecision(18, 2);
+            modelBuilder.Entity<Medicine>().Property(m => m.Description).HasMaxLength(500);
+            modelBuilder.Entity<Medicine>().Property(m => m.NameZh).HasMaxLength(100);
+            modelBuilder.Entity<Medicine>().Property(m => m.DescriptionZh).HasMaxLength(500);
+            modelBuilder.Entity<Medicine>().Property(m => m.Pack).HasMaxLength(40).HasDefaultValue("");
+            modelBuilder.Entity<Medicine>().Property(m => m.PackZh).HasMaxLength(40);
+            modelBuilder.Entity<Medicine>().Property(m => m.Form).HasMaxLength(20).HasDefaultValue("tablet");
+            modelBuilder.Entity<Medicine>().Property(m => m.Kind).HasMaxLength(30).HasDefaultValue("analgesic");
+            modelBuilder.Entity<Medicine>().Property(m => m.Method).HasMaxLength(160).HasDefaultValue("");
+            modelBuilder.Entity<Medicine>().Property(m => m.MethodZh).HasMaxLength(160);
+            modelBuilder.Entity<Medicine>().Property(m => m.ImageKey).HasMaxLength(10).HasDefaultValue("para");
+            modelBuilder.Entity<Medicine>().Property(m => m.Status).HasDefaultValueSql("('Available')");
+            MedicineSeed.Apply(modelBuilder);
+
+            modelBuilder.Entity<MedicineBatch>()
+                .HasOne(batch => batch.Medicine)
+                .WithMany()
+                .HasForeignKey(batch => batch.MedicineId);
 
             modelBuilder.Entity<FamilyGroup>()
                 .HasOne(f => f.Patient)
                 .WithMany()
                 .HasForeignKey(f => f.CreatedBy);
+            modelBuilder.Entity<FamilyGroup>().Property(f => f.MemberCount).HasDefaultValue(1);
 
             modelBuilder.Entity<FamilyMember>()
                 .HasOne(f=> f.FamilyGroup)
@@ -172,6 +340,15 @@ namespace CarePlus.API.Data
                 .HasOne(f => f.Patient)
                 .WithMany()
                 .HasForeignKey(f => f.PatientId);
+            modelBuilder.Entity<FamilyMember>()
+                .HasIndex(f => new { f.FamilyGroupId, f.PatientId })
+                .IsUnique();
+            modelBuilder.Entity<FamilyMember>()
+                .Property(f => f.DisplayName)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<FamilyMember>().Property(f => f.AccessLevel).HasDefaultValueSql("('View')");
+            modelBuilder.Entity<FamilyMember>().Property(f => f.Status).HasDefaultValueSql("('Pending')");
 
             modelBuilder.Entity<Cart>()
                 .HasOne(c => c.Patient)
@@ -192,6 +369,19 @@ namespace CarePlus.API.Data
                 .HasOne(m=>m.Patient)
                 .WithMany()
                 .HasForeignKey(m=>m.PatientId);
+            modelBuilder.Entity<MedicineOrder>()
+                .HasOne(m => m.ChosenAddress)
+                .WithMany()
+                .HasForeignKey(m => m.DeliveryAddressId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
+            modelBuilder.Entity<MedicineOrder>().Property(o => o.Fulfilment).HasMaxLength(20).HasDefaultValue("pickup");
+            modelBuilder.Entity<MedicineOrder>().Property(o => o.PaymentMethod).HasMaxLength(80).HasDefaultValue("");
+            modelBuilder.Entity<MedicineOrder>().Property(o => o.DeliveryAddress).HasMaxLength(300);
+            modelBuilder.Entity<MedicineOrder>().Property(o => o.DeliveryFee).HasPrecision(10, 2).HasDefaultValue(0m);
+            modelBuilder.Entity<MedicineOrder>().Property(o => o.Latitude).HasColumnType("double");
+            modelBuilder.Entity<MedicineOrder>().Property(o => o.Longitude).HasColumnType("double");
+            modelBuilder.Entity<MedicineOrder>().Property(o => o.Status).HasDefaultValueSql("('Pending')");
 
             modelBuilder.Entity<OrderItem>()
                 .HasOne(m=>m.Order)
@@ -201,50 +391,687 @@ namespace CarePlus.API.Data
             modelBuilder.Entity<OrderItem>()
                 .HasOne(m=>m.Medicine)
                 .WithMany()
-                .HasForeignKey(m=>m.MedicineId);
+                .HasForeignKey(m=>m.MedicineId)
+                .IsRequired(false);
+            modelBuilder.Entity<OrderItem>().Property(o => o.ItemName).HasMaxLength(120).HasDefaultValue("");
+            modelBuilder.Entity<OrderItem>().Property(o => o.Detail).HasMaxLength(200);
+            modelBuilder.Entity<OrderItem>().Property(o => o.UnitPrice).HasPrecision(18, 2).HasDefaultValue(0m);
 
             modelBuilder.Entity<Invoice>()
                 .HasOne(i => i.Patient)
                 .WithMany()
                 .HasForeignKey(i=>i.PatientId);
 
-            
-                
+            modelBuilder.Entity<Invoice>()
+                .HasOne(i => i.MedicineOrder)
+                .WithMany()
+                .HasForeignKey(i => i.OrderId)
+                .IsRequired(false);
+
+            modelBuilder.Entity<Invoice>()
+                .HasOne(i => i.MedicalRecord)
+                .WithMany()
+                .HasForeignKey(i => i.MedicalRecordId)
+                .IsRequired(false);
+            modelBuilder.Entity<Patient>()
+                .Property(p => p.DateOfBirth)
+                .HasColumnType("date");
+            modelBuilder.Entity<Patient>()
+                .Property(p => p.IdentityCardNumber)
+                .HasMaxLength(20);
+            modelBuilder.Entity<Invoice>().Property(i => i.PaymentStatus).HasDefaultValueSql("('Pending')");
+            modelBuilder.Entity<Invoice>().Property(i => i.DueDate).HasColumnType("date");
+            modelBuilder.Entity<Invoice>().Property(i => i.DoctorName).HasMaxLength(120);
+            modelBuilder.Entity<Invoice>().Property(i => i.VisitType).HasMaxLength(80);
+            modelBuilder.Entity<Invoice>().Property(i => i.RecordRef).HasMaxLength(40);
+
+            modelBuilder.Entity<LoginActivity>()
+                .HasOne(activity => activity.User)
+                .WithMany()
+                .HasForeignKey(activity => activity.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<DeliveryAddress>()
+                .HasOne(address => address.Patient)
+                .WithMany()
+                .HasForeignKey(address => address.PatientId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<DeliveryAddress>().Property(address => address.Id).HasColumnOrder(0);
+            modelBuilder.Entity<DeliveryAddress>().Property(address => address.PatientId).HasColumnOrder(1);
+            modelBuilder.Entity<DeliveryAddress>().Property(address => address.Label).HasMaxLength(20).HasColumnOrder(2);
+            modelBuilder.Entity<DeliveryAddress>().Property(address => address.Unit).HasMaxLength(30).HasColumnOrder(3);
+            modelBuilder.Entity<DeliveryAddress>().Property(address => address.Address).HasMaxLength(200).HasColumnOrder(4);
+            modelBuilder.Entity<DeliveryAddress>().Property(address => address.IsDefault).HasColumnOrder(5);
+            modelBuilder.Entity<DeliveryAddress>().Property(address => address.Latitude).HasColumnType("double");
+            modelBuilder.Entity<DeliveryAddress>().Property(address => address.Longitude).HasColumnType("double");
+
+            modelBuilder.Entity<AppSetting>()
+                .HasIndex(setting => setting.UserId)
+                .IsUnique();
+
+            modelBuilder.Entity<AppSetting>()
+                .HasOne(setting => setting.User)
+                .WithMany()
+                .HasForeignKey(setting => setting.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AppSetting>()
+                .Property(setting => setting.Appearance)
+                .HasDefaultValue("light");
+
+            modelBuilder.Entity<AppSetting>()
+                .Property(setting => setting.Notification)
+                .HasDefaultValue("all");
+            modelBuilder.Entity<AppSetting>()
+                .Property(setting => setting.TwoFactorEnabled)
+                .HasDefaultValue(false);
+
+            modelBuilder.Entity<AppSetting>()
+                .Property(setting => setting.HasCompletedTutorial)
+                .HasDefaultValue(false);
+
+            modelBuilder.Entity<TwoFactorChallenge>()
+                .HasOne(challenge => challenge.User)
+                .WithMany()
+                .HasForeignKey(challenge => challenge.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TwoFactorChallenge>()
+                .HasIndex(challenge => new { challenge.UserId, challenge.Purpose, challenge.CreatedAt });
+
+            modelBuilder.Entity<PaymentCard>()
+                .HasOne(card => card.User)
+                .WithMany()
+                .HasForeignKey(card => card.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PaymentCard>()
+                .HasIndex(card => card.UserId);
+
+            modelBuilder.Entity<User>().Property(u => u.Status).HasDefaultValue("Active");
+            modelBuilder.Entity<User>().Property(u => u.EmailVerified).HasDefaultValue(true);
+            modelBuilder.Entity<Appointment>().Property(a => a.AppointmentDate).HasColumnType("date");
+            modelBuilder.Entity<Appointment>().Property(a => a.AppointmentTime).HasColumnType("time");
+            modelBuilder.Entity<Appointment>().Property(a => a.ForName).HasMaxLength(100);
+            modelBuilder.Entity<Appointment>().Property(a => a.VisitType).HasMaxLength(80);
+            modelBuilder.Entity<Appointment>().Property(a => a.Notes).HasMaxLength(500);
+            modelBuilder.Entity<Appointment>().Property(a => a.LastRescheduledAt).HasColumnType("datetime(6)");
+            modelBuilder.Entity<VisitType>().Property(type => type.IsActive).HasDefaultValue(true);
+            modelBuilder.Entity<VisitType>().Property(type => type.Price).HasPrecision(10, 2);
+            modelBuilder.Entity<VisitType>().HasData(
+                new VisitType { VisitTypeId = "VT01", Name = "General consultation", Description = "Cough, fever, skin, or a usual GP visit.", Price = 50m, IsActive = true },
+                new VisitType { VisitTypeId = "VT02", Name = "Body check", Description = "Health screening and routine checks.", Price = 55m, IsActive = true },
+                new VisitType { VisitTypeId = "VT03", Name = "Mental wellness", Description = "Stress, sleep, mood, or a quiet talk with a doctor.", Price = 60m, IsActive = true }
+            );
+
+            modelBuilder.Entity<ClinicRoom>().HasData(
+                new ClinicRoom { RoomId = "RM-0001", RoomName = "Consultation Room 1", Status = "Available" },
+                new ClinicRoom { RoomId = "RM-0002", RoomName = "Consultation Room 2", Status = "Available" },
+                new ClinicRoom { RoomId = "RM-0003", RoomName = "Consultation Room 3", Status = "Available" },
+                new ClinicRoom { RoomId = "RM-0004", RoomName = "Consultation Room 4", Status = "Available" },
+                new ClinicRoom { RoomId = "RM-0005", RoomName = "Consultation Room 5", Status = "Available" }
+            );
+
+            modelBuilder.Entity<User>().HasData(
+                new User
+                {
+                    UserId = 1,
+                    Username = "admin001",
+                    Name = "Admin One",
+                    Email = "admin@gmail.com",
+                    PasswordHash = "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 2,
+                    Username = "doctor001",
+                    Name = "Doctor One",
+                    Email = "doctor001@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEGoelPdTS08xnFMkc6zJXJral4MAdthS0khrTQFqxq2lLRXB300vh4F487u+CoAz8w==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 3,
+                    Username = "doctor002",
+                    Name = "Doctor Two",
+                    Email = "doctor002@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAENVjvWCqRGeKqDx7qaMq0bZriP0cMVXCvq9/g6Uv8p8KilJeLVp9Lur77q1u6ke5Ig==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 4,
+                    Username = "doctor003",
+                    Name = "Doctor Three",
+                    Email = "doctor003@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEKiHgZFZkJy/7Wj4tG4liN16amXXAenFi7oZG2287Iu2mtbzAoFop17fiM5oig2pdQ==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 5,
+                    Username = "doctor004",
+                    Name = "Doctor Four",
+                    Email = "doctor004@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEPN2650fnLQvqDVcWyy2LH33rvWhntm6s7qfwifGVOMPgWEsjwDoR3fxgvdt/B3jcw==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 6,
+                    Username = "pharmacist001",
+                    Name = "Pharmacist One",
+                    Email = "pharmacist001@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEG3iHfNMaN+/igy9fme2UrMWqdHuMzctlQftjRzLxm2SzFWEbriRJ6mZG+fKpPyXOw==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 7,
+                    Username = "pharmacist002",
+                    Name = "Pharmacist Two",
+                    Email = "pharmacist002@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEJpqLtK3RlHlxiavCb2iWKGWgiF6Pm2HVlvek7ysaZb6SJ5NB4TLuGnTxVihBcGpRQ==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 8,
+                    Username = "pharmacist003",
+                    Name = "Pharmacist Three",
+                    Email = "pharmacist003@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAEMlRRueMa8uoEWnmk+vArUsHppCKM4olXhEt5NpiqYBfXkDPH/4rLJ/cAEGNJTjcqQ==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                },
+                new User
+                {
+                    UserId = 9,
+                    Username = "pharmacist004",
+                    Name = "Pharmacist Four",
+                    Email = "pharmacist004@careplus.local",
+                    PasswordHash = "AQAAAAIAAYagAAAAENKWTF+b0fTQnXoTV+20lfIYjoEhlZquB1pkymPpbza24sKPeXPEWx0NXQGUS8kHyw==",
+                    Phone = null,
+                    Status = "Active",
+                    EmailVerified = true
+                }
+            );
+
+            modelBuilder.Entity<Admin>().HasData(
+                new Admin
+                {
+                    StaffId = "STF000001",
+                    UserId = 1,
+                    Role = "Admin",
+                    AccessLevel = 3,
+                    Department = "Administration"
+                }
+            );
+
+            modelBuilder.Entity<Doctor>().HasData(
+                new Doctor
+                {
+                    StaffId = "STF000002",
+                    UserId = 2,
+                    Role = "Doctor",
+                    LicenseNumber = "DOC-LIC-0001",
+                    Specialization = "General Medicine",
+                    Qualification = "MBBS",
+                    YearsOfExperience = 5
+                },
+                new Doctor
+                {
+                    StaffId = "STF000003",
+                    UserId = 3,
+                    Role = "Doctor",
+                    LicenseNumber = "DOC-LIC-0002",
+                    Specialization = "Family Medicine",
+                    Qualification = "MBBS",
+                    YearsOfExperience = 7
+                },
+                new Doctor
+                {
+                    StaffId = "STF000004",
+                    UserId = 4,
+                    Role = "Doctor",
+                    LicenseNumber = "DOC-LIC-0003",
+                    Specialization = "Internal Medicine",
+                    Qualification = "MD",
+                    YearsOfExperience = 9
+                },
+                new Doctor
+                {
+                    StaffId = "STF000005",
+                    UserId = 5,
+                    Role = "Doctor",
+                    LicenseNumber = "DOC-LIC-0004",
+                    Specialization = "Paediatrics",
+                    Qualification = "MBBS, Paediatrics",
+                    YearsOfExperience = 4
+                }
+            );
+
+            modelBuilder.Entity<Pharmacist>().HasData(
+                new Pharmacist
+                {
+                    StaffId = "STF000006",
+                    UserId = 6,
+                    Role = "Pharmacist",
+                    LicenseNumber = "PHA-LIC-0001",
+                    Qualification = "Bachelor of Pharmacy",
+                    Certification = "Registered Pharmacist",
+                    YearsOfExperience = 5
+                },
+                new Pharmacist
+                {
+                    StaffId = "STF000007",
+                    UserId = 7,
+                    Role = "Pharmacist",
+                    LicenseNumber = "PHA-LIC-0002",
+                    Qualification = "Bachelor of Pharmacy",
+                    Certification = "Registered Pharmacist",
+                    YearsOfExperience = 6
+                },
+                new Pharmacist
+                {
+                    StaffId = "STF000008",
+                    UserId = 8,
+                    Role = "Pharmacist",
+                    LicenseNumber = "PHA-LIC-0003",
+                    Qualification = "Diploma in Pharmacy",
+                    Certification = "Registered Pharmacist",
+                    YearsOfExperience = 3
+                },
+                new Pharmacist
+                {
+                    StaffId = "STF000009",
+                    UserId = 9,
+                    Role = "Pharmacist",
+                    LicenseNumber = "PHA-LIC-0004",
+                    Qualification = "Bachelor of Pharmacy",
+                    Certification = "Registered Pharmacist",
+                    YearsOfExperience = 8
+                }
+            );
+
+            modelBuilder.Entity<AppSetting>().HasData(
+                new AppSetting
+                {
+                    Id = 1,
+                    UserId = 1,
+                    Appearance = "dark",
+                    Language = null,
+                    Notification = "all",
+                    TwoFactorEnabled = false,
+                    HasCompletedTutorial = false
+                }
+            );
+
+            modelBuilder.Entity<Appointment>().Property(a => a.Status).HasDefaultValueSql("('Scheduled')");
+            modelBuilder.Entity<Appointment>().Property(a => a.CheckInStatus).HasDefaultValueSql("('Pending')");
+            modelBuilder.Entity<ClinicRoom>().Property(r => r.Status).HasDefaultValueSql("('Available')");
+            modelBuilder.Entity<DispenseRec>().Property(d => d.Status).HasDefaultValueSql("('Dispensed')");
+            modelBuilder.Entity<FamilyGroup>().Property(f => f.MemberCount).HasDefaultValue(1);
+            modelBuilder.Entity<FamilyMember>().Property(f => f.AccessLevel).HasDefaultValueSql("('View')");
+            modelBuilder.Entity<FamilyMember>().Property(f => f.Status).HasDefaultValueSql("('Pending')");
+            modelBuilder.Entity<Invoice>().Property(i => i.PaymentStatus).HasDefaultValueSql("('Pending')");
+            modelBuilder.Entity<Invoice>().Property(i => i.DueDate).HasColumnType("date");
+            modelBuilder.Entity<Invoice>().Property(i => i.DoctorName).HasMaxLength(120);
+            modelBuilder.Entity<Invoice>().Property(i => i.VisitType).HasMaxLength(80);
+            modelBuilder.Entity<Invoice>().Property(i => i.RecordRef).HasMaxLength(40);
+            modelBuilder.Entity<Leave>().Property(l => l.Status).HasDefaultValueSql("('Pending')");
+            modelBuilder.Entity<Medicine>().Property(m => m.Status).HasDefaultValueSql("('Available')");
+            modelBuilder.Entity<MedicineOrder>().Property(o => o.Status).HasDefaultValueSql("('Pending')");
+            modelBuilder.Entity<Notification>().Property(n => n.Status).HasDefaultValueSql("('Unread')");
+            modelBuilder.Entity<Payment>().Property(p => p.Status).HasDefaultValueSql("('Pending')");
+            modelBuilder.Entity<Payment>().Property(p => p.DueDate).HasColumnType("date");
+
+            modelBuilder.Entity<Counter>().Property(c => c.Prefix).HasDefaultValue("");
+            modelBuilder.Entity<Counter>().Property(c => c.IsActive).HasDefaultValue(true);
+
+            modelBuilder.Entity<Counter>().HasData(
+                new Counter
+                {
+                    Id = 1,
+                    Key = "PatientId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "P",
+                    Length = 6,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 9,
+                    Key = "StaffId",
+                    Value = 9,
+                    Step = 1,
+                    Prefix = "STF",
+                    Length = 6,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 2,
+                    Key = "MedicineId",
+                    Value = 6,
+                    Step = 1,
+                    Prefix = "MED",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 3,
+                    Key = "CartId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "CART",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 4,
+                    Key = "CartItemId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "CARTI",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 5,
+                    Key = "OrderId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "ORD",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 6,
+                    Key = "OrderItemId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "ORDI",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 7,
+                    Key = "InvoiceId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "INV",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 8,
+                    Key = "PaymentId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "PAY",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 10,
+                    Key = "AppointmentId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "Apt",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 11,
+                    Key = "ScheduleId",
+                    Value = 0,
+                    Step = 1,
+                    Prefix = "SCH",
+                    Length = 6,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                },
+                new Counter
+                {
+                    Id = 12,
+                    Key = "RoomId",
+                    Value = 5,
+                    Step = 1,
+                    Prefix = "RM-",
+                    Length = 4,
+                    PaddingChar = '0',
+                    IsActive = true,
+                    Version = 0,
+                });
+
+            modelBuilder.Entity<AuditLog>(entity =>
+            {
+                entity.ToTable("AuditLogs");
+                entity.HasKey(log => log.LogId);
+                entity.Property(log => log.LogId).HasMaxLength(64);
+                entity.Property(log => log.UserId).HasMaxLength(100).IsRequired();
+                entity.Property(log => log.Action).HasMaxLength(20).IsRequired();
+                entity.Property(log => log.Module).HasMaxLength(100).IsRequired();
+                entity.Property(log => log.AffectedRecord).HasMaxLength(255).IsRequired();
+                entity.Property(log => log.DateTime).HasColumnType("datetime(6)");
+                entity.HasIndex(log => log.DateTime);
+                entity.HasIndex(log => new { log.Module, log.Action });
+            });
+
         }
 
-        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        public override async Task<int> SaveChangesAsync(
+            CancellationToken cancellationToken = default)
         {
-            UpdateAuditTrail();
-            return base.SaveChangesAsync(cancellationToken);
+            if (_isSavingWithAudit)
+            {
+                return await base.SaveChangesAsync(cancellationToken);
+            }
+
+            var pendingAudits = PrepareAuditEntries();
+            _isSavingWithAudit = true;
+
+            try
+            {
+                var result = await base.SaveChangesAsync(cancellationToken);
+                AddAuditLogs(pendingAudits);
+
+                if (pendingAudits.Count > 0)
+                {
+                    await base.SaveChangesAsync(cancellationToken);
+                }
+
+                return result;
+            }
+            finally
+            {
+                _isSavingWithAudit = false;
+            }
         }
 
         public override int SaveChanges()
         {
-            UpdateAuditTrail();
-            return base.SaveChanges();
-        }
+            var pendingAudits = PrepareAuditEntries();
+            _isSavingWithAudit = true;
 
-        private void UpdateAuditTrail()
-        {
-            var entries = ChangeTracker.Entries<AuditTrail>();
-            foreach (var entry in entries)
+            try
             {
-                if (entry.State == EntityState.Added)
+                var result = base.SaveChanges();
+                AddAuditLogs(pendingAudits);
+
+                if (pendingAudits.Count > 0)
                 {
-                    entry.Entity.CreateDate = DateTimeHelper.MalaysiaNow();
-                    entry.Entity.CreatedBy = "System"; 
+                    base.SaveChanges();
                 }
-                else if (entry.State == EntityState.Modified)
-                {
-                    entry.Entity.UpdateDate = DateTimeHelper.MalaysiaNow();
-                    entry.Entity.UpdatedBy = "System"; 
-                }
-                else if (entry.State == EntityState.Deleted)
-                {
-                    entry.Entity.DeleteDate = DateTimeHelper.MalaysiaNow();
-                    entry.Entity.DeletedBy = "System";
-                }
+
+                return result;
+            }
+            finally
+            {
+                _isSavingWithAudit = false;
             }
         }
+
+        private List<PendingAudit> PrepareAuditEntries()
+        {
+            ChangeTracker.DetectChanges();
+
+            var userId = _httpContextAccessor?.HttpContext?.User
+                ?.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? "SYSTEM";
+
+            return ChangeTracker.Entries()
+                .Where(entry => !AuditExcludedTypes.Contains(entry.Metadata.ClrType))
+                .Where(entry => entry.State is EntityState.Added
+                    or EntityState.Modified
+                    or EntityState.Deleted)
+                .Select(entry => new PendingAudit(
+                    entry,
+                    userId,
+                    entry.State switch
+                    {
+                        EntityState.Added => "Create",
+                        EntityState.Modified => "Update",
+                        EntityState.Deleted => "Delete",
+                        _ => string.Empty
+                    },
+                    entry.Metadata.GetTableName()
+                        ?? entry.Metadata.ClrType.Name,
+                    entry.Metadata.FindPrimaryKey()?.Properties
+                        .Select(property => entry.Property(property.Name)
+                            .CurrentValue?.ToString())
+                        .ToArray() ?? Array.Empty<string?>()))
+                .ToList();
+        }
+
+        private void AddAuditLogs(IEnumerable<PendingAudit> pendingAudits)
+        {
+            var occurredAt = DateTimeHelper.MalaysiaNow();
+            var logs = pendingAudits.Select(pending => new AuditLog
+            {
+                LogId = CreateAuditLogId(pending, occurredAt),
+                UserId = pending.UserId,
+                Action = pending.Action,
+                Module = pending.Module,
+                AffectedRecord = GetAffectedRecord(pending),
+                DateTime = occurredAt
+            });
+
+            AuditLogs.AddRange(logs);
+        }
+
+        private static string CreateAuditLogId(
+            PendingAudit pending,
+            DateTime occurredAt)
+        {
+            var actionCode = pending.Action switch
+            {
+                "Create" => "C",
+                "Update" => "U",
+                "Delete" => "D",
+                _ => "A"
+            };
+
+            var module = new string(
+                pending.Module
+                    .Where(char.IsLetterOrDigit)
+                    .ToArray())
+                .ToUpperInvariant();
+
+            if (string.IsNullOrWhiteSpace(module))
+            {
+                module = "MODULE";
+            }
+
+            if (module.Length > 3)
+            {
+                module = module[..3];
+            }
+
+            var uniqueSuffix = Guid.NewGuid()
+                .ToString("N")[..8]
+                .ToUpperInvariant();
+
+            return $"AUD-{occurredAt:yyMMdd}-{actionCode}-{module}-{uniqueSuffix}";
+        }
+
+        private static string GetAffectedRecord(PendingAudit pending)
+        {
+            var primaryKey = pending.Entry.Metadata.FindPrimaryKey();
+            if (primaryKey == null)
+            {
+                return pending.Entry.Metadata.ClrType.Name;
+            }
+
+            var values = primaryKey.Properties
+                .Select((property, index) =>
+                {
+                    var current = pending.Entry.State == EntityState.Detached
+                        ? null
+                        : pending.Entry.Property(property.Name)
+                            .CurrentValue?.ToString();
+                    var original = index < pending.OriginalKeyValues.Length
+                        ? pending.OriginalKeyValues[index]
+                        : null;
+                    return $"{property.Name}={current ?? original ?? "?"}";
+                });
+
+            return string.Join(",", values);
+        }
+
+        private sealed record PendingAudit(
+            EntityEntry Entry,
+            string UserId,
+            string Action,
+            string Module,
+            string?[] OriginalKeyValues);
     }
 }

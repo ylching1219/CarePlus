@@ -1,0 +1,158 @@
+using CarePlus.API.DTO.AppointmentDTO;
+using CarePlus.API.Services.AppointmentServices.Interface;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+
+namespace CarePlus.API.Controllers
+{
+    [ApiController]
+    [Authorize]
+    [Route("api/[controller]")]
+    public class AppointmentController : ControllerBase
+    {
+        private readonly IAppointmentServices _appointments;
+
+        public AppointmentController(IAppointmentServices appointments)
+        {
+            _appointments = appointments;
+        }
+
+        [HttpGet("Catalog")]
+        public async Task<IActionResult> Catalog()
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<BookingCatalogResponse>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _appointments.GetCatalogAsync(userId));
+        }
+
+        [HttpGet("Slots")]
+        public async Task<IActionResult> Slots([FromQuery] string date, [FromQuery] string doctorId)
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<BookingSlotsResponse>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _appointments.GetSlotsAsync(userId, date, doctorId));
+        }
+
+        [HttpGet("AvailableDates")]
+        public async Task<IActionResult> AvailableDates(
+            [FromQuery] string doctorId = "any",
+            [FromQuery] int days = 90)
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<List<string>>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _appointments.GetAvailableDatesAsync(userId, doctorId, days));
+        }
+
+        [HttpGet("AvailableDoctors")]
+        public async Task<IActionResult> AvailableDoctors(
+            [FromQuery] string? date = null,
+            [FromQuery] string? time = null)
+        {
+            return Ok(await _appointments.GetAvailableDoctorsAsync(date, time));
+        }
+
+        [HttpGet("Upcoming")]
+        public async Task<IActionResult> Upcoming()
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<List<AppointmentResponse>>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _appointments.ListUpcomingAsync(userId));
+        }
+
+        [HttpGet("History")]
+        public async Task<IActionResult> History()
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<List<AppointmentResponse>>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _appointments.ListHistoryAsync(userId));
+        }
+
+        [Authorize(Roles = "Admin,Doctor,Pharmacist")]
+        [HttpGet("Staff")]
+        public async Task<IActionResult> StaffAppointments([FromQuery] string? date)
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<List<StaffAppointmentResponse>>.Fail("Invalid token.", 401));
+            }
+
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+            return Ok(await _appointments.ListStaffAsync(userId, role, date));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Book([FromBody] AppointmentBookRequest request)
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<AppointmentResponse>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _appointments.BookAsync(userId, request));
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("Staff")]
+        public async Task<IActionResult> StaffBook([FromBody] StaffAppointmentBookRequest request)
+        {
+            return Ok(await _appointments.BookForStaffAsync(request));
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("Staff/{id}/Cancel")]
+        public async Task<IActionResult> StaffCancel(string id)
+        {
+            return Ok(await _appointments.CancelForStaffAsync(id));
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("Staff/{id}/Reschedule")]
+        public async Task<IActionResult> StaffReschedule(
+            string id,
+            [FromBody] AppointmentRescheduleRequest request)
+        {
+            return Ok(await _appointments.RescheduleForStaffAsync(id, request));
+        }
+
+        [HttpPost("{id}/Cancel")]
+        public async Task<IActionResult> Cancel(string id)
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<AppointmentResponse>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _appointments.CancelAsync(userId, id));
+        }
+
+        [HttpPost("{id}/Reschedule")]
+        public async Task<IActionResult> Reschedule(string id, [FromBody] AppointmentRescheduleRequest request)
+        {
+            if (!TryUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<AppointmentResponse>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _appointments.RescheduleAsync(userId, id, request));
+        }
+
+        private bool TryUserId(out long userId) =>
+            long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
+    }
+}

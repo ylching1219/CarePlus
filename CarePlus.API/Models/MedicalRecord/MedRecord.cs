@@ -1,4 +1,4 @@
-﻿using CarePlus.API.Models.User.Patient;
+﻿
 using CarePlus.API.Models.User.Staff.Doctor;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -13,7 +13,7 @@ namespace CarePlus.API.Models.MedicalRecord
 
         [Required]
         public string PatientId { get; set; } = null!;
-        public Patient Patient { get; set; } = null!;
+        public Patient.Patient Patient { get; set; } = null!;
 
         [Required]
         public string DoctorId { get; set; } = null!;
@@ -24,9 +24,6 @@ namespace CarePlus.API.Models.MedicalRecord
 
         [Required]
         public string Diagnosis { get; set; } = null!;
-
-        [Required]
-        public string Treatment { get; set; } = null!;
 
         public string? Notes { get; set; }  
 

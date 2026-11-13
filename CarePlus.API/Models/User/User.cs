@@ -7,7 +7,9 @@ namespace CarePlus.API.Models.User
 {
     [Table("Users")]
     [Index(nameof(Username), IsUnique = true)]
-    public class User : AuditTrail
+    [Index(nameof(Email), IsUnique = true)]
+    [Index(nameof(Phone), IsUnique = true)]
+    public class User
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -17,16 +19,27 @@ namespace CarePlus.API.Models.User
         [MaxLength(100)]
         public string Username { get; set; } = null!;
 
-        public string? Name { get; set; } = null;
+        [Required]  
+        [MaxLength(100)]
+        public string Name { get; set; } = null!;
 
         [Required]
         public string Email { get; set; } = null!;
 
         [Required]
-        public string? PasswordHash { get; set;}
-        public long? Phone { get; set; }
-        public string? Status { get; set; } = "Active";
+        public string PasswordHash { get; set; } = null!;
 
+        [MaxLength(20)]
+        public string? Phone { get; set; }
+
+        [MaxLength(20)]
+        public string Status { get; set; } = "Active";
+
+        public bool EmailVerified { get; set; } = true;
+
+        public int FailedPasswordAttempts { get; set; }
+
+        public DateTime? PasswordLockoutUntilUtc { get; set; }
 
 
     }

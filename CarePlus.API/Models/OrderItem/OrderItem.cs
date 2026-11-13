@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CarePlus.API.Models.OrderItem
@@ -13,9 +13,18 @@ namespace CarePlus.API.Models.OrderItem
         public string OrderId { get; set; } = null!;
         public MedicineOrder.MedicineOrder Order { get; set; } = null!;
 
+        public string? MedicineId { get; set; }
+        public Medicine.Medicine? Medicine { get; set; }
+
         [Required]
-        public string MedicineId { get; set; } = null!;
-        public Medicine.Medicine Medicine { get; set; } = null!;
+        [MaxLength(120)]
+        public string ItemName { get; set; } = "";
+
+        [MaxLength(200)]
+        public string? Detail { get; set; }
+
+        [Required]
+        public decimal UnitPrice { get; set; }
 
         [Required]
         public int Quantity { get; set; }

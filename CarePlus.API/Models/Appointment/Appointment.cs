@@ -1,7 +1,8 @@
-﻿using CarePlus.API.Models.User.Patient;
 using CarePlus.API.Models.User.Staff.Doctor;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+
+using CarePlus.API.Models.Room;
 
 namespace CarePlus.API.Models.Appointment
 {
@@ -13,19 +14,38 @@ namespace CarePlus.API.Models.Appointment
 
         [Required]
         public string PatientId { get; set; } = null!;
-        public Patient Patient { get; set; } = null!;
+        public Patient.Patient Patient { get; set; } = null!;
 
         [Required]
         public string DoctorId { get; set; } = null!;
         public Doctor Doctor { get; set; } = null!;
 
+        public string? RoomId { get; set; }
+        public ClinicRoom? Room { get; set; }
+
+        // ponytail: MySQL DATE/TIME come back as DateTime/TimeSpan; DateOnly/TimeOnly throw on materialize
         [Required]
-        public DateOnly AppointmentDate { get; set; }
+        public DateTime AppointmentDate { get; set; }
 
         [Required]
-        public TimeOnly AppointmentTime { get; set; }
+        public TimeSpan AppointmentTime { get; set; }
 
-        public string Status { get; set; } = "Scheduled"; 
+        [StringLength(100)]
+        public string ForName { get; set; } = "";
+
+        [StringLength(80)]
+        public string VisitType { get; set; } = "VT01";
+
+        [StringLength(500)]
+        public string? Notes { get; set; }
+
+        public int RescheduleCount { get; set; }
+
+        public DateTime? LastRescheduledAt { get; set; }
+
+        public DateTime? CancelledAt { get; set; }
+
+        public string Status { get; set; } = "Scheduled";
 
         public string CheckInStatus { get; set; } = "Pending";
     }

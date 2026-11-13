@@ -1,5 +1,4 @@
 ﻿using CarePlus.API.Extension;
-using CarePlus.API.Models.User.Patient;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -13,7 +12,7 @@ namespace CarePlus.API.Models.PersonalHealthRec
 
         [Required]
         public string PatientId { get; set; } = null!;
-        public Patient Patient { get; set; } = null!;
+        public Patient.Patient Patient { get; set; } = null!;
 
         [Required]
         public string RecordType { get; set; } = null!;
@@ -23,6 +22,11 @@ namespace CarePlus.API.Models.PersonalHealthRec
         public string? MedicalHistory { get; set; }
         public string? Symptoms { get; set; } 
         public string? HealthNotes { get; set; }
+        public DateTime? RecordedAt { get; set; }
+        [MaxLength(255)]
+        public string? PdfFileName { get; set; }
+        [MaxLength(64)]
+        public string? PdfStorageName { get; set; }
         public DateTime CreatedAt { get; set; } = DateTimeHelper.MalaysiaNow();
 
     }

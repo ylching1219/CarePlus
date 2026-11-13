@@ -8,7 +8,7 @@ namespace CarePlus.API.DTO.UserDTO
         public string Username { get; init; } = string.Empty;
 
         [Required(ErrorMessage = "Name is required.")]
-        [StringLength(100, MinimumLength = 3 , ErrorMessage = "Name cannot exceed 100 characters.")]
+        [StringLength(100, MinimumLength = 3, ErrorMessage = "Name must be between 3 and 100 characters.")]
         public string Name { get; init; } = string.Empty;
 
         [Required(ErrorMessage = "Email is required.")]
@@ -18,5 +18,8 @@ namespace CarePlus.API.DTO.UserDTO
         [Required(ErrorMessage = "Password is required.")]
         [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters long.")]
         public string Password { get; init; } = string.Empty;
+
+        [MaxLength(20)]
+        public string? Phone { get; init; }
     }
 }
