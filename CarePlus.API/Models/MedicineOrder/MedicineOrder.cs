@@ -1,4 +1,4 @@
-﻿using CarePlus.API.Extension;
+using CarePlus.API.Extension;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 

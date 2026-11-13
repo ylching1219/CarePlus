@@ -9,5 +9,7 @@ namespace CarePlus.API.DTO.UserDTO
 
         [Required(ErrorMessage = "Password is required.")]
         public string Password { get; init; } = string.Empty;
+
+        public bool RememberMe { get; init; }
     }
 }

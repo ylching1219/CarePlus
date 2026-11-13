@@ -41,6 +41,22 @@ namespace CarePlus.API.Controllers
             return Ok(await _userServices.PatientLoginAsync(request));
         }
 
+        [HttpPost("Login/VerifyTwoFactor")]
+        [AllowAnonymous]
+        [EnableRateLimiting("email-code")]
+        public async Task<IActionResult> PatientLoginVerifyTwoFactor(LoginTwoFactorVerifyRequest request)
+        {
+            return Ok(await _userServices.CompletePatientLoginTwoFactorAsync(request));
+        }
+
+        [HttpPost("Login/ResendTwoFactor")]
+        [AllowAnonymous]
+        [EnableRateLimiting("email-code")]
+        public async Task<IActionResult> PatientLoginResendTwoFactor(LoginTwoFactorResendRequest request)
+        {
+            return Ok(await _userServices.ResendPatientLoginTwoFactorAsync(request));
+        }
+
         [HttpPost("Register")]
         public async Task<IActionResult> PatientRegister(PatientRegisterRequest request)
         {

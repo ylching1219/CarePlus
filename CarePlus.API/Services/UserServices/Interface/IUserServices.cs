@@ -14,6 +14,10 @@ namespace CarePlus.API.Services.UserServices.Interface
 
         Task<ApiResponse<object>> PatientLoginAsync(UserLoginRequest request);
 
+        Task<ApiResponse<object>> CompletePatientLoginTwoFactorAsync(LoginTwoFactorVerifyRequest request);
+
+        Task<ApiResponse<object>> ResendPatientLoginTwoFactorAsync(LoginTwoFactorResendRequest request);
+
         Task<ApiResponse<object>> StaffLoginAsync(UserLoginRequest request);
         Task<ApiResponse<object>> RetrieveAllUserAsync();
 

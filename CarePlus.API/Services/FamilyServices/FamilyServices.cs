@@ -11,6 +11,7 @@ namespace CarePlus.API.Services.FamilyServices;
 
 public class FamilyServices : Interface.IFamilyServices
 {
+    public const int MinimumParentAge = 18;
     private static readonly HashSet<string> AllowedRelations = new(StringComparer.OrdinalIgnoreCase) { "parent", "child" };
     private readonly AppDbContext _db;
 
@@ -37,6 +38,11 @@ public class FamilyServices : Interface.IFamilyServices
         {
             return Fail("You already belong to a family.", 409);
         }
+
+        var creator = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(row => row.PatientId == patientId);
+        if (creator == null) return Fail("Patient was not found.", 404);
+        var parentAgeError = ParentAgeError(creator.DateOfBirth);
+        if (parentAgeError != null) return Fail(parentAgeError, 403);
 
         await using var transaction = await _db.Database.BeginTransactionAsync();
         var group = new FamilyGroup
@@ -93,6 +99,12 @@ public class FamilyServices : Interface.IFamilyServices
         if (targetPatient.PatientId == patientId) return Fail("You cannot invite yourself.", 400);
 
         if (await HasAnyFamilyMembershipAsync(targetPatient.PatientId)) return Fail("This patient already belongs to a family.", 409);
+
+        if (relation.Equals("parent", StringComparison.OrdinalIgnoreCase))
+        {
+            var parentAgeError = ParentAgeError(targetPatient.DateOfBirth);
+            if (parentAgeError != null) return Fail(parentAgeError, 403);
+        }
 
         await using var transaction = await _db.Database.BeginTransactionAsync();
         var invitation = new FamilyMember
@@ -154,9 +166,17 @@ public class FamilyServices : Interface.IFamilyServices
         var relation = NormalizeRelation(request.Relation);
         if (relation == null) return Fail("Choose either parent or child.", 400);
 
-        var member = await _db.FamilyMembers.FirstOrDefaultAsync(row => row.FamilyGroupId == group.FamilyGroupId && row.FamilyMemberId == familyMemberId);
+        var member = await _db.FamilyMembers
+            .Include(row => row.Patient)
+            .FirstOrDefaultAsync(row => row.FamilyGroupId == group.FamilyGroupId && row.FamilyMemberId == familyMemberId);
         if (member == null) return Fail("Family member was not found.", 404);
         if (member.PatientId == patientId) return Fail("The owner must remain a parent.", 400);
+
+        if (relation.Equals("parent", StringComparison.OrdinalIgnoreCase))
+        {
+            var parentAgeError = ParentAgeError(member.Patient.DateOfBirth);
+            if (parentAgeError != null) return Fail(parentAgeError, 403);
+        }
 
         member.Relationship = relation;
         member.AccessLevel = ToAccessLevel(relation);
@@ -215,6 +235,13 @@ public class FamilyServices : Interface.IFamilyServices
             var transfer = activeMembers.FirstOrDefault(row => row.FamilyMemberId == request.TransferToMemberId.Value && row.PatientId != patientId);
             if (transfer == null) return Fail("Choose an active family member for ownership transfer.", 400);
 
+            var transferDob = await _db.Patients.AsNoTracking()
+                .Where(row => row.PatientId == transfer.PatientId)
+                .Select(row => row.DateOfBirth)
+                .FirstOrDefaultAsync();
+            var parentAgeError = ParentAgeError(transferDob);
+            if (parentAgeError != null) return Fail(parentAgeError, 403);
+
             group.CreatedBy = transfer.PatientId;
             transfer.AccessLevel = "Parent";
             transfer.Relationship = "parent";
@@ -253,6 +280,11 @@ public class FamilyServices : Interface.IFamilyServices
         if (accept)
         {
             if (await HasAnyActiveFamilyMembershipAsync(patientId)) return Fail("You already belong to an active family.", 409);
+            if (member.Relationship.Equals("parent", StringComparison.OrdinalIgnoreCase))
+            {
+                var parentAgeError = ParentAgeError(member.Patient.DateOfBirth);
+                if (parentAgeError != null) return Fail(parentAgeError, 403);
+            }
             member.Status = "Active";
             member.JoinAt = DateTimeHelper.MalaysiaNow();
             member.FamilyGroup.MemberCount = await _db.FamilyMembers.CountAsync(row => row.FamilyGroupId == member.FamilyGroupId && row.Status == "Active") + 1;
@@ -351,6 +383,30 @@ public class FamilyServices : Interface.IFamilyServices
     }
 
     private static string ToAccessLevel(string relation) => relation.Equals("parent", StringComparison.OrdinalIgnoreCase) ? "Parent" : "Child";
+
+    private static string? ParentAgeError(DateTime? dateOfBirth)
+    {
+        var age = CalculateAge(dateOfBirth, DateTimeHelper.MalaysiaNow().Date);
+        if (age == null) return "parent-age-verification-required";
+        if (age < MinimumParentAge) return "parent-underage";
+        return null;
+    }
+
+    private static int? CalculateAge(DateTime? dateOfBirth, DateTime today)
+    {
+        if (!dateOfBirth.HasValue || dateOfBirth.Value.Date > today)
+        {
+            return null;
+        }
+
+        var age = today.Year - dateOfBirth.Value.Year;
+        if (dateOfBirth.Value.Date > today.AddYears(-age))
+        {
+            age--;
+        }
+
+        return age;
+    }
 
     private async Task UpsertNotificationAsync(
         long userId,

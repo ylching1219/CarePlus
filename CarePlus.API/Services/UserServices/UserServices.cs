@@ -1,3 +1,4 @@
+using System.Net;
 using CarePlus.API.DTO;
 using CarePlus.API.DTO.DeliveryAddressDTO;
 using CarePlus.API.DTO.PaymentCardDTO;
@@ -8,7 +9,9 @@ using CarePlus.API.Models.Payment;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.User;
 using CarePlus.API.Repository.Interface;
+using CarePlus.API.Services.EmailServices.Interface;
 using CarePlus.API.Services.JWTServices.Interface;
+using CarePlus.API.Services.TwoFactorServices.Interface;
 using CarePlus.API.Services.UserServices.Interface;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +32,22 @@ namespace CarePlus.API.Services.UserServices
         private readonly IWebHostEnvironment _environment;
         private readonly AddressGeocoder _geocoder;
         private readonly AppDbContext _db;
-        public UserServices(IUserRepository userRepo,IPatientRepository patientRepo , IStaffRepository staffRepo , IJWTServices jwtService, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment environment, AddressGeocoder geocoder, AppDbContext db)
+        private readonly IEmailSender _emailSender;
+        private readonly ITwoFactorServices _twoFactorServices;
+        private readonly ILogger<UserServices> _logger;
+
+        public UserServices(
+            IUserRepository userRepo,
+            IPatientRepository patientRepo,
+            IStaffRepository staffRepo,
+            IJWTServices jwtService,
+            IHttpContextAccessor httpContextAccessor,
+            IWebHostEnvironment environment,
+            AddressGeocoder geocoder,
+            AppDbContext db,
+            IEmailSender emailSender,
+            ITwoFactorServices twoFactorServices,
+            ILogger<UserServices> logger)
         {
             _userRepo = userRepo;
             _patientRepo = patientRepo;
@@ -39,6 +57,9 @@ namespace CarePlus.API.Services.UserServices
             _environment = environment;
             _geocoder = geocoder;
             _db = db;
+            _emailSender = emailSender;
+            _twoFactorServices = twoFactorServices;
+            _logger = logger;
         }
 
         public async Task<ApiResponse<object>> CheckUsernameAvailabilityAsync(string username)
@@ -215,29 +236,88 @@ namespace CarePlus.API.Services.UserServices
                         $"This account is not a {expectedAccountType.ToLowerInvariant()} account.", 403);
                 }
 
-                var role = staff?.Role ?? "Patient";
-
-                var token = _jwtService.GenerateToken(
-                    user.UserId,
-                    user.Username,
-                    accountType,
-                    role,
-                    patient?.PatientId,
-                    staff?.StaffId);
-
-                await RecordLoginAsync(user.UserId);
-
-                return ApiResponse<object>.Ok(new
+                if (expectedAccountType == "Patient")
                 {
-                    token
-                });
+                    var twoFactorEnabled = await _db.AppSettings.AsNoTracking()
+                        .Where(row => row.UserId == user.UserId)
+                        .Select(row => (bool?)row.TwoFactorEnabled)
+                        .FirstOrDefaultAsync() == true;
+                    if (twoFactorEnabled)
+                    {
+                        return await _twoFactorServices.StartLoginChallengeAsync(user);
+                    }
+                }
 
-
+                return await IssueLoginTokenAsync(user, patient, staff, accountType, request.RememberMe);
             }
             catch (Exception ex)
             {
                 return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
             }
+        }
+
+        public async Task<ApiResponse<object>> CompletePatientLoginTwoFactorAsync(LoginTwoFactorVerifyRequest request)
+        {
+            try
+            {
+                var verified = await _twoFactorServices.ConsumeLoginChallengeAsync(request.ChallengeId, request.Code);
+                if (!verified.IsSuccess)
+                {
+                    return ApiResponse<object>.Fail(verified.RespMessage, verified.RespCode);
+                }
+
+                var userId = verified.Data;
+                var user = await _userRepo.GetUserByIdAsync(userId);
+                if (user == null || user.Status != "Active")
+                {
+                    return ApiResponse<object>.Fail("This account is not active.", 403);
+                }
+
+                var patient = await _patientRepo.GetPatientByUserIdAsync(user.UserId);
+                if (patient == null)
+                {
+                    return ApiResponse<object>.Fail("This account is not a patient account.", 403);
+                }
+
+                var staff = await _staffRepo.GetStaffByUserIdAsync(user.UserId);
+                if (staff != null)
+                {
+                    return ApiResponse<object>.Fail("This account is not a patient account.", 403);
+                }
+
+                return await IssueLoginTokenAsync(user, patient, null, "Patient", request.RememberMe);
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+            }
+        }
+
+        public async Task<ApiResponse<object>> ResendPatientLoginTwoFactorAsync(LoginTwoFactorResendRequest request)
+        {
+            return await _twoFactorServices.ResendLoginChallengeAsync(request.ChallengeId);
+        }
+
+        private async Task<ApiResponse<object>> IssueLoginTokenAsync(
+            User user,
+            CarePlus.API.Models.Patient.Patient? patient,
+            CarePlus.API.Models.User.Staff.Staff? staff,
+            string accountType,
+            bool rememberMe = false)
+        {
+            var role = staff?.Role ?? "Patient";
+            var token = _jwtService.GenerateToken(
+                user.UserId,
+                user.Username,
+                accountType,
+                role,
+                patient?.PatientId,
+                staff?.StaffId,
+                rememberMe);
+
+            await RecordLoginAsync(user.UserId);
+
+            return ApiResponse<object>.Ok(new { token });
         }
         public async Task<ApiResponse<object>> RetrieveAllUserAsync()
         {
@@ -976,26 +1056,100 @@ namespace CarePlus.API.Services.UserServices
         private async Task RecordLoginAsync(long userId)
         {
             var http = _httpContextAccessor.HttpContext;
-            var address = http?.Connection.RemoteIpAddress;
+            var device = DescribeDevice(http?.Request.Headers.UserAgent.ToString());
+            var ipAddress = ResolveClientIp(http);
+            var createdAt = DateTimeHelper.MalaysiaNow();
+            var updated = await _userRepo.TouchLoginActivityAsync(userId, device, ipAddress, createdAt);
+            if (updated)
+            {
+                return;
+            }
+
+            await _userRepo.AddLoginActivityAsync(new LoginActivity
+            {
+                UserId = userId,
+                Device = device,
+                IpAddress = ipAddress,
+                CreatedAt = createdAt,
+            });
+
+            // ponytail: email is best-effort; login must still succeed if SMTP is down
+            await TrySendNewLoginEmailAsync(userId, device, ipAddress);
+        }
+
+        private async Task TrySendNewLoginEmailAsync(long userId, string device, string ipAddress)
+        {
+            try
+            {
+                var user = await _userRepo.GetUserByIdAsync(userId);
+                if (user is null || string.IsNullOrWhiteSpace(user.Email))
+                {
+                    return;
+                }
+
+                var safeName = WebUtility.HtmlEncode(user.Name);
+                var safeDevice = WebUtility.HtmlEncode(device.Replace(" · ", " on ", StringComparison.Ordinal));
+                var safeIp = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(ipAddress) ? "Unknown" : ipAddress);
+                var emailBody = $"""
+                    <html>
+                      <body style="margin:0;padding:0;background:#111827;font-family:Arial,sans-serif;color:#e5e7eb;line-height:1.5">
+                        <div style="max-width:520px;margin:0 auto;padding:28px 20px">
+                          <p style="margin:0 0 8px 0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af">CarePlus</p>
+                          <h1 style="margin:0 0 20px 0;font-size:22px;color:#ffffff">New login notification</h1>
+                          <p style="margin:0 0 12px 0">Hi {safeName},</p>
+                          <p style="margin:0 0 20px 0">A sign-in to your CarePlus account was detected from a new or unrecognized device.</p>
+                          <div style="background:#1f2937;border-radius:12px;padding:16px 18px;margin:0 0 20px 0">
+                            <p style="margin:0 0 4px 0;font-size:12px;color:#9ca3af">Device</p>
+                            <p style="margin:0 0 14px 0;font-size:16px;font-weight:700;color:#ffffff">{safeDevice}</p>
+                            <p style="margin:0 0 4px 0;font-size:12px;color:#9ca3af">IP address</p>
+                            <p style="margin:0;font-size:16px;font-weight:700;color:#ffffff">{safeIp}</p>
+                          </div>
+                          <p style="margin:0 0 16px 0;color:#d1d5db">If this was you, no action is needed. If you do not recognize this sign-in, change your password and review account activity in Settings → Security.</p>
+                          <p style="margin:0;font-size:12px;color:#9ca3af">Clinic care for patients and families.</p>
+                        </div>
+                      </body>
+                    </html>
+                    """;
+
+                await _emailSender.SendAsync(
+                    user.Email,
+                    "CarePlus new login notification",
+                    emailBody,
+                    isBodyHtml: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unable to send new-login email for user {UserId}.", userId);
+            }
+        }
+
+        private static string ResolveClientIp(HttpContext? http)
+        {
+            if (http is null)
+            {
+                return "";
+            }
+
+            var headers = http.Request.Headers;
+            var forwarded = headers["CF-Connecting-IP"].FirstOrDefault()
+                ?? headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim();
+            if (!string.IsNullOrWhiteSpace(forwarded) && IPAddress.TryParse(forwarded, out var parsed))
+            {
+                if (parsed.IsIPv4MappedToIPv6)
+                {
+                    parsed = parsed.MapToIPv4();
+                }
+
+                return parsed.ToString();
+            }
+
+            var address = http.Connection.RemoteIpAddress;
             if (address is { IsIPv4MappedToIPv6: true })
             {
                 address = address.MapToIPv4();
             }
 
-            var device = DescribeDevice(http?.Request.Headers.UserAgent.ToString());
-            var ipAddress = address?.ToString() ?? "";
-            var createdAt = DateTimeHelper.MalaysiaNow();
-            var updated = await _userRepo.TouchLoginActivityAsync(userId, device, ipAddress, createdAt);
-            if (!updated)
-            {
-                await _userRepo.AddLoginActivityAsync(new LoginActivity
-                {
-                    UserId = userId,
-                    Device = device,
-                    IpAddress = ipAddress,
-                    CreatedAt = createdAt,
-                });
-            }
+            return address?.ToString() ?? "";
         }
 
         private static string DescribeDevice(string? userAgent)

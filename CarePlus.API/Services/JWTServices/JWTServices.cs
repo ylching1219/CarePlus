@@ -21,7 +21,8 @@ public class JWTServices : IJWTServices
         string accountType,
         string role,
         string? patientId = null,
-        string? staffId = null)
+        string? staffId = null,
+        bool rememberMe = false)
     {
         var settings = _configuration.GetSection("JwtSettings");
         var secretKey = settings["SecretKey"]?? throw new InvalidOperationException("JWT secret key is missing.");
@@ -47,8 +48,9 @@ public class JWTServices : IJWTServices
             key,
             SecurityAlgorithms.HmacSha256);
 
-        var expiryMinutes =
-            settings.GetValue<int>("AccessTokenExpiryMinutes", 60);
+        var expiryMinutes = rememberMe
+            ? settings.GetValue("RememberMeExpiryMinutes", 60 * 24 * 30)
+            : settings.GetValue("AccessTokenExpiryMinutes", 60);
 
         var token = new JwtSecurityToken(
             issuer: settings["Issuer"],

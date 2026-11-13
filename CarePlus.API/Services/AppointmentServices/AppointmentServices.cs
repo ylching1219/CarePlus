@@ -177,7 +177,7 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             var now = DateTimeHelper.MalaysiaNow();
-            var rows = await LoadPatientAppointmentsAsync(patient.PatientId);
+            var rows = await LoadVisibleAppointmentsAsync(patient.PatientId);
             var upcoming = rows
                 .Where(row => row.Status == "Scheduled" && ToStart(row) > now)
                 .OrderBy(row => ToStart(row))
@@ -195,7 +195,7 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             var now = DateTimeHelper.MalaysiaNow();
-            var rows = await LoadPatientAppointmentsAsync(patient.PatientId);
+            var rows = await LoadVisibleAppointmentsAsync(patient.PatientId);
             var history = rows
                 .Where(row => row.Status != "Scheduled" || ToStart(row) <= now)
                 .OrderByDescending(row => ToStart(row))
@@ -287,14 +287,15 @@ namespace CarePlus.API.Services.AppointmentServices
                 && string.Equals(currentMembership.Relationship, "child", StringComparison.OrdinalIgnoreCase);
             var age = CalculateAge(patient.DateOfBirth, today);
 
+            // Under 12 cannot book at all (parent books on their behalf). Not tied to family "child" role.
+            if (age != null && age < MinimumChildSelfBookingAge)
+            {
+                return ApiResponse<AppointmentResponse>.Fail("child-underage-booking", 403);
+            }
+
             if (isChild && age == null)
             {
                 return ApiResponse<AppointmentResponse>.Fail("age-verification-required", 403);
-            }
-
-            if (isChild && age < MinimumChildSelfBookingAge)
-            {
-                return ApiResponse<AppointmentResponse>.Fail("child-underage-booking", 403);
             }
 
             var bookingPatient = patient;
@@ -336,6 +337,11 @@ namespace CarePlus.API.Services.AppointmentServices
             if (!TryParseStart(request.StartAt, out var start))
             {
                 return ApiResponse<AppointmentResponse>.Fail("Pick a valid time slot.", 400);
+            }
+
+            if (start < now.AddMinutes(30))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("slot-too-soon", 400);
             }
 
             if (await CountUpcomingAppointmentsAsync(bookingPatient.PatientId, now) >= MaxUpcomingAppointments)
@@ -529,8 +535,7 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("This account is not a patient account.", 400);
             }
 
-            var row = await _db.Appointments.FirstOrDefaultAsync(item =>
-                item.AppointmentId == appointmentId && item.PatientId == patient.PatientId);
+            var row = await FindManageableAppointmentAsync(patient.PatientId, appointmentId);
             if (row == null || row.Status != "Scheduled" || ToStart(row) <= DateTimeHelper.MalaysiaNow())
             {
                 return ApiResponse<AppointmentResponse>.Fail("Visit not found.", 404);
@@ -551,8 +556,7 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("This account is not a patient account.", 400);
             }
 
-            var row = await _db.Appointments.FirstOrDefaultAsync(item =>
-                item.AppointmentId == appointmentId && item.PatientId == patient.PatientId);
+            var row = await FindManageableAppointmentAsync(patient.PatientId, appointmentId);
             if (row == null || row.Status != "Scheduled" || ToStart(row) <= DateTimeHelper.MalaysiaNow())
             {
                 return ApiResponse<AppointmentResponse>.Fail("Visit not found.", 404);
@@ -570,6 +574,11 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             var now = DateTimeHelper.MalaysiaNow();
+            if (start < now.AddMinutes(30))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("slot-too-soon", 400);
+            }
+
             if (row.LastRescheduledAt?.Date != now.Date)
             {
                 row.RescheduleCount = 0;
@@ -580,7 +589,8 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("reschedule-limit", 400);
             }
 
-            if (await HasAppointmentInDaySessionAsync(patient.PatientId, start, row.AppointmentId))
+            // Conflict check is for the patient on the visit, not the parent who is managing it.
+            if (await HasAppointmentInDaySessionAsync(row.PatientId, start, row.AppointmentId))
             {
                 return ApiResponse<AppointmentResponse>.Fail("same-day-session-limit", 400);
             }
@@ -708,8 +718,9 @@ namespace CarePlus.API.Services.AppointmentServices
             }).ToList();
         }
 
-        private async Task<List<Appointment>> LoadPatientAppointmentsAsync(string patientId)
+        private async Task<List<Appointment>> LoadVisibleAppointmentsAsync(string patientId)
         {
+            var patientIds = await VisiblePatientIdsAsync(patientId);
             return await _db.Appointments
                 .AsNoTracking()
                 .Include(row => row.Patient)
@@ -717,8 +728,40 @@ namespace CarePlus.API.Services.AppointmentServices
                 .Include(row => row.Doctor)
                     .ThenInclude(doctor => doctor.User)
                 .Include(row => row.Room)
-                .Where(row => row.PatientId == patientId)
+                .Where(row => patientIds.Contains(row.PatientId))
                 .ToListAsync();
+        }
+
+        // Parents see every active family member's visits; children only see their own.
+        private async Task<List<string>> VisiblePatientIdsAsync(string patientId)
+        {
+            var membership = await _db.FamilyMembers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(row => row.PatientId == patientId && row.Status == "Active");
+            if (membership == null
+                || !string.Equals(membership.Relationship, "parent", StringComparison.OrdinalIgnoreCase))
+            {
+                return [patientId];
+            }
+
+            return await _db.FamilyMembers
+                .AsNoTracking()
+                .Where(row => row.FamilyGroupId == membership.FamilyGroupId && row.Status == "Active")
+                .Select(row => row.PatientId)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        private async Task<Appointment?> FindManageableAppointmentAsync(string actorPatientId, string appointmentId)
+        {
+            var row = await _db.Appointments.FirstOrDefaultAsync(item => item.AppointmentId == appointmentId);
+            if (row == null)
+            {
+                return null;
+            }
+
+            var visibleIds = await VisiblePatientIdsAsync(actorPatientId);
+            return visibleIds.Contains(row.PatientId) ? row : null;
         }
 
         private async Task<Appointment?> LoadAppointmentAsync(string appointmentId)

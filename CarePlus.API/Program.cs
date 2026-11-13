@@ -98,6 +98,15 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+if (args.Any(arg => string.Equals(arg, "--seed-test", StringComparison.OrdinalIgnoreCase)))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await TestPatientSeed.RunAsync(db, Console.Out);
+    return;
+}
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
