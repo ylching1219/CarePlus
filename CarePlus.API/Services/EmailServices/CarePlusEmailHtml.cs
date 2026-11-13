@@ -29,6 +29,17 @@ public static class CarePlusEmailHtml
         return Wrap(body);
     }
 
+    public static string FamilyInvite(string inviteeName, string ownerName, string familyName, string actionUrl)
+    {
+        var body = $"""
+            <p style="margin:0 0 12px 0;font-size:15px;color:#f5f5f5">Hi {Encode(inviteeName)},</p>
+            <p style="margin:0 0 20px 0;font-size:15px;color:#f5f5f5;line-height:1.55">{Encode(ownerName)} invited you to join <strong style="color:#ffffff">{Encode(familyName)}</strong> on CarePlus.</p>
+            {CtaButton("View invitation", actionUrl)}
+            <p style="margin:0;font-size:13px;color:#a3a3a3;line-height:1.55">Sign in with this email to accept or decline the invitation on the Family page.</p>
+            """;
+        return Wrap(body);
+    }
+
     private static string Wrap(string innerHtml) => $"""
         <!DOCTYPE html>
         <html>
@@ -76,6 +87,12 @@ public static class CarePlusEmailHtml
           <p style="margin:0 0 8px 0;font-size:12px;color:#a3a3a3">Verification code</p>
           <p style="margin:0;font-size:32px;letter-spacing:10px;font-weight:700;line-height:1.2;color:#ffffff">{Encode(code)}</p>
         </div>
+        """;
+
+    private static string CtaButton(string label, string url) => $"""
+        <p style="margin:0 0 20px 0;text-align:center">
+          <a href="{Encode(url)}" style="display:inline-block;background:#ffffff;color:#0a0a0a;text-decoration:none;font-size:15px;font-weight:700;padding:12px 22px;border-radius:999px">{Encode(label)}</a>
+        </p>
         """;
 
     private static string Encode(string value) => WebUtility.HtmlEncode(value ?? "");

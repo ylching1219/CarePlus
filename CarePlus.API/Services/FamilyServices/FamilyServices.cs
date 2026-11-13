@@ -5,6 +5,8 @@ using CarePlus.API.Extension;
 using CarePlus.API.Models.FamilyGroup;
 using CarePlus.API.Models.FamilyMember;
 using CarePlus.API.Models.Notification;
+using CarePlus.API.Services.EmailServices;
+using CarePlus.API.Services.EmailServices.Interface;
 using Microsoft.EntityFrameworkCore;
 
 namespace CarePlus.API.Services.FamilyServices;
@@ -14,10 +16,20 @@ public class FamilyServices : Interface.IFamilyServices
     public const int MinimumParentAge = 18;
     private static readonly HashSet<string> AllowedRelations = new(StringComparer.OrdinalIgnoreCase) { "parent", "child" };
     private readonly AppDbContext _db;
+    private readonly IEmailSender _emailSender;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<FamilyServices> _logger;
 
-    public FamilyServices(AppDbContext db)
+    public FamilyServices(
+        AppDbContext db,
+        IEmailSender emailSender,
+        IConfiguration configuration,
+        ILogger<FamilyServices> logger)
     {
         _db = db;
+        _emailSender = emailSender;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<FamilyOverviewResponse>> GetOverviewAsync(string patientId)
@@ -135,9 +147,36 @@ public class FamilyServices : Interface.IFamilyServices
             "/family",
             invitation.JoinAt);
         await _db.SaveChangesAsync();
-        await transaction.CommitAsync();
 
+        try
+        {
+            var inviteLink = BuildFamilyInviteLink();
+            var emailBody = CarePlusEmailHtml.FamilyInvite(
+                targetPatient.User.Name,
+                ownerName,
+                group.GroupName,
+                inviteLink);
+            await _emailSender.SendAsync(
+                targetPatient.User.Email,
+                $"{ownerName} invited you to {group.GroupName} on CarePlus",
+                emailBody,
+                isBodyHtml: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unable to send family invitation email for member {FamilyMemberId}.", invitation.FamilyMemberId);
+            await transaction.RollbackAsync();
+            return Fail("We could not send the invitation email. Please try again later.", 502);
+        }
+
+        await transaction.CommitAsync();
         return await SuccessOverviewAsync(patientId, "Invitation sent.");
+    }
+
+    private string BuildFamilyInviteLink()
+    {
+        var clientBaseUrl = (_configuration["Client:BaseUrl"] ?? "https://careplus.kaiminndev.com").TrimEnd('/');
+        return $"{clientBaseUrl}/login?next={Uri.EscapeDataString("/family")}";
     }
 
     public Task<ApiResponse<FamilyOverviewResponse>> AcceptInviteAsync(string patientId, long familyMemberId) =>
