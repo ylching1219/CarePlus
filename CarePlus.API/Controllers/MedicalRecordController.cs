@@ -29,6 +29,20 @@ public class MedicalRecordController : ControllerBase
         return Ok(await _medicalRecords.RetrieveAsync(userId, User.FindFirstValue(ClaimTypes.Role) ?? string.Empty));
     }
 
+    [HttpGet("Patient/{patientId}")]
+    public async Task<IActionResult> RetrieveForPatient(string patientId)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<List<MedicalRecordResponse>>.Fail("Invalid token.", 401));
+        }
+
+        return Ok(await _medicalRecords.RetrieveForPatientAsync(
+            userId,
+            User.FindFirstValue(ClaimTypes.Role) ?? string.Empty,
+            patientId));
+    }
+
     [HttpPost("Create")]
     public async Task<IActionResult> Create(MedicalRecordCreateRequest request)
     {
@@ -37,7 +51,10 @@ public class MedicalRecordController : ControllerBase
             return Unauthorized(ApiResponse<MedicalRecordResponse>.Fail("Invalid token.", 401));
         }
 
-        return Ok(await _medicalRecords.CreateAsync(userId, User.FindFirstValue(ClaimTypes.Role) ?? string.Empty, request));
+        return Ok(await _medicalRecords.CreateAsync(
+            userId,
+            User.FindFirstValue(ClaimTypes.Role) ?? string.Empty,
+            request));
     }
 
     [HttpPut("Update")]

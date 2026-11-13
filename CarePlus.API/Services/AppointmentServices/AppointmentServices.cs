@@ -338,11 +338,6 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("Pick a valid time slot.", 400);
             }
 
-            if (start < now.AddMinutes(30))
-            {
-                return ApiResponse<AppointmentResponse>.Fail("slot-too-soon", 400);
-            }
-
             if (await CountUpcomingAppointmentsAsync(bookingPatient.PatientId, now) >= MaxUpcomingAppointments)
             {
                 return ApiResponse<AppointmentResponse>.Fail("upcoming-limit", 400);
@@ -449,12 +444,6 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             var now = DateTimeHelper.MalaysiaNow();
-            if (start < now.AddMinutes(30))
-            {
-                return ApiResponse<AppointmentResponse>.Fail(
-                    "Appointments must be booked at least 30 minutes in advance.", 400);
-            }
-
             var doctorId = (request.DoctorId ?? "").Trim();
             var activeDoctor = await _db.Doctors
                 .AsNoTracking()
@@ -573,11 +562,6 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             var now = DateTimeHelper.MalaysiaNow();
-            if (start < now.AddMinutes(30))
-            {
-                return ApiResponse<AppointmentResponse>.Fail("slot-too-soon", 400);
-            }
-
             if (row.LastRescheduledAt?.Date != now.Date)
             {
                 row.RescheduleCount = 0;
@@ -648,12 +632,6 @@ namespace CarePlus.API.Services.AppointmentServices
             if (!TryParseStart(request.StartAt, out var start))
             {
                 return ApiResponse<AppointmentResponse>.Fail("Pick a valid time slot.", 400);
-            }
-
-            if (start < now.AddMinutes(30))
-            {
-                return ApiResponse<AppointmentResponse>.Fail(
-                    "Appointments must be booked at least 30 minutes in advance.", 400);
             }
 
             if (start == ToStart(row))
@@ -948,9 +926,9 @@ namespace CarePlus.API.Services.AppointmentServices
 
         private async Task<string?> GetDoctorAvailabilityErrorAsync(string doctorId, DateTime day, TimeSpan time, DateTime now, string? ignoreAppointmentId = null)
         {
-            if (day + time < now.AddMinutes(30))
+            if (day + time <= now)
             {
-                return "Choose a time at least 30 minutes from now.";
+                return "Choose a future time.";
             }
 
             if ((await StaffOnLeaveAsync([doctorId], day)).Contains(doctorId))

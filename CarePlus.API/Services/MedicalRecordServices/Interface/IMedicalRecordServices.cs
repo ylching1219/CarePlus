@@ -5,6 +5,7 @@ namespace CarePlus.API.Services.MedicalRecordServices.Interface;
 public interface IMedicalRecordServices
 {
     Task<ApiResponse<List<MedicalRecordResponse>>> RetrieveAsync(long userId, string role);
+    Task<ApiResponse<List<MedicalRecordResponse>>> RetrieveForPatientAsync(long userId, string role, string patientId);
     Task<ApiResponse<MedicalRecordResponse>> CreateAsync(long userId, string role, MedicalRecordCreateRequest request);
     Task<ApiResponse<MedicalRecordResponse>> UpdateAsync(long userId, string role, MedicalRecordUpdateRequest request);
 }

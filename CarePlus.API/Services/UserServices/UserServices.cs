@@ -969,12 +969,12 @@ namespace CarePlus.API.Services.UserServices
                 var folder = Path.Combine(root, "profiles");
                 Directory.CreateDirectory(folder);
 
-                foreach (var old in Directory.EnumerateFiles(folder, patient.PatientId + "*"))
-                {
-                    File.Delete(old);
-                }
-
-                var fileName = $"{patient.PatientId}-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{extension}";
+                var oldProfilePicture = patient.ProfilePicture;
+                var user = await _userRepo.GetUserByIdAsync(userId);
+                var fileName = UploadFileNameHelper.Generate(
+                    "profile",
+                    user?.Username ?? patient.PatientId,
+                    extension);
                 await using (var stream = File.Create(Path.Combine(folder, fileName)))
                 {
                     await file.CopyToAsync(stream);
@@ -982,6 +982,7 @@ namespace CarePlus.API.Services.UserServices
 
                 patient.ProfilePicture = $"profiles/{fileName}";
                 await _patientRepo.UpdatePatientAsync(patient);
+                DeleteProfilePictureFile(oldProfilePicture);
                 return await RetrieveCurrentUserAsync(userId);
             }
             catch (Exception ex)

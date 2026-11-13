@@ -459,7 +459,7 @@ namespace CarePlus.API.Migrations
                             Key = "AppointmentId",
                             Length = 4,
                             PaddingChar = "0",
-                            Prefix = "Apt",
+                            Prefix = "APT",
                             Step = 1,
                             Value = 0L,
                             Version = 0L
@@ -904,7 +904,7 @@ namespace CarePlus.API.Migrations
                     b.HasData(
                         new
                         {
-                            MedicineId = "Med0001",
+                            MedicineId = "MED0001",
                             Description = "For a bacterial infection. Finish the course unless the doctor tells you to stop.",
                             DescriptionZh = "用于细菌感染。除非医生叫停，请把疗程吃完。",
                             Form = "capsule",
@@ -921,7 +921,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0002",
+                            MedicineId = "MED0002",
                             Description = "For fever or pain. Do not take more than 4 g in 24 hours.",
                             DescriptionZh = "用来退烧或止痛。24 小时内不要超过 4 克。",
                             Form = "tablet",
@@ -938,7 +938,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0003",
+                            MedicineId = "MED0003",
                             Description = "For allergy symptoms. Take it at the same time each day.",
                             DescriptionZh = "针对过敏症状。尽量每天同一时间服用。",
                             Form = "tablet",
@@ -955,7 +955,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0004",
+                            MedicineId = "MED0004",
                             Description = "For pain or swelling after a visit. Take it with food.",
                             DescriptionZh = "用于就诊后的疼痛或肿。饭后服用。",
                             Form = "tablet",
@@ -972,7 +972,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0005",
+                            MedicineId = "MED0005",
                             Description = "For hay fever and itchy skin. It can make some people sleepy.",
                             DescriptionZh = "用于花粉过敏和皮肤发痒。有些人吃了会困。",
                             Form = "tablet",
@@ -989,7 +989,7 @@ namespace CarePlus.API.Migrations
                         },
                         new
                         {
-                            MedicineId = "Med0006",
+                            MedicineId = "MED0006",
                             Description = "For a skin infection. Take it on an empty stomach and finish the course.",
                             DescriptionZh = "用于皮肤感染。空腹服用，并把疗程吃完。",
                             Form = "capsule",
@@ -1473,6 +1473,7 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("varchar(255)");
 
                     b.Property<string>("Status")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("longtext")

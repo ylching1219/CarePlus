@@ -45,6 +45,33 @@ public class PersonalHealthRecordController(AppDbContext db, IWebHostEnvironment
         return Ok(ApiResponse<List<PersonalRecordView>>.Ok(rows.Select(View).ToList()));
     }
 
+    [Authorize(Roles = "Admin,Doctor")]
+    [HttpGet("Patient/{patientId}")]
+    public async Task<IActionResult> ListForStaff(string patientId)
+    {
+        var normalizedPatientId = patientId.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedPatientId))
+        {
+            return BadRequest(ApiResponse<List<PersonalRecordView>>.Fail("Patient is required.", 400));
+        }
+
+        var patientExists = await db.Patients
+            .AsNoTracking()
+            .AnyAsync(patient => patient.PatientId == normalizedPatientId);
+        if (!patientExists)
+        {
+            return NotFound(ApiResponse<List<PersonalRecordView>>.Fail("Patient not found.", 404));
+        }
+
+        var rows = await db.PersonalHealthRecords
+            .AsNoTracking()
+            .Where(row => row.PatientId == normalizedPatientId)
+            .OrderByDescending(row => row.RecordedAt ?? row.CreatedAt)
+            .ToListAsync();
+
+        return Ok(ApiResponse<List<PersonalRecordView>>.Ok(rows.Select(View).ToList()));
+    }
+
     [HttpPost]
     public Task<IActionResult> Save([FromBody] PersonalRecordInput input) => SaveRecord(null, input);
 

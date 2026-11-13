@@ -204,6 +204,7 @@ namespace CarePlus.API.Services.QueueServices
                     QueueId = row.QueueId,
                     QueueNumber = numbers[row.QueueId],
                     AppointmentId = appointment.AppointmentId,
+                    PatientId = row.PatientId,
                     PatientName = string.IsNullOrWhiteSpace(appointment.ForName) ? row.Patient.User.Name : appointment.ForName,
                     DoctorName = DoctorName(appointment),
                     VisitType = visitTypes.GetValueOrDefault(appointment.VisitType, appointment.VisitType),
@@ -292,9 +293,24 @@ namespace CarePlus.API.Services.QueueServices
                 return ApiResponse<QueueStatusResponse>.Fail("This consultation is no longer in progress. Review the queue for its latest status.", 409);
             }
 
-            var medicineIds = request.PrescriptionItems.Select(item => item.MedicineId.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            var prescriptionItems = request.PrescriptionItems
+                .GroupBy(item => item.MedicineId.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(group => new
+                {
+                    MedicineId = group.Key,
+                    Dosage = group.Select(item => item.Dosage.Trim())
+                        .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty,
+                    Quantity = group.Sum(item => (long)item.Quantity),
+                    Instructions = group.Select(item => item.Instructions.Trim())
+                        .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty,
+                })
+                .ToList();
+            if (prescriptionItems.Any(item => item.Quantity > int.MaxValue))
+            {
+                return ApiResponse<QueueStatusResponse>.Fail("The combined medicine quantity is too large.", 400);
+            }
+
+            var medicineIds = prescriptionItems.Select(item => item.MedicineId).ToArray();
             var availableMedicineIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (medicineIds.Length > 0)
             {
@@ -322,7 +338,7 @@ namespace CarePlus.API.Services.QueueServices
                 return ApiResponse<QueueStatusResponse>.Fail(record.RespMessage, record.RespCode);
             }
 
-            if (request.PrescriptionItems.Count > 0)
+            if (prescriptionItems.Count > 0)
             {
                 try
                 {
@@ -334,8 +350,8 @@ namespace CarePlus.API.Services.QueueServices
                         PatientId = appointment.PatientId,
                         CreatedAt = consultationDate,
                     };
-                    var items = new List<PrescriptionItem>(request.PrescriptionItems.Count);
-                    foreach (var item in request.PrescriptionItems)
+                    var items = new List<PrescriptionItem>(prescriptionItems.Count);
+                    foreach (var item in prescriptionItems)
                     {
                         items.Add(new PrescriptionItem
                         {
@@ -343,7 +359,7 @@ namespace CarePlus.API.Services.QueueServices
                             Prescription = prescription,
                             MedicineId = availableMedicineIds[item.MedicineId.Trim()],
                             Dosage = item.Dosage.Trim(),
-                            Quantity = item.Quantity,
+                            Quantity = (int)item.Quantity,
                             Instructions = item.Instructions.Trim(),
                         });
                     }
