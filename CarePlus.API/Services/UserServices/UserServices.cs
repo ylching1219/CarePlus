@@ -1009,9 +1009,9 @@ namespace CarePlus.API.Services.UserServices
         {
             try
             {
-                if (file == null || file.Length == 0 || file.Length > 2 * 1024 * 1024)
+                if (file == null || file.Length == 0 || file.Length > 5 * 1024 * 1024)
                 {
-                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 2 MB.", 400);
+                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 5 MB.", 400);
                 }
 
                 var extension = file.ContentType switch
@@ -1023,7 +1023,7 @@ namespace CarePlus.API.Services.UserServices
                 };
                 if (extension == null)
                 {
-                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 2 MB.", 400);
+                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 5 MB.", 400);
                 }
 
                 var patient = await _patientRepo.GetPatientByUserIdAsync(userId);
