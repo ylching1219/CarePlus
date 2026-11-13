@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text.RegularExpressions;
 using CarePlus.API.Data;
 using CarePlus.API.DTO;
 using CarePlus.API.DTO.FamilyDTO;
@@ -40,11 +42,8 @@ public class FamilyServices : Interface.IFamilyServices
 
     public async Task<ApiResponse<FamilyOverviewResponse>> CreateAsync(string patientId, FamilyCreateRequest request)
     {
-        var name = request.Name.Trim();
-        if (name.Length < 2 || name.Length > 100)
-        {
-            return Fail("Family name must be between 2 and 100 characters.", 400);
-        }
+        var nameError = ValidateFamilyName(request.Name, out var name);
+        if (nameError != null) return nameError;
 
         if (await HasAnyFamilyMembershipAsync(patientId))
         {
@@ -87,8 +86,8 @@ public class FamilyServices : Interface.IFamilyServices
         var group = await OwnerGroupAsync(patientId);
         if (group == null) return Fail("Only the family owner can rename the family.", 403);
 
-        var name = request.Name.Trim();
-        if (name.Length < 2 || name.Length > 100) return Fail("Family name must be between 2 and 100 characters.", 400);
+        var nameError = ValidateFamilyName(request.Name, out var name);
+        if (nameError != null) return nameError;
         group.GroupName = name;
         await _db.SaveChangesAsync();
         return await SuccessOverviewAsync(patientId, "Family renamed.");
@@ -135,13 +134,14 @@ public class FamilyServices : Interface.IFamilyServices
             .Where(row => row.PatientId == patientId)
             .Select(row => row.User.Name)
             .FirstAsync();
+        var familyName = SafeFamilyName(group.GroupName);
         await UpsertNotificationAsync(
             targetPatient.UserId,
             $"family-invite:{invitation.FamilyMemberId}",
             "Family invitation",
-            $"{ownerName} invited you to join {group.GroupName}.",
+            $"{ownerName} invited you to join {familyName}.",
             "家庭邀请",
-            $"{ownerName}邀请您加入{group.GroupName}。",
+            $"{ownerName}邀请您加入{familyName}。",
             ownerName,
             "family_invitation",
             "/family",
@@ -154,11 +154,11 @@ public class FamilyServices : Interface.IFamilyServices
             var emailBody = CarePlusEmailHtml.FamilyInvite(
                 targetPatient.User.Name,
                 ownerName,
-                group.GroupName,
+                familyName,
                 inviteLink);
             await _emailSender.SendAsync(
                 targetPatient.User.Email,
-                $"{ownerName} invited you to {group.GroupName} on CarePlus",
+                $"{PlainText(ownerName)} invited you to {familyName} on CarePlus",
                 emailBody,
                 isBodyHtml: true);
         }
@@ -370,7 +370,7 @@ public class FamilyServices : Interface.IFamilyServices
             family = new FamilyResponse
             {
                 FamilyGroupId = active.FamilyGroupId,
-                Name = active.FamilyGroup.GroupName,
+                Name = SafeFamilyName(active.FamilyGroup.GroupName),
                 OwnerPatientId = active.FamilyGroup.CreatedBy,
                 Members = allMembers.Select(ToMemberResponse).ToList()
             };
@@ -385,8 +385,8 @@ public class FamilyServices : Interface.IFamilyServices
         {
             FamilyMemberId = row.FamilyMemberId,
             FamilyGroupId = row.FamilyGroupId,
-            FamilyName = row.FamilyGroup.GroupName,
-            InvitedByName = ownerNames.GetValueOrDefault(row.FamilyGroup.CreatedBy, "Your family owner"),
+            FamilyName = SafeFamilyName(row.FamilyGroup.GroupName),
+            InvitedByName = PlainText(ownerNames.GetValueOrDefault(row.FamilyGroup.CreatedBy, "Your family owner")),
             Relation = row.Relationship.ToLowerInvariant(),
             Permission = row.AccessLevel.ToLowerInvariant()
         }).ToList();
@@ -414,6 +414,40 @@ public class FamilyServices : Interface.IFamilyServices
 
     private Task<bool> HasAnyFamilyMembershipAsync(string patientId) => _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && (row.Status == "Active" || row.Status == "Pending"));
     private Task<bool> HasAnyActiveFamilyMembershipAsync(string patientId) => _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && row.Status == "Active");
+
+    private static ApiResponse<FamilyOverviewResponse>? ValidateFamilyName(string? raw, out string name)
+    {
+        name = (raw ?? string.Empty).Trim();
+        if (name.Length < 2 || name.Length > 100)
+        {
+            return Fail("Family name must be between 2 and 100 characters.", 400);
+        }
+
+        // ponytail: block HTML/script junk so invite emails cannot carry a poisoned family name
+        if (name.IndexOfAny(['<', '>', '`']) >= 0
+            || name.Contains("javascript:", StringComparison.OrdinalIgnoreCase)
+            || Regex.IsMatch(name, @"[\u0000-\u001F\u007F]"))
+        {
+            return Fail("Family name cannot contain HTML or script characters.", 400);
+        }
+
+        return null;
+    }
+
+    private static string PlainText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var withoutTags = Regex.Replace(value, "<[^>]*>", " ");
+        withoutTags = WebUtility.HtmlDecode(withoutTags);
+        return Regex.Replace(withoutTags, @"\s+", " ").Trim();
+    }
+
+    private static string SafeFamilyName(string? value)
+    {
+        var plain = PlainText(value);
+        if (plain.Length < 2) return "Family";
+        return plain.Length > 100 ? plain[..100] : plain;
+    }
 
     private static string? NormalizeRelation(string value)
     {
