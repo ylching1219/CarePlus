@@ -410,18 +410,25 @@ namespace CarePlus.API.Services.MedicineOrderServices
 
         private static bool CashCollected(OrderRow order)
         {
-            var status = order.Status.Trim();
+            var status = CanonicalStatus(order.Status);
             if (order.Fulfilment.Equals("pickup", StringComparison.OrdinalIgnoreCase))
             {
-                return status.Equals("picked_up", StringComparison.OrdinalIgnoreCase);
+                return status is "picked_up" or "completed" or "dispensed";
             }
 
-            return status.Equals("delivered", StringComparison.OrdinalIgnoreCase);
+            return status is "delivered" or "completed" or "dispensed";
         }
 
         private static string ShownStatus(OrderRow order)
         {
-            var status = order.Status.Trim().ToLowerInvariant();
+            // ponytail: admin/DB may store "Picked_up" / "Picked Up"; always emit snake_case
+            var status = CanonicalStatus(order.Status);
+            if (status is "completed" or "dispensed")
+            {
+                return order.Fulfilment.Equals("delivery", StringComparison.OrdinalIgnoreCase)
+                    ? "delivered"
+                    : "picked_up";
+            }
             if (order.Fulfilment.Equals("pickup", StringComparison.OrdinalIgnoreCase)
                 && (status == "processing" || status == "pending"))
             {
@@ -430,6 +437,9 @@ namespace CarePlus.API.Services.MedicineOrderServices
 
             return status;
         }
+
+        private static string CanonicalStatus(string status) =>
+            System.Text.RegularExpressions.Regex.Replace(status.Trim().ToLowerInvariant(), @"[\s-]+", "_");
 
         private static MedicineOrderResponse ToResponse(OrderRow order, IEnumerable<OrderItem> items)
         {
