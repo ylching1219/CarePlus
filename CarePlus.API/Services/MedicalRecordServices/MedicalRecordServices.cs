@@ -54,6 +54,46 @@ public class MedicalRecordServices : IMedicalRecordServices
             records.Select(ToResponse).ToList());
     }
 
+    public async Task<ApiResponse<List<MedicalRecordResponse>>> RetrieveForPatientAsync(
+        long userId,
+        string role,
+        string patientId)
+    {
+        var isAdmin = role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        var isDoctor = role.Equals("Doctor", StringComparison.OrdinalIgnoreCase);
+        if (!isAdmin && !isDoctor)
+        {
+            return ApiResponse<List<MedicalRecordResponse>>.Fail(
+                "You do not have permission to view patient medical records.", 403);
+        }
+
+        if (isDoctor && await FindDoctorAsync(userId) == null)
+        {
+            return ApiResponse<List<MedicalRecordResponse>>.Fail(
+                "This account is not a doctor account.", 403);
+        }
+
+        var normalizedPatientId = patientId.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedPatientId)
+            || !await _db.Patients.AnyAsync(patient => patient.PatientId == normalizedPatientId))
+        {
+            return ApiResponse<List<MedicalRecordResponse>>.Fail("Patient not found.", 404);
+        }
+
+        var records = await _db.MedicalRecords
+            .AsNoTracking()
+            .Where(record => record.PatientId == normalizedPatientId)
+            .Include(record => record.Patient)
+                .ThenInclude(patient => patient.User)
+            .Include(record => record.Doctor)
+                .ThenInclude(recordDoctor => recordDoctor.User)
+            .OrderByDescending(record => record.ConsultationDate)
+            .ToListAsync();
+
+        return ApiResponse<List<MedicalRecordResponse>>.Ok(
+            records.Select(ToResponse).ToList());
+    }
+
     public async Task<ApiResponse<MedicalRecordResponse>> CreateAsync(
         long userId,
         string role,

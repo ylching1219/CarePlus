@@ -74,6 +74,7 @@ namespace CarePlus.API.DTO.QueueDTO
         public string QueueId { get; set; } = "";
         public string QueueNumber { get; set; } = "";
         public string AppointmentId { get; set; } = "";
+        public string PatientId { get; set; } = "";
         public string PatientName { get; set; } = "";
         public string DoctorName { get; set; } = "";
         public string VisitType { get; set; } = "";

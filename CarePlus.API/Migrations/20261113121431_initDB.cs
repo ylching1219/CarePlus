@@ -1078,9 +1078,11 @@ namespace CarePlus.API.Migrations
                     { 7L, true, "InvoiceId", 4, "0", "INV", 1, 0L, 0L },
                     { 8L, true, "PaymentId", 4, "0", "PAY", 1, 0L, 0L },
                     { 9L, true, "StaffId", 6, "0", "STF", 1, 9L, 0L },
-                    { 10L, true, "AppointmentId", 4, "0", "Apt", 1, 0L, 0L },
+                    { 10L, true, "AppointmentId", 4, "0", "APT", 1, 0L, 0L },
                     { 11L, true, "ScheduleId", 6, "0", "SCH", 1, 0L, 0L },
-                    { 12L, true, "RoomId", 4, "0", "RM-", 1, 5L, 0L }
+                    { 12L, true, "RoomId", 4, "0", "RM-", 1, 5L, 0L },
+                    { 13L, true, "PrescriptionId", 4, "0", "RX", 1, 0L, 0L },
+                    { 14L, true, "PrescriptionItemId", 4, "0", "RXI", 1, 0L, 0L }
                 });
 
             migrationBuilder.InsertData(
@@ -1088,12 +1090,12 @@ namespace CarePlus.API.Migrations
                 columns: new[] { "MedicineId", "Description", "DescriptionZh", "Form", "ImageKey", "Kind", "MedicineName", "Method", "MethodZh", "NameZh", "Pack", "PackZh", "Price", "Status" },
                 values: new object[,]
                 {
-                    { "Med0001", "For a bacterial infection. Finish the course unless the doctor tells you to stop.", "用于细菌感染。除非医生叫停，请把疗程吃完。", "capsule", "amox", "antibiotic", "Amoxicillin 500 mg capsules", "1 capsule, 3 times a day", "每日 3 次，每次 1 粒", "阿莫西林 500 毫克胶囊", "16 capsules", "16 粒", 12.50m, "Available" },
-                    { "Med0002", "For fever or pain. Do not take more than 4 g in 24 hours.", "用来退烧或止痛。24 小时内不要超过 4 克。", "tablet", "para", "analgesic", "Paracetamol 500 mg tablets", "1 to 2 tablets, up to 4 times a day", "每次 1 至 2 片，每日最多 4 次", "扑热息痛 500 毫克片", "20 tablets", "20 片", 8.90m, "Available" },
-                    { "Med0003", "For allergy symptoms. Take it at the same time each day.", "针对过敏症状。尽量每天同一时间服用。", "tablet", "lora", "antihistamine", "Loratadine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "氯雷他定 10 毫克片", "10 tablets", "10 片", 16.50m, "Available" },
-                    { "Med0004", "For pain or swelling after a visit. Take it with food.", "用于就诊后的疼痛或肿。饭后服用。", "tablet", "para", "analgesic", "Ibuprofen 200 mg tablets", "1 tablet, up to 3 times a day", "每次 1 片，每日最多 3 次", "布洛芬 200 毫克片", "24 tablets", "24 片", 9.50m, "Available" },
-                    { "Med0005", "For hay fever and itchy skin. It can make some people sleepy.", "用于花粉过敏和皮肤发痒。有些人吃了会困。", "tablet", "lora", "antihistamine", "Cetirizine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "西替利嗪 10 毫克片", "10 tablets", "10 片", 11.00m, "Available" },
-                    { "Med0006", "For a skin infection. Take it on an empty stomach and finish the course.", "用于皮肤感染。空腹服用，并把疗程吃完。", "capsule", "amox", "antibiotic", "Cloxacillin 500 mg capsules", "1 capsule, 4 times a day", "每日 4 次，每次 1 粒", "氯唑西林 500 毫克胶囊", "20 capsules", "20 粒", 14.80m, "Available" }
+                    { "MED0001", "For a bacterial infection. Finish the course unless the doctor tells you to stop.", "用于细菌感染。除非医生叫停，请把疗程吃完。", "capsule", "amox", "antibiotic", "Amoxicillin 500 mg capsules", "1 capsule, 3 times a day", "每日 3 次，每次 1 粒", "阿莫西林 500 毫克胶囊", "16 capsules", "16 粒", 12.50m, "Available" },
+                    { "MED0002", "For fever or pain. Do not take more than 4 g in 24 hours.", "用来退烧或止痛。24 小时内不要超过 4 克。", "tablet", "para", "analgesic", "Paracetamol 500 mg tablets", "1 to 2 tablets, up to 4 times a day", "每次 1 至 2 片，每日最多 4 次", "扑热息痛 500 毫克片", "20 tablets", "20 片", 8.90m, "Available" },
+                    { "MED0003", "For allergy symptoms. Take it at the same time each day.", "针对过敏症状。尽量每天同一时间服用。", "tablet", "lora", "antihistamine", "Loratadine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "氯雷他定 10 毫克片", "10 tablets", "10 片", 16.50m, "Available" },
+                    { "MED0004", "For pain or swelling after a visit. Take it with food.", "用于就诊后的疼痛或肿。饭后服用。", "tablet", "para", "analgesic", "Ibuprofen 200 mg tablets", "1 tablet, up to 3 times a day", "每次 1 片，每日最多 3 次", "布洛芬 200 毫克片", "24 tablets", "24 片", 9.50m, "Available" },
+                    { "MED0005", "For hay fever and itchy skin. It can make some people sleepy.", "用于花粉过敏和皮肤发痒。有些人吃了会困。", "tablet", "lora", "antihistamine", "Cetirizine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "西替利嗪 10 毫克片", "10 tablets", "10 片", 11.00m, "Available" },
+                    { "MED0006", "For a skin infection. Take it on an empty stomach and finish the course.", "用于皮肤感染。空腹服用，并把疗程吃完。", "capsule", "amox", "antibiotic", "Cloxacillin 500 mg capsules", "1 capsule, 4 times a day", "每日 4 次，每次 1 粒", "氯唑西林 500 毫克胶囊", "20 capsules", "20 粒", 14.80m, "Available" }
                 });
 
             migrationBuilder.InsertData(
