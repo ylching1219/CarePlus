@@ -223,6 +223,7 @@ namespace CarePlus.API.Services.StaffService
                 Specialization = doctor.Specialization,
                 Qualification = doctor.Qualification,
                 YearsOfExperience = doctor.YearsOfExperience,
+                ProfilePicture = doctor.ProfilePicture,
                 Reviews = reviews,
                 Schedules = scheduleRows.Select(schedule => new PublicDoctorScheduleResponse
                 {
@@ -367,6 +368,27 @@ namespace CarePlus.API.Services.StaffService
             YearsOfExperience = doctor.YearsOfExperience,
             ProfilePicture = doctor.ProfilePicture,
         };
+
+        public async Task<string?> GetPublicPhotoFileAsync(string staffId)
+        {
+            var doctor = await _doctorRepo.GetDoctorByIdAsync(staffId);
+            if (doctor == null
+                || !string.Equals(doctor.User.Status, "Active", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(doctor.ProfilePicture))
+            {
+                return null;
+            }
+
+            var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+            var profileRoot = Path.GetFullPath(Path.Combine(webRoot, "profiles"));
+            var candidate = Path.GetFullPath(Path.Combine(webRoot, doctor.ProfilePicture.Replace('/', Path.DirectorySeparatorChar)));
+            if (!candidate.StartsWith(profileRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return File.Exists(candidate) ? candidate : null;
+        }
 
         private void DeleteProfilePictureFile(string? relativePath)
         {

@@ -9,6 +9,7 @@ namespace CarePlus.API.DTO.StaffDTO
         public string Specialization { get; set; } = string.Empty;
         public string Qualification { get; set; } = string.Empty;
         public int YearsOfExperience { get; set; }
+        public string? ProfilePicture { get; set; }
         public List<PublicDoctorScheduleResponse> Schedules { get; set; } = [];
         public List<DoctorReviewResponse> Reviews { get; set; } = [];
     }
