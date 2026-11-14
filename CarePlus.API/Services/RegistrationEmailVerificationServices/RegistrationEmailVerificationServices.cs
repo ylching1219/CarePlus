@@ -5,6 +5,7 @@ using CarePlus.API.Data;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.User;
+using CarePlus.API.Services.EmailServices;
 using CarePlus.API.Services.EmailServices.Interface;
 using CarePlus.API.Services.RegistrationEmailVerificationServices.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -78,16 +79,12 @@ public sealed class RegistrationEmailVerificationServices : IRegistrationEmailVe
 
         try
         {
-            var emailBody = $"""
-                <html>
-                  <body style="font-family:Arial,sans-serif;color:#172b35;line-height:1.5">
-                    <h2>Verify your CarePlus email address</h2>
-                    <p>Enter this verification code in the CarePlus registration form:</p>
-                    <p style="font-size:36px;letter-spacing:10px;font-weight:700;line-height:1.2;margin:8px 0 20px;color:#0b2638"><strong>{code}</strong></p>
-                    <p>This code expires in {CodeLifetimeMinutes} minutes. If you did not request this code, you can ignore this email.</p>
-                  </body>
-                </html>
-                """;
+            var emailBody = CarePlusEmailHtml.Otp(
+                "Email verification",
+                "Enter this verification code in the CarePlus registration form.",
+                code,
+                CodeLifetimeMinutes,
+                "If you did not request this code, you can ignore this email.");
             await _emailSender.SendAsync(
                 email,
                 "Verify your CarePlus email address",

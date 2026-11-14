@@ -1,10 +1,11 @@
-﻿using CarePlus.API.Services.UserServices.Interface;
+using CarePlus.API.Services.UserServices.Interface;
 using Microsoft.AspNetCore.Mvc;
 using CarePlus.API.DTO.PatientDTO;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Services.PatientServices.Interface;
 using CarePlus.API.Services.EmailVerificationServices.Interface;
 using CarePlus.API.Services.PasswordResetServices.Interface;
+using CarePlus.API.Extension;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using CarePlus.API.Services.RegistrationEmailVerificationServices.Interface;
@@ -35,31 +36,54 @@ namespace CarePlus.API.Controllers
             _registrationEmailVerificationServices = registrationEmailVerificationServices;
         }
 
+        [AllowAnonymous]
         [HttpPost("Login")]
+        [EnableRateLimiting("login")]
         public async Task<IActionResult> PatientLogin(UserLoginRequest request)
         {
-            return Ok(await _userServices.PatientLoginAsync(request));
+            return this.ApiResult(await _userServices.PatientLoginAsync(request));
         }
 
+        [HttpPost("Login/VerifyTwoFactor")]
+        [AllowAnonymous]
+        [EnableRateLimiting("email-code")]
+        public async Task<IActionResult> PatientLoginVerifyTwoFactor(LoginTwoFactorVerifyRequest request)
+        {
+            return Ok(await _userServices.CompletePatientLoginTwoFactorAsync(request));
+        }
+
+        [HttpPost("Login/ResendTwoFactor")]
+        [AllowAnonymous]
+        [EnableRateLimiting("email-code")]
+        public async Task<IActionResult> PatientLoginResendTwoFactor(LoginTwoFactorResendRequest request)
+        {
+            return Ok(await _userServices.ResendPatientLoginTwoFactorAsync(request));
+        }
+
+        [AllowAnonymous]
         [HttpPost("Register")]
         public async Task<IActionResult> PatientRegister(PatientRegisterRequest request)
         {
             return Ok(await _patientServices.RegisterPatientAsync(request));
         }
 
+        [AllowAnonymous]
         [HttpPost("VerifyEmail")]
         public async Task<IActionResult> VerifyEmail(EmailVerificationRequest request)
         {
             return Ok(await _emailVerificationServices.VerifyCodeAsync(request));
         }
 
+        [AllowAnonymous]
         [HttpPost("ResendEmailVerification")]
         public async Task<IActionResult> ResendEmailVerification(EmailVerificationResendRequest request)
         {
             return Ok(await _emailVerificationServices.ResendCodeAsync(request.ChallengeId));
         }
 
+        [AllowAnonymous]
         [HttpGet("UsernameAvailability")]
+        [EnableRateLimiting("username-check")]
         public async Task<IActionResult> UsernameAvailability([FromQuery] string username)
         {
             return Ok(await _userServices.CheckUsernameAvailabilityAsync(username));
@@ -115,6 +139,7 @@ namespace CarePlus.API.Controllers
             return Ok(await _passwordResetServices.ResetPasswordAsync(request, cancellationToken));
         }
 
+        [Authorize(Roles = "Admin,Doctor,Pharmacist")]
         [HttpGet("Retrieve")]
         public async Task<IActionResult> PatientRetrieve()
         {

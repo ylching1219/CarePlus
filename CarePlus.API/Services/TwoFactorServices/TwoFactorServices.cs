@@ -5,6 +5,7 @@ using CarePlus.API.Data;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.User;
+using CarePlus.API.Services.EmailServices;
 using CarePlus.API.Services.EmailServices.Interface;
 using CarePlus.API.Services.TwoFactorServices.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -89,16 +90,14 @@ public class TwoFactorServices : ITwoFactorServices
 
         try
         {
-            var emailBody = $"""
-                <html>
-                  <body style="font-family:Arial,sans-serif;color:#172b35;line-height:1.5">
-                    <h2>CarePlus two-factor authentication code</h2>
-                    <p>Your CarePlus verification code is:</p>
-                    <p style="font-size:36px;letter-spacing:10px;font-weight:700;line-height:1.2;margin:8px 0 20px 0;color:#0b2638"><strong>{code}</strong></p>
-                    <p>This code expires in {CodeLifetimeMinutes} minutes. If you did not request this, you can ignore this email.</p>
-                  </body>
-                </html>
-                """;
+            var emailBody = CarePlusEmailHtml.Otp(
+                purpose == "enable" ? "Two-factor authentication" : "Security change",
+                purpose == "enable"
+                    ? "Use this code to turn on two-factor authentication for your CarePlus account."
+                    : "Use this code to turn off two-factor authentication for your CarePlus account.",
+                code,
+                CodeLifetimeMinutes,
+                "If you did not request this, you can ignore this email.");
 
             await _emailSender.SendAsync(
                 user.Email,
@@ -179,6 +178,153 @@ public class TwoFactorServices : ITwoFactorServices
         await _db.SaveChangesAsync();
 
         return ApiResponse<object>.Ok(new TwoFactorStatusResponse { Enabled = setting.TwoFactorEnabled }, "Two-factor authentication updated.");
+    }
+
+    public async Task<ApiResponse<object>> StartLoginChallengeAsync(User user)
+    {
+        if (string.IsNullOrWhiteSpace(user.Email))
+        {
+            return ApiResponse<object>.Fail("Add an email address before using two-factor authentication.", 400);
+        }
+
+        return await CreateAndSendLoginChallengeAsync(user);
+    }
+
+    public async Task<ApiResponse<object>> ResendLoginChallengeAsync(string challengeId)
+    {
+        var id = (challengeId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return ApiResponse<object>.Fail("This verification request is no longer valid.", 400);
+        }
+
+        var existing = await _db.TwoFactorChallenges
+            .AsNoTracking()
+            .FirstOrDefaultAsync(row => row.ChallengeId == id && row.Purpose == "login");
+        if (existing == null)
+        {
+            return ApiResponse<object>.Fail("This verification request is no longer valid.", 400);
+        }
+
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(row => row.UserId == existing.UserId && row.Status == "Active");
+        if (user == null || string.IsNullOrWhiteSpace(user.Email))
+        {
+            return ApiResponse<object>.Fail("User account was not found.", 404);
+        }
+
+        return await CreateAndSendLoginChallengeAsync(user);
+    }
+
+    public async Task<ApiResponse<long>> ConsumeLoginChallengeAsync(string challengeId, string code)
+    {
+        var id = (challengeId ?? "").Trim();
+        var now = DateTimeHelper.MalaysiaNow();
+        var challenge = await _db.TwoFactorChallenges
+            .FirstOrDefaultAsync(row => row.ChallengeId == id && row.Purpose == "login" && row.ConsumedAt == null);
+        if (challenge == null || challenge.ExpiresAt <= now)
+        {
+            return ApiResponse<long>.Fail("That verification code has expired. Request a new code.", 400);
+        }
+
+        if (challenge.Attempts >= MaxAttempts)
+        {
+            challenge.ConsumedAt = now;
+            await _db.SaveChangesAsync();
+            return ApiResponse<long>.Fail("Too many incorrect attempts. Request a new code.", 429);
+        }
+
+        challenge.Attempts++;
+        var expected = Convert.FromHexString(challenge.CodeHash);
+        var actual = Convert.FromHexString(HashCode(challenge.ChallengeId, code.Trim()));
+        if (!CryptographicOperations.FixedTimeEquals(expected, actual))
+        {
+            if (challenge.Attempts >= MaxAttempts)
+            {
+                challenge.ConsumedAt = now;
+            }
+            await _db.SaveChangesAsync();
+            return ApiResponse<long>.Fail(
+                challenge.Attempts >= MaxAttempts ? "Too many incorrect attempts. Request a new code." : "That verification code is incorrect.",
+                challenge.Attempts >= MaxAttempts ? 429 : 400);
+        }
+
+        challenge.ConsumedAt = now;
+        await _db.SaveChangesAsync();
+        return ApiResponse<long>.Ok(challenge.UserId, "Verification successful.");
+    }
+
+    private async Task<ApiResponse<object>> CreateAndSendLoginChallengeAsync(User user)
+    {
+        var now = DateTimeHelper.MalaysiaNow();
+        var recent = await _db.TwoFactorChallenges
+            .Where(row => row.UserId == user.UserId
+                && row.Purpose == "login"
+                && row.ConsumedAt == null
+                && row.ExpiresAt > now
+                && row.CreatedAt > now.AddMinutes(-1))
+            .OrderByDescending(row => row.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (recent != null)
+        {
+            return ApiResponse<object>.Ok(new LoginTwoFactorRequiredResponse
+            {
+                ChallengeId = recent.ChallengeId,
+                MaskedEmail = MaskEmail(user.Email),
+                ExpiresInSeconds = Math.Max(1, (int)Math.Ceiling((recent.ExpiresAt - now).TotalSeconds)),
+            }, "A verification code is already active.");
+        }
+
+        var previous = await _db.TwoFactorChallenges
+            .Where(row => row.UserId == user.UserId && row.Purpose == "login" && row.ConsumedAt == null)
+            .ToListAsync();
+        foreach (var row in previous)
+        {
+            row.ConsumedAt = now;
+        }
+
+        var challengeId = Guid.NewGuid().ToString("N");
+        var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6", CultureInfo.InvariantCulture);
+        var challenge = new TwoFactorChallenge
+        {
+            ChallengeId = challengeId,
+            UserId = user.UserId,
+            Purpose = "login",
+            CodeHash = HashCode(challengeId, code),
+            CreatedAt = now,
+            ExpiresAt = now.AddMinutes(CodeLifetimeMinutes),
+            Attempts = 0,
+        };
+
+        try
+        {
+            var emailBody = CarePlusEmailHtml.Otp(
+                "Sign-in verification",
+                "Use this code to finish signing in to your CarePlus account.",
+                code,
+                CodeLifetimeMinutes,
+                "If you did not try to sign in, you can ignore this email.");
+
+            await _emailSender.SendAsync(
+                user.Email,
+                "CarePlus sign-in verification code",
+                emailBody,
+                isBodyHtml: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unable to send a login two-factor code for user {UserId}.", user.UserId);
+            return ApiResponse<object>.Fail("We could not send the verification email. Please try again later.", 503);
+        }
+
+        await _db.TwoFactorChallenges.AddAsync(challenge);
+        await _db.SaveChangesAsync();
+
+        return ApiResponse<object>.Ok(new LoginTwoFactorRequiredResponse
+        {
+            ChallengeId = challengeId,
+            MaskedEmail = MaskEmail(user.Email),
+            ExpiresInSeconds = CodeLifetimeMinutes * 60,
+        }, "Verification code sent.");
     }
 
     private string HashCode(string challengeId, string code)

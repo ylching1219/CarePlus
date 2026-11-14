@@ -1,9 +1,9 @@
 using CarePlus.API.Data;
 using CarePlus.API.Extension;
+using CarePlus.API.Filters;
 using CarePlus.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -16,7 +16,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddServices(builder.Configuration);
-builder.Services.AddControllers().ConfigureApiBehaviorOptions(opt =>
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<RejectDangerousMarkupFilter>();
+}).ConfigureApiBehaviorOptions(opt =>
 {
     opt.InvalidModelStateResponseFactory = context =>
     {
@@ -79,13 +82,43 @@ builder.Services.AddRateLimiter(options =>
             AutoReplenishment = true
         });
     });
+    options.AddPolicy("login", context =>
+    {
+        var partition = $"login:{context.Connection.RemoteIpAddress}";
+        return RateLimitPartition.GetFixedWindowLimiter(partition, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(15),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+    options.AddPolicy("username-check", context =>
+    {
+        var partition = $"username-check:{context.Connection.RemoteIpAddress}";
+        return RateLimitPartition.GetFixedWindowLimiter(partition, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(15),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
 });
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Client", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
+        // ponytail: local Vite + optional Client:BaseUrl for hosted frontend
+        var origins = new List<string> { "http://localhost:5173", "http://localhost:5174" };
+        var clientBaseUrl = builder.Configuration["Client:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(clientBaseUrl))
+        {
+            origins.Add(clientBaseUrl.TrimEnd('/'));
+        }
+
+        policy.WithOrigins(origins.Distinct(StringComparer.OrdinalIgnoreCase).ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -98,6 +131,15 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+if (args.Any(arg => string.Equals(arg, "--seed-test", StringComparison.OrdinalIgnoreCase)))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await TestPatientSeed.RunAsync(db, Console.Out);
+    return;
+}
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -108,20 +150,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Client");
-var profileFolder = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "profiles");
-Directory.CreateDirectory(profileFolder);
-app.UseStaticFiles(new StaticFileOptions
-{
-    RequestPath = "/api/profiles",
-    FileProvider = new PhysicalFileProvider(profileFolder)
-});
-var leaveDocumentFolder = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "leave-documents");
-Directory.CreateDirectory(leaveDocumentFolder);
-app.UseStaticFiles(new StaticFileOptions
-{
-    RequestPath = "/api/leave-documents",
-    FileProvider = new PhysicalFileProvider(leaveDocumentFolder)
-});
+var webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(Path.Combine(webRoot, "profiles"));
+Directory.CreateDirectory(Path.Combine(webRoot, "leave-documents"));
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();

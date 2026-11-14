@@ -1,11 +1,11 @@
 using System.Globalization;
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using CarePlus.API.Data;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.User;
+using CarePlus.API.Services.EmailServices;
 using CarePlus.API.Services.EmailServices.Interface;
 using CarePlus.API.Services.PasswordResetServices.Interface;
 using Microsoft.AspNetCore.Identity;
@@ -99,18 +99,12 @@ public sealed class PasswordResetServices : IPasswordResetServices
 
         try
         {
-            var safeName = WebUtility.HtmlEncode(user.Name);
-            var emailBody = $"""
-                <html>
-                  <body style="font-family:Arial,sans-serif;color:#172b35;line-height:1.5">
-                    <h2>Reset your CarePlus password</h2>
-                    <p>Hi {safeName},</p>
-                    <p>Enter this verification code on the CarePlus password reset page:</p>
-                    <p style="font-size:36px;letter-spacing:10px;font-weight:700;line-height:1.2;margin:8px 0 20px;color:#0b2638"><strong>{code}</strong></p>
-                    <p>This code expires in {LifetimeMinutes} minutes. If you did not request a password reset, you can ignore this email.</p>
-                  </body>
-                </html>
-                """;
+            var emailBody = CarePlusEmailHtml.Otp(
+                "Password reset",
+                $"Hi {user.Name}, enter this verification code on the CarePlus password reset page.",
+                code,
+                LifetimeMinutes,
+                "If you did not request a password reset, you can ignore this email.");
 
             await _emailSender.SendAsync(
                 user.Email,

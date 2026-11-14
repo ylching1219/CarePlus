@@ -136,8 +136,8 @@ public sealed class ChatServices : IChatServices
         {
             response = new ChatResponse(
                 isChinese
-                    ? "您可以通过以下方式联系 CarePlus 诊所：\n\n- **电话：** +60 3-4141 8888\n- **电邮：** hello@careplus.my\n- **地址：** Jalan Genting Kelang, Setapak, 53300 Kuala Lumpur\n\n您也可以打开 [联系我们](/contact) 页面查看地图、营业时间和常见问题。"
-                    : "You can contact CarePlus Clinic using:\n\n- **Phone:** +60 3-4141 8888\n- **Email:** hello@careplus.my\n- **Address:** Jalan Genting Kelang, Setapak, 53300 Kuala Lumpur\n\nYou can also open [Contact us](/contact) for the map, clinic hours, and frequently asked questions.",
+                    ? "您可以通过以下方式联系 CarePlus 诊所：\n\n- **电话：** +60 3-4141 8888\n- **电邮：** careplus.noreply@gmail.com\n- **地址：** Jalan Genting Kelang, Setapak, 53300 Kuala Lumpur\n\n您也可以打开 [联系我们](/contact) 页面查看地图、营业时间和常见问题。"
+                    : "You can contact CarePlus Clinic using:\n\n- **Phone:** +60 3-4141 8888\n- **Email:** careplus.noreply@gmail.com\n- **Address:** Jalan Genting Kelang, Setapak, 53300 Kuala Lumpur\n\nYou can also open [Contact us](/contact) for the map, clinic hours, and frequently asked questions.",
                 _options.Disclaimer,
                 [WebsiteGuideSource(), PublicClinicSource()]);
             return true;

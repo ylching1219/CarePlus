@@ -77,6 +77,21 @@ public sealed class ChatController : ControllerBase
         }
     }
 
+    [HttpPost("threads/import")]
+    [Authorize]
+    [RequestSizeLimit(250_000)]
+    public async Task<IActionResult> ImportThreads(
+        ImportChatThreadsRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryPatientId(out var patientId))
+        {
+            return Forbid();
+        }
+
+        return Ok(await _chatHistoryServices.ImportAsync(patientId, request, cancellationToken));
+    }
+
     [HttpDelete("threads")]
     [Authorize]
     public async Task<IActionResult> DeleteThreads(

@@ -1,9 +1,11 @@
 ﻿using CarePlus.API.DTO.StaffDTO;
+using CarePlus.API.Extension;
 using CarePlus.API.Services.StaffService.Interface;
 using CarePlus.API.DTO.UserDTO;
 using CarePlus.API.Services.UserServices.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 
 namespace CarePlus.API.Controllers
@@ -24,9 +26,10 @@ namespace CarePlus.API.Controllers
 
         [AllowAnonymous]
         [HttpPost("Login")]
+        [EnableRateLimiting("login")]
         public async Task<IActionResult> StaffLogin(UserLoginRequest request)
         {
-            return Ok(await _userServices.StaffLoginAsync(request));
+            return this.ApiResult(await _userServices.StaffLoginAsync(request));
         }
 
         [Authorize(Roles = "Admin")]
@@ -54,17 +57,11 @@ namespace CarePlus.API.Controllers
             return Ok(await _staffServices.RetrieveStaffByRoleAsync(role));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut("UpdateStaff")]
         public async Task<IActionResult> UpdateStaff(StaffUpdateRequest request)
         {
             return Ok(await _staffServices.UpdateStaffAsync(request));
-        }
-
-        [Authorize(Roles = "Admin")]
-        [HttpPut("Password")]
-        public async Task<IActionResult> StaffPasswordUpdate(StaffPasswordUpdateRequest request)
-        {
-            return Ok(await _staffServices.UpdateStaffPasswordAsync(request));
         }
     }
 }

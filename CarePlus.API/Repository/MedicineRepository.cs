@@ -1,4 +1,5 @@
 using CarePlus.API.Data;
+using CarePlus.API.Extension;
 using CarePlus.API.Models.Medicine;
 using CarePlus.API.Repository.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,18 @@ namespace CarePlus.API.Repository
         public async Task<List<Medicine>> GetAllMedicinesAsync()
         {
             return await _context.Medicines.ToListAsync();
+        }
+
+        public async Task<Dictionary<string, int>> AvailableStockAsync()
+        {
+            var now = DateTimeHelper.MalaysiaNow();
+            var rows = await _context.MedicineBatches.AsNoTracking()
+                .Where(batch => batch.StockQuantity > 0 && batch.ExpiryDate > now)
+                .Select(batch => new { batch.MedicineId, batch.StockQuantity })
+                .ToListAsync();
+            return rows
+                .GroupBy(row => row.MedicineId)
+                .ToDictionary(group => group.Key, group => group.Sum(row => row.StockQuantity));
         }
 
         public async Task<bool> UpdateMedicineAsync(Medicine medicine)

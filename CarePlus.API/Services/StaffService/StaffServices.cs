@@ -71,9 +71,9 @@ namespace CarePlus.API.Services.StaffService
                     Name = request.Name,
                 });
             } 
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -102,9 +102,9 @@ namespace CarePlus.API.Services.StaffService
 
                 return ApiResponse<object>.Fail("No staff found", 404);
             }
-            catch(Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -132,9 +132,9 @@ namespace CarePlus.API.Services.StaffService
 
                 return ApiResponse<object>.Fail("No staff found", 404);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -163,9 +163,9 @@ namespace CarePlus.API.Services.StaffService
 
                 return ApiResponse<object>.Fail($"No staff found in this {role}", 404);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -227,27 +227,9 @@ namespace CarePlus.API.Services.StaffService
 
                 return ApiResponse<object>.Ok(null);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
-            }
-        }
-
-        public async Task<ApiResponse<object>> UpdateStaffPasswordAsync(StaffPasswordUpdateRequest request)
-        {
-            try
-            {
-                var staff = await _staffRepo.GetStaffByIdAsync(request.StaffId);
-                if (staff == null)
-                {
-                    return ApiResponse<object>.Fail("Staff not found", 404);
-                }
-
-                return await _userService.SetPasswordAsync(staff.UserId, request.NewPassword);
-            }
-            catch (Exception ex)
-            {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
     }

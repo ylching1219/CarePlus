@@ -47,6 +47,41 @@ public sealed class DeleteChatThreadsRequest
     public List<string> ThreadIds { get; set; } = [];
 }
 
+public sealed class ImportChatThreadsRequest
+{
+    [Required]
+    [MinLength(1)]
+    [MaxLength(10)]
+    public List<ImportChatThreadRequest> Threads { get; set; } = [];
+}
+
+public sealed class ImportChatThreadRequest
+{
+    [StringLength(80)]
+    public string? Title { get; set; }
+
+    [Required]
+    [MinLength(1)]
+    [MaxLength(40)]
+    public List<ImportChatMessageRequest> Messages { get; set; } = [];
+}
+
+public sealed class ImportChatMessageRequest
+{
+    [Required]
+    [RegularExpression("^(user|assistant)$")]
+    public string Role { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(2000, MinimumLength = 1)]
+    public string Content { get; set; } = string.Empty;
+
+    public long? At { get; set; }
+
+    [StringLength(1000)]
+    public string? Disclaimer { get; set; }
+}
+
 public sealed record ChatMessageResponse(
     string Id,
     string Role,

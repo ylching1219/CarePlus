@@ -14,6 +14,10 @@ namespace CarePlus.API.Services.UserServices.Interface
 
         Task<ApiResponse<object>> PatientLoginAsync(UserLoginRequest request);
 
+        Task<ApiResponse<object>> CompletePatientLoginTwoFactorAsync(LoginTwoFactorVerifyRequest request);
+
+        Task<ApiResponse<object>> ResendPatientLoginTwoFactorAsync(LoginTwoFactorResendRequest request);
+
         Task<ApiResponse<object>> StaffLoginAsync(UserLoginRequest request);
         Task<ApiResponse<object>> RetrieveAllUserAsync();
 
@@ -30,8 +34,6 @@ namespace CarePlus.API.Services.UserServices.Interface
         Task<ApiResponse<object>> UpdateCurrentProfileAsync(long userId, ProfileUpdateRequest request);
 
         Task<ApiResponse<object>> ChangePasswordAsync(long userId, PasswordChangeRequest request);
-
-        Task<ApiResponse<object>> SetPasswordAsync(long userId, string newPassword);
 
         Task<ApiResponse<object>> DeleteCurrentAccountAsync(long userId, AccountDeleteRequest request);
 

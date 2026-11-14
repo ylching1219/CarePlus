@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
@@ -12,9 +13,12 @@ public static class JWTExtension
         var jwtSettings =
             configuration.GetSection("JwtSettings");
 
-        var secretKey = jwtSettings["SecretKey"]
-            ?? throw new InvalidOperationException(
-                "JWT secret key is missing.");
+        var secretKey = jwtSettings["SecretKey"];
+        if (string.IsNullOrWhiteSpace(secretKey))
+        {
+            throw new InvalidOperationException(
+                "JWT secret key is missing. Set JwtSettings__SecretKey in the environment or user-secrets (do not commit it).");
+        }
 
         services.AddAuthentication(
             JwtBearerDefaults.AuthenticationScheme)
@@ -41,7 +45,13 @@ public static class JWTExtension
                     };
             });
 
-        services.AddAuthorization();
+        // Closed by default; mark login/register/public reads with [AllowAnonymous].
+        services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+        });
 
         return services;
     }

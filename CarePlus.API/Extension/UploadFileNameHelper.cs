@@ -41,5 +41,21 @@ namespace CarePlus.API.Extension
             var uploadTime = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmssfff");
             return $"{safeModule}-{safeUsername}-{uploadTime}{safeExtension}";
         }
+
+        // ponytail: opaque names so leaked URLs are not guessable from username/id
+        public static string GenerateOpaque(string extension)
+        {
+            var extensionBody = new string((extension ?? string.Empty)
+                .Trim()
+                .TrimStart('.')
+                .Where(char.IsLetterOrDigit)
+                .ToArray())
+                .ToLowerInvariant();
+            var safeExtension = string.IsNullOrWhiteSpace(extensionBody)
+                ? ".bin"
+                : $".{extensionBody}";
+
+            return $"{Guid.NewGuid():N}{safeExtension}";
+        }
     }
 }

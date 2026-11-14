@@ -30,6 +30,12 @@ namespace CarePlus.API.Controllers
             return ForPatient(userId => _orders.PlaceAsync(userId, request));
         }
 
+        [HttpPost("{orderId}/pay")]
+        public Task<IActionResult> Pay(string orderId, MedicineOrderPayRequest request)
+        {
+            return ForPatient(userId => _orders.PayAsync(userId, orderId, request));
+        }
+
         [HttpGet("Locate")]
         public async Task<IActionResult> Locate([FromQuery] string? address)
         {

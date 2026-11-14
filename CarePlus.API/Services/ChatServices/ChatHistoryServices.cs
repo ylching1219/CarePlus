@@ -119,6 +119,67 @@ public sealed class ChatHistoryServices : IChatHistoryServices
         return ToResponse(thread);
     }
 
+    public async Task<IReadOnlyList<ChatThreadResponse>> ImportAsync(
+        string patientId,
+        ImportChatThreadsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var imported = new List<ChatThread>();
+        var fallbackTime = DateTime.UtcNow;
+
+        foreach (var incoming in request.Threads)
+        {
+            var messages = incoming.Messages
+                .Where(message =>
+                    (message.Role is "user" or "assistant") &&
+                    !string.IsNullOrWhiteSpace(message.Content))
+                .Take(40)
+                .ToArray();
+
+            if (messages.Length == 0)
+            {
+                continue;
+            }
+
+            var firstStamp = ToUtc(messages[0].At) ?? fallbackTime;
+            var title = string.IsNullOrWhiteSpace(incoming.Title)
+                ? TitleFrom(messages.FirstOrDefault(message => message.Role == "user")?.Content ?? "Chat")
+                : incoming.Title.Trim();
+
+            var thread = new ChatThread
+            {
+                PatientId = patientId,
+                Title = title.Length > 80 ? $"{title[..77]}…" : title,
+                CreatedAt = firstStamp,
+                UpdatedAt = ToUtc(messages[^1].At) ?? firstStamp
+            };
+
+            for (var index = 0; index < messages.Length; index++)
+            {
+                var message = messages[index];
+                thread.Messages.Add(new ChatMessage
+                {
+                    Role = message.Role,
+                    Content = message.Content.Trim(),
+                    Disclaimer = string.IsNullOrWhiteSpace(message.Disclaimer) ? null : message.Disclaimer.Trim(),
+                    CreatedAt = ToUtc(message.At) ?? firstStamp.AddTicks(index)
+                });
+            }
+
+            _db.ChatThreads.Add(thread);
+            imported.Add(thread);
+            fallbackTime = fallbackTime.AddMilliseconds(1);
+        }
+
+        if (imported.Count == 0)
+        {
+            return [];
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return imported.Select(ToResponse).ToArray();
+    }
+
     public async Task<int> DeleteAsync(
         string patientId,
         IReadOnlyCollection<string> threadIds,
@@ -226,6 +287,16 @@ public sealed class ChatHistoryServices : IChatHistoryServices
 
     private static long ToUnixMilliseconds(DateTime value) =>
         new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+
+    private static DateTime? ToUtc(long? unixMilliseconds)
+    {
+        if (unixMilliseconds is null or <= 0)
+        {
+            return null;
+        }
+
+        return DateTimeOffset.FromUnixTimeMilliseconds(unixMilliseconds.Value).UtcDateTime;
+    }
 }
 
 public sealed class ChatRateLimitException : Exception

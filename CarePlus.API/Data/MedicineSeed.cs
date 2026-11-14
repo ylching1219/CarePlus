@@ -27,17 +27,17 @@ namespace CarePlus.API.Data
                     "For pain or swelling after a visit. Take it with food.",
                     "用于就诊后的疼痛或肿。饭后服用。",
                     "24 tablets", "24 片", "tablet", "analgesic",
-                    "1 tablet, up to 3 times a day", "每次 1 片，每日最多 3 次", "para", 9.50m),
+                    "1 tablet, up to 3 times a day", "每次 1 片，每日最多 3 次", "ibu", 9.50m),
                 Row("MED0005", "Cetirizine 10 mg tablets", "西替利嗪 10 毫克片",
                     "For hay fever and itchy skin. It can make some people sleepy.",
                     "用于花粉过敏和皮肤发痒。有些人吃了会困。",
                     "10 tablets", "10 片", "tablet", "antihistamine",
-                    "1 tablet once a day", "每日 1 次，每次 1 片", "lora", 11.00m),
+                    "1 tablet once a day", "每日 1 次，每次 1 片", "ceti", 11.00m),
                 Row("MED0006", "Cloxacillin 500 mg capsules", "氯唑西林 500 毫克胶囊",
                     "For a skin infection. Take it on an empty stomach and finish the course.",
                     "用于皮肤感染。空腹服用，并把疗程吃完。",
                     "20 capsules", "20 粒", "capsule", "antibiotic",
-                    "1 capsule, 4 times a day", "每日 4 次，每次 1 粒", "amox", 14.80m));
+                    "1 capsule, 4 times a day", "每日 4 次，每次 1 粒", "clox", 14.80m));
         }
 
         private static Medicine Row(

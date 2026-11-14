@@ -1996,10 +1996,6 @@ namespace CarePlus.API.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
-                    b.Property<string>("ProfilePicture")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
                     b.Property<string>("Qualification")
                         .IsRequired()
                         .HasMaxLength(150)

@@ -287,14 +287,15 @@ namespace CarePlus.API.Services.AppointmentServices
                 && string.Equals(currentMembership.Relationship, "child", StringComparison.OrdinalIgnoreCase);
             var age = CalculateAge(patient.DateOfBirth, today);
 
+            // Under 12 cannot book at all (parent books on their behalf). Not tied to family "child" role.
+            if (age != null && age < MinimumChildSelfBookingAge)
+            {
+                return ApiResponse<AppointmentResponse>.Fail("child-underage-booking", 403);
+            }
+
             if (isChild && age == null)
             {
                 return ApiResponse<AppointmentResponse>.Fail("age-verification-required", 403);
-            }
-
-            if (isChild && age < MinimumChildSelfBookingAge)
-            {
-                return ApiResponse<AppointmentResponse>.Fail("child-underage-booking", 403);
             }
 
             var bookingPatient = patient;
@@ -336,6 +337,11 @@ namespace CarePlus.API.Services.AppointmentServices
             if (!TryParseStart(request.StartAt, out var start))
             {
                 return ApiResponse<AppointmentResponse>.Fail("Pick a valid time slot.", 400);
+            }
+
+            if (start < now.AddMinutes(30))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("slot-too-soon", 400);
             }
 
             if (await CountUpcomingAppointmentsAsync(bookingPatient.PatientId, now) >= MaxUpcomingAppointments)
@@ -562,6 +568,11 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             var now = DateTimeHelper.MalaysiaNow();
+            if (start < now.AddMinutes(30))
+            {
+                return ApiResponse<AppointmentResponse>.Fail("slot-too-soon", 400);
+            }
+
             if (row.LastRescheduledAt?.Date != now.Date)
             {
                 row.RescheduleCount = 0;

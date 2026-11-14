@@ -13,7 +13,5 @@ namespace CarePlus.API.Services.StaffService.Interface
         Task<ApiResponse<object>> RetrieveStaffByRoleAsync(string role);
 
         Task<ApiResponse<object>> UpdateStaffAsync(StaffUpdateRequest request);
-
-        Task<ApiResponse<object>> UpdateStaffPasswordAsync(StaffPasswordUpdateRequest request);
     }
 }

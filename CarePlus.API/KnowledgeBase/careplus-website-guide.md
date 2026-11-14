@@ -14,7 +14,7 @@ Sign in and open **Booking** or **Book a visit**. Select who the visit is for, a
 
 ## How do I contact the clinic?
 
-Open **Contact us** from the navigation or footer. The CarePlus Clinic email is **hello@careplus.my** and the telephone number is **+60 3-4141 8888**. The Contact us page also provides a clickable map, office address, clinic hours, and frequently asked questions. Common wording: contact clinic, clinic phone, telephone number, email address, call CarePlus, 联系诊所、诊所电话、诊所电邮。
+Open **Contact us** from the navigation or footer. The CarePlus Clinic email is **careplus.noreply@gmail.com** and the telephone number is **+60 3-4141 8888**. The Contact us page also provides a clickable map, office address, clinic hours, and frequently asked questions. Common wording: contact clinic, clinic phone, telephone number, email address, call CarePlus, 联系诊所、诊所电话、诊所电邮。
 
 ## Where is the clinic?
 

@@ -171,10 +171,10 @@ namespace CarePlus.API.Services.WorkScheduleServices
                 workSchedule.Staff = staff;
                 return ApiResponse<object>.Ok(ToResponse(workSchedule, roomAssignment));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -209,10 +209,10 @@ namespace CarePlus.API.Services.WorkScheduleServices
                         assignments.GetValueOrDefault(schedule.ScheduleId)))
                     .ToList());
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -246,10 +246,10 @@ namespace CarePlus.API.Services.WorkScheduleServices
                 var assignment = await LoadRoomAssignmentAsync(schedule.ScheduleId);
                 return ApiResponse<object>.Ok(ToResponse(schedule, assignment));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -293,10 +293,10 @@ namespace CarePlus.API.Services.WorkScheduleServices
                         assignments.GetValueOrDefault(schedule.ScheduleId)))
                     .ToList());
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -410,10 +410,10 @@ namespace CarePlus.API.Services.WorkScheduleServices
 
                 return ApiResponse<object>.Ok(ToResponse(schedule, roomAssignment));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 

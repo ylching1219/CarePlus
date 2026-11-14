@@ -3,7 +3,6 @@ using CarePlus.API.DTO.MedicalRecordDTO;
 using CarePlus.API.DTO.QueueDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.Appointment;
-using CarePlus.API.Models.Invoice;
 using CarePlus.API.Models.Prescription;
 using CarePlus.API.Models.PrescriptionItem;
 using CarePlus.API.Models.Queue;
@@ -373,10 +372,6 @@ namespace CarePlus.API.Services.QueueServices
                     return ApiResponse<QueueStatusResponse>.Fail("Another prescription was saved at the same time. Try ending the consultation again.", 409);
                 }
             }
-            else
-            {
-                await CreateConsultationInvoiceAsync(appointment, record.Data.MedicalRecordId, consultationDate);
-            }
 
             var result = await SaveStatusAsync(entry, appointment, "Completed");
             if (result.IsSuccess)
@@ -435,28 +430,6 @@ namespace CarePlus.API.Services.QueueServices
                 .Include(row => row.Room)
                 .AsQueryable();
             return tracking ? query : query.AsNoTracking();
-        }
-
-        private async Task CreateConsultationInvoiceAsync(Appointment appointment, string medicalRecordId, DateTime issueAt)
-        {
-            var visitType = await _db.VisitTypes.AsNoTracking()
-                .FirstOrDefaultAsync(row => row.VisitTypeId == appointment.VisitType);
-            var consultationFee = visitType?.Price ?? 50m;
-            var total = decimal.Round(consultationFee * 1.06m, 2, MidpointRounding.AwayFromZero);
-
-            _db.Invoices.Add(new Invoice
-            {
-                InvoiceId = await _counters.GenerateNextIdAsync("InvoiceId"),
-                PatientId = appointment.PatientId,
-                MedicalRecordId = medicalRecordId,
-                TotalAmount = total,
-                IssueAt = issueAt,
-                DueDate = issueAt.Date,
-                DoctorName = appointment.Doctor.User.Name,
-                VisitType = visitType?.Name ?? appointment.VisitType,
-                RecordRef = medicalRecordId,
-                PaymentStatus = "Pending",
-            });
         }
 
         private IQueryable<Appointment> AppointmentQuery(bool tracking = false)

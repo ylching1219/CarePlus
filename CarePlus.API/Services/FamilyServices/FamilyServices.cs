@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text.RegularExpressions;
 using CarePlus.API.Data;
 using CarePlus.API.DTO;
 using CarePlus.API.DTO.FamilyDTO;
@@ -5,18 +7,31 @@ using CarePlus.API.Extension;
 using CarePlus.API.Models.FamilyGroup;
 using CarePlus.API.Models.FamilyMember;
 using CarePlus.API.Models.Notification;
+using CarePlus.API.Services.EmailServices;
+using CarePlus.API.Services.EmailServices.Interface;
 using Microsoft.EntityFrameworkCore;
 
 namespace CarePlus.API.Services.FamilyServices;
 
 public class FamilyServices : Interface.IFamilyServices
 {
+    public const int MinimumParentAge = 18;
     private static readonly HashSet<string> AllowedRelations = new(StringComparer.OrdinalIgnoreCase) { "parent", "child" };
     private readonly AppDbContext _db;
+    private readonly IEmailSender _emailSender;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<FamilyServices> _logger;
 
-    public FamilyServices(AppDbContext db)
+    public FamilyServices(
+        AppDbContext db,
+        IEmailSender emailSender,
+        IConfiguration configuration,
+        ILogger<FamilyServices> logger)
     {
         _db = db;
+        _emailSender = emailSender;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<FamilyOverviewResponse>> GetOverviewAsync(string patientId)
@@ -27,18 +42,24 @@ public class FamilyServices : Interface.IFamilyServices
 
     public async Task<ApiResponse<FamilyOverviewResponse>> CreateAsync(string patientId, FamilyCreateRequest request)
     {
-        var name = request.Name.Trim();
-        if (name.Length < 2 || name.Length > 100)
-        {
-            return Fail("Family name must be between 2 and 100 characters.", 400);
-        }
+        var nameError = ValidateFamilyName(request.Name, out var name);
+        if (nameError != null) return nameError;
 
-        if (await HasAnyFamilyMembershipAsync(patientId))
+        // Pending invites are not membership; only an active family blocks create.
+        if (await HasAnyActiveFamilyMembershipAsync(patientId))
         {
             return Fail("You already belong to a family.", 409);
         }
 
+        var creator = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(row => row.PatientId == patientId);
+        if (creator == null) return Fail("Patient was not found.", 404);
+        var parentAgeError = ParentAgeError(creator.DateOfBirth);
+        if (parentAgeError != null) return Fail(parentAgeError, 403);
+
         await using var transaction = await _db.Database.BeginTransactionAsync();
+        // Creating your own family declines every pending invite for this patient.
+        await DeclinePendingInvitesForPatientAsync(patientId);
+
         var group = new FamilyGroup
         {
             GroupName = name,
@@ -69,8 +90,8 @@ public class FamilyServices : Interface.IFamilyServices
         var group = await OwnerGroupAsync(patientId);
         if (group == null) return Fail("Only the family owner can rename the family.", 403);
 
-        var name = request.Name.Trim();
-        if (name.Length < 2 || name.Length > 100) return Fail("Family name must be between 2 and 100 characters.", 400);
+        var nameError = ValidateFamilyName(request.Name, out var name);
+        if (nameError != null) return nameError;
         group.GroupName = name;
         await _db.SaveChangesAsync();
         return await SuccessOverviewAsync(patientId, "Family renamed.");
@@ -92,7 +113,21 @@ public class FamilyServices : Interface.IFamilyServices
         if (targetPatient == null) return Fail("No active patient account was found for this email.", 404);
         if (targetPatient.PatientId == patientId) return Fail("You cannot invite yourself.", 400);
 
-        if (await HasAnyFamilyMembershipAsync(targetPatient.PatientId)) return Fail("This patient already belongs to a family.", 409);
+        if (await HasAnyActiveFamilyMembershipAsync(targetPatient.PatientId))
+        {
+            return Fail("This patient already belongs to a family.", 409);
+        }
+
+        if (await HasPendingFamilyInviteAsync(targetPatient.PatientId))
+        {
+            return Fail("This patient already has a pending family invitation.", 409);
+        }
+
+        if (relation.Equals("parent", StringComparison.OrdinalIgnoreCase))
+        {
+            var parentAgeError = ParentAgeError(targetPatient.DateOfBirth);
+            if (parentAgeError != null) return Fail(parentAgeError, 403);
+        }
 
         await using var transaction = await _db.Database.BeginTransactionAsync();
         var invitation = new FamilyMember
@@ -111,21 +146,49 @@ public class FamilyServices : Interface.IFamilyServices
             .Where(row => row.PatientId == patientId)
             .Select(row => row.User.Name)
             .FirstAsync();
+        var familyName = SafeFamilyName(group.GroupName);
         await UpsertNotificationAsync(
             targetPatient.UserId,
             $"family-invite:{invitation.FamilyMemberId}",
             "Family invitation",
-            $"{ownerName} invited you to join {group.GroupName}.",
+            $"{ownerName} invited you to join {familyName}.",
             "家庭邀请",
-            $"{ownerName}邀请您加入{group.GroupName}。",
+            $"{ownerName}邀请您加入{familyName}。",
             ownerName,
             "family_invitation",
             "/family",
             invitation.JoinAt);
         await _db.SaveChangesAsync();
-        await transaction.CommitAsync();
 
+        try
+        {
+            var inviteLink = BuildFamilyInviteLink();
+            var emailBody = CarePlusEmailHtml.FamilyInvite(
+                targetPatient.User.Name,
+                ownerName,
+                familyName,
+                inviteLink);
+            await _emailSender.SendAsync(
+                targetPatient.User.Email,
+                $"{PlainText(ownerName)} invited you to {familyName} on CarePlus",
+                emailBody,
+                isBodyHtml: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unable to send family invitation email for member {FamilyMemberId}.", invitation.FamilyMemberId);
+            await transaction.RollbackAsync();
+            return Fail("We could not send the invitation email. Please try again later.", 502);
+        }
+
+        await transaction.CommitAsync();
         return await SuccessOverviewAsync(patientId, "Invitation sent.");
+    }
+
+    private string BuildFamilyInviteLink()
+    {
+        var clientBaseUrl = (_configuration["Client:BaseUrl"] ?? "https://careplus.kaiminndev.com").TrimEnd('/');
+        return $"{clientBaseUrl}/login?next={Uri.EscapeDataString("/family")}";
     }
 
     public Task<ApiResponse<FamilyOverviewResponse>> AcceptInviteAsync(string patientId, long familyMemberId) =>
@@ -154,9 +217,17 @@ public class FamilyServices : Interface.IFamilyServices
         var relation = NormalizeRelation(request.Relation);
         if (relation == null) return Fail("Choose either parent or child.", 400);
 
-        var member = await _db.FamilyMembers.FirstOrDefaultAsync(row => row.FamilyGroupId == group.FamilyGroupId && row.FamilyMemberId == familyMemberId);
+        var member = await _db.FamilyMembers
+            .Include(row => row.Patient)
+            .FirstOrDefaultAsync(row => row.FamilyGroupId == group.FamilyGroupId && row.FamilyMemberId == familyMemberId);
         if (member == null) return Fail("Family member was not found.", 404);
         if (member.PatientId == patientId) return Fail("The owner must remain a parent.", 400);
+
+        if (relation.Equals("parent", StringComparison.OrdinalIgnoreCase))
+        {
+            var parentAgeError = ParentAgeError(member.Patient.DateOfBirth);
+            if (parentAgeError != null) return Fail(parentAgeError, 403);
+        }
 
         member.Relationship = relation;
         member.AccessLevel = ToAccessLevel(relation);
@@ -215,6 +286,13 @@ public class FamilyServices : Interface.IFamilyServices
             var transfer = activeMembers.FirstOrDefault(row => row.FamilyMemberId == request.TransferToMemberId.Value && row.PatientId != patientId);
             if (transfer == null) return Fail("Choose an active family member for ownership transfer.", 400);
 
+            var transferDob = await _db.Patients.AsNoTracking()
+                .Where(row => row.PatientId == transfer.PatientId)
+                .Select(row => row.DateOfBirth)
+                .FirstOrDefaultAsync();
+            var parentAgeError = ParentAgeError(transferDob);
+            if (parentAgeError != null) return Fail(parentAgeError, 403);
+
             group.CreatedBy = transfer.PatientId;
             transfer.AccessLevel = "Parent";
             transfer.Relationship = "parent";
@@ -253,6 +331,11 @@ public class FamilyServices : Interface.IFamilyServices
         if (accept)
         {
             if (await HasAnyActiveFamilyMembershipAsync(patientId)) return Fail("You already belong to an active family.", 409);
+            if (member.Relationship.Equals("parent", StringComparison.OrdinalIgnoreCase))
+            {
+                var parentAgeError = ParentAgeError(member.Patient.DateOfBirth);
+                if (parentAgeError != null) return Fail(parentAgeError, 403);
+            }
             member.Status = "Active";
             member.JoinAt = DateTimeHelper.MalaysiaNow();
             member.FamilyGroup.MemberCount = await _db.FamilyMembers.CountAsync(row => row.FamilyGroupId == member.FamilyGroupId && row.Status == "Active") + 1;
@@ -299,7 +382,7 @@ public class FamilyServices : Interface.IFamilyServices
             family = new FamilyResponse
             {
                 FamilyGroupId = active.FamilyGroupId,
-                Name = active.FamilyGroup.GroupName,
+                Name = SafeFamilyName(active.FamilyGroup.GroupName),
                 OwnerPatientId = active.FamilyGroup.CreatedBy,
                 Members = allMembers.Select(ToMemberResponse).ToList()
             };
@@ -314,8 +397,8 @@ public class FamilyServices : Interface.IFamilyServices
         {
             FamilyMemberId = row.FamilyMemberId,
             FamilyGroupId = row.FamilyGroupId,
-            FamilyName = row.FamilyGroup.GroupName,
-            InvitedByName = ownerNames.GetValueOrDefault(row.FamilyGroup.CreatedBy, "Your family owner"),
+            FamilyName = SafeFamilyName(row.FamilyGroup.GroupName),
+            InvitedByName = PlainText(ownerNames.GetValueOrDefault(row.FamilyGroup.CreatedBy, "Your family owner")),
             Relation = row.Relationship.ToLowerInvariant(),
             Permission = row.AccessLevel.ToLowerInvariant()
         }).ToList();
@@ -341,8 +424,82 @@ public class FamilyServices : Interface.IFamilyServices
             .FirstOrDefaultAsync(row => row.PatientId == patientId && row.Status == "Active");
     }
 
-    private Task<bool> HasAnyFamilyMembershipAsync(string patientId) => _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && (row.Status == "Active" || row.Status == "Pending"));
-    private Task<bool> HasAnyActiveFamilyMembershipAsync(string patientId) => _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && row.Status == "Active");
+    private Task<bool> HasAnyActiveFamilyMembershipAsync(string patientId) =>
+        _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && row.Status == "Active");
+
+    private Task<bool> HasPendingFamilyInviteAsync(string patientId) =>
+        _db.FamilyMembers.AnyAsync(row => row.PatientId == patientId && row.Status == "Pending");
+
+    private async Task DeclinePendingInvitesForPatientAsync(string patientId)
+    {
+        var pending = await _db.FamilyMembers
+            .Include(row => row.Patient).ThenInclude(row => row.User)
+            .Include(row => row.FamilyGroup).ThenInclude(row => row.Patient).ThenInclude(row => row.User)
+            .Where(row => row.PatientId == patientId && row.Status == "Pending")
+            .ToListAsync();
+
+        foreach (var member in pending)
+        {
+            var invitationNotification = await _db.Notifications
+                .FirstOrDefaultAsync(row => row.NotificationId == $"family-invite:{member.FamilyMemberId}" && row.UserId == member.Patient.UserId);
+            if (invitationNotification != null)
+            {
+                invitationNotification.Status = "Read";
+            }
+
+            var inviteeName = member.Patient.User.Name;
+            await UpsertNotificationAsync(
+                member.FamilyGroup.Patient.UserId,
+                $"family-invite-declined:{member.FamilyMemberId}",
+                "Family invitation declined",
+                $"{inviteeName} declined your family invitation.",
+                "家庭邀请已拒绝",
+                $"{inviteeName}拒绝了您的家庭邀请。",
+                inviteeName,
+                "family_invitation_declined",
+                "/family",
+                DateTimeHelper.MalaysiaNow());
+            _db.FamilyMembers.Remove(member);
+        }
+
+        if (pending.Count > 0)
+        {
+            await _db.SaveChangesAsync();
+        }
+    }
+
+    private static ApiResponse<FamilyOverviewResponse>? ValidateFamilyName(string? raw, out string name)
+    {
+        name = (raw ?? string.Empty).Trim();
+        if (name.Length < 2 || name.Length > 100)
+        {
+            return Fail("Family name must be between 2 and 100 characters.", 400);
+        }
+
+        if (PlainTextGuard.ContainsDangerousMarkup(name))
+        {
+            return Fail("Text fields cannot contain HTML or script characters.", 400);
+        }
+
+        return null;
+    }
+
+    private static string PlainText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        // Include unclosed tags like "<body style=..." so poisoned names cannot leak into the UI.
+        var withoutTags = Regex.Replace(value, "<[^>]*>?", " ");
+        withoutTags = WebUtility.HtmlDecode(withoutTags);
+        withoutTags = withoutTags.Replace("<", " ", StringComparison.Ordinal).Replace(">", " ", StringComparison.Ordinal);
+        return Regex.Replace(withoutTags, @"\s+", " ").Trim();
+    }
+
+    private static string SafeFamilyName(string? value)
+    {
+        var plain = PlainText(value);
+        if (plain.Length < 2) return "Family";
+        return plain.Length > 100 ? plain[..100] : plain;
+    }
 
     private static string? NormalizeRelation(string value)
     {
@@ -351,6 +508,30 @@ public class FamilyServices : Interface.IFamilyServices
     }
 
     private static string ToAccessLevel(string relation) => relation.Equals("parent", StringComparison.OrdinalIgnoreCase) ? "Parent" : "Child";
+
+    private static string? ParentAgeError(DateTime? dateOfBirth)
+    {
+        var age = CalculateAge(dateOfBirth, DateTimeHelper.MalaysiaNow().Date);
+        if (age == null) return "parent-age-verification-required";
+        if (age < MinimumParentAge) return "parent-underage";
+        return null;
+    }
+
+    private static int? CalculateAge(DateTime? dateOfBirth, DateTime today)
+    {
+        if (!dateOfBirth.HasValue || dateOfBirth.Value.Date > today)
+        {
+            return null;
+        }
+
+        var age = today.Year - dateOfBirth.Value.Year;
+        if (dateOfBirth.Value.Date > today.AddYears(-age))
+        {
+            age--;
+        }
+
+        return age;
+    }
 
     private async Task UpsertNotificationAsync(
         long userId,

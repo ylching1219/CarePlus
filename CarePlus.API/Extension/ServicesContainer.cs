@@ -54,6 +54,9 @@ using CarePlus.API.Services.RegistrationEmailVerificationServices;
 using CarePlus.API.Services.RegistrationEmailVerificationServices.Interface;
 using CarePlus.API.Services.ChatServices;
 using CarePlus.API.Services.ChatServices.Interface;
+using CarePlus.API.Services.StripeServices;
+using CarePlus.API.Services.StripeServices.Interface;
+using CarePlus.API.Options;
 using Microsoft.EntityFrameworkCore;
 
 namespace CarePlus.API.Extension
@@ -101,8 +104,10 @@ namespace CarePlus.API.Extension
             services.Configure<GroqOptions>(config.GetSection(GroqOptions.SectionName));
             services.Configure<QdrantOptions>(config.GetSection(QdrantOptions.SectionName));
             services.Configure<ChatOptions>(config.GetSection(ChatOptions.SectionName));
+            services.Configure<StripeOptions>(config.GetSection(StripeOptions.SectionName));
             services.AddScoped<IChatServices, ChatServices>();
             services.AddScoped<IChatHistoryServices, ChatHistoryServices>();
+            services.AddScoped<IStripeCheckoutServices, StripeCheckoutServices>();
             services.AddHttpClient<IVectorKnowledgeStore, QdrantKnowledgeStore>(client =>
                 client.Timeout = TimeSpan.FromSeconds(45));
             services.AddHttpClient<IGroqChatClient, GroqChatClient>(client =>

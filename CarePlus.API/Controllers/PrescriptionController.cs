@@ -37,30 +37,6 @@ public class PrescriptionController(PrescriptionServices prescriptions) : Contro
             : Ok(ApiResponse<List<PrescriptionItemResponse>>.Ok(items));
     }
 
-    [Authorize(Roles = "Pharmacist")]
-    [HttpPatch("{prescriptionId}/ReadyForPickup")]
-    public async Task<IActionResult> ReadyForPickup(string prescriptionId, CancellationToken cancellationToken)
-    {
-        if (!TryUserId(out var userId))
-        {
-            return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
-        }
-
-        return Ok(await prescriptions.MarkReadyForPickupAsync(userId, prescriptionId, cancellationToken));
-    }
-
-    [Authorize(Roles = "Pharmacist")]
-    [HttpPatch("{prescriptionId}/Complete")]
-    public async Task<IActionResult> Complete(string prescriptionId, CancellationToken cancellationToken)
-    {
-        if (!TryUserId(out var userId))
-        {
-            return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
-        }
-
-        return Ok(await prescriptions.CompletePrescriptionAsync(userId, prescriptionId, cancellationToken));
-    }
-
     private bool TryUserId(out long userId) =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
 }

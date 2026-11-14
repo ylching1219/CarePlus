@@ -2,7 +2,6 @@ using CarePlus.API.Data;
 using CarePlus.API.DTO.ClinicRecordDTO;
 using CarePlus.API.DTO.StaffDTO;
 using CarePlus.API.DTO.UserDTO;
-using CarePlus.API.Extension;
 using CarePlus.API.Models.User.Staff.Doctor;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.CounterServices.Interface;
@@ -18,20 +17,17 @@ namespace CarePlus.API.Services.StaffService
         private readonly AppDbContext _db;
         private readonly IUserServices _userService;
         private readonly ICounterServices _counterService;
-        private readonly IWebHostEnvironment _environment;
 
         public DoctorServices(
             IDoctorRepository doctorRepo,
             AppDbContext db,
             IUserServices userService,
-            ICounterServices counterService,
-            IWebHostEnvironment environment)
+            ICounterServices counterService)
         {
             _doctorRepo = doctorRepo;
             _db = db;
             _userService = userService;
             _counterService = counterService;
-            _environment = environment;
         }
 
         public async Task<ApiResponse<object>> RegisterDoctorAsync(
@@ -85,9 +81,9 @@ namespace CarePlus.API.Services.StaffService
                     YearsOfExperience = doctor.YearsOfExperience
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -106,7 +102,7 @@ namespace CarePlus.API.Services.StaffService
                 {
                     StaffId = doctor.StaffId,
                     UserId = doctor.UserId,
-                    Username = doctor.User.Username ?? doctor.StaffId,
+                    Username = doctor.User.Username,
                     Name = doctor.User.Name ?? string.Empty,
                     Email = doctor.User.Email,
                     Phone = doctor.User.Phone ?? string.Empty,
@@ -115,15 +111,14 @@ namespace CarePlus.API.Services.StaffService
                     LicenseNumber = doctor.LicenseNumber,
                     Specialization = doctor.Specialization,
                     Qualification = doctor.Qualification,
-                    YearsOfExperience = doctor.YearsOfExperience,
-                    ProfilePicture = doctor.ProfilePicture
+                    YearsOfExperience = doctor.YearsOfExperience
                 }).ToList();
 
                 return ApiResponse<object>.Ok(result);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -142,7 +137,7 @@ namespace CarePlus.API.Services.StaffService
                 {
                     StaffId = doctor.StaffId,
                     UserId = doctor.UserId,
-                    Username = doctor.User.Username ?? doctor.StaffId,
+                    Username = doctor.User.Username,
                     Name = doctor.User.Name ?? string.Empty,
                     Email = doctor.User.Email,
                     Phone = doctor.User.Phone ?? string.Empty,
@@ -154,9 +149,9 @@ namespace CarePlus.API.Services.StaffService
                     YearsOfExperience = doctor.YearsOfExperience
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -223,7 +218,6 @@ namespace CarePlus.API.Services.StaffService
                 Specialization = doctor.Specialization,
                 Qualification = doctor.Qualification,
                 YearsOfExperience = doctor.YearsOfExperience,
-                ProfilePicture = doctor.ProfilePicture,
                 Reviews = reviews,
                 Schedules = scheduleRows.Select(schedule => new PublicDoctorScheduleResponse
                 {
@@ -276,7 +270,7 @@ namespace CarePlus.API.Services.StaffService
                 {
                     StaffId = doctor.StaffId,
                     UserId = doctor.UserId,
-                    Username = doctor.User.Username ?? doctor.StaffId,
+                    Username = doctor.User.Username,
                     Name = doctor.User.Name ?? string.Empty,
                     Email = doctor.User.Email,
                     Phone = doctor.User.Phone ?? string.Empty,
@@ -285,103 +279,12 @@ namespace CarePlus.API.Services.StaffService
                     LicenseNumber = doctor.LicenseNumber,
                     Specialization = doctor.Specialization,
                     Qualification = doctor.Qualification,
-                    YearsOfExperience = doctor.YearsOfExperience,
-                    ProfilePicture = doctor.ProfilePicture
+                    YearsOfExperience = doctor.YearsOfExperience
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
-            }
-        }
-
-        public async Task<ApiResponse<object>> SaveProfilePictureAsync(string staffId, IFormFile? file)
-        {
-            try
-            {
-                if (file == null || file.Length == 0 || file.Length > 2 * 1024 * 1024)
-                {
-                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 2 MB.", 400);
-                }
-
-                var extension = file.ContentType switch
-                {
-                    "image/jpeg" => ".jpg",
-                    "image/png" => ".png",
-                    "image/webp" => ".webp",
-                    _ => null
-                };
-
-                if (extension == null)
-                {
-                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 2 MB.", 400);
-                }
-
-                var doctor = await _doctorRepo.GetDoctorByIdAsync(staffId.Trim());
-                if (doctor == null)
-                {
-                    return ApiResponse<object>.Fail("Doctor not found.", 404);
-                }
-
-                var root = string.IsNullOrEmpty(_environment.WebRootPath)
-                    ? Path.Combine(_environment.ContentRootPath, "wwwroot")
-                    : _environment.WebRootPath;
-                var folder = Path.Combine(root, "profiles");
-                Directory.CreateDirectory(folder);
-
-                var oldProfilePicture = doctor.ProfilePicture;
-                var fileName = UploadFileNameHelper.Generate(
-                    "doctor",
-                    doctor.User.Username ?? doctor.StaffId,
-                    extension);
-
-                await using (var stream = File.Create(Path.Combine(folder, fileName)))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                doctor.ProfilePicture = $"profiles/{fileName}";
-                await _doctorRepo.UpdateDoctorAsync(doctor);
-                DeleteProfilePictureFile(oldProfilePicture);
-
-                return ApiResponse<object>.Ok(new DoctorRetrieveResponse
-                {
-                    StaffId = doctor.StaffId,
-                    UserId = doctor.UserId,
-                    Username = doctor.User.Username ?? doctor.StaffId,
-                    Name = doctor.User.Name ?? string.Empty,
-                    Email = doctor.User.Email,
-                    Phone = doctor.User.Phone ?? string.Empty,
-                    Status = doctor.User.Status,
-                    Role = doctor.Role,
-                    LicenseNumber = doctor.LicenseNumber,
-                    Specialization = doctor.Specialization,
-                    Qualification = doctor.Qualification,
-                    YearsOfExperience = doctor.YearsOfExperience,
-                    ProfilePicture = doctor.ProfilePicture
-                });
-            }
-            catch (Exception ex)
-            {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
-            }
-        }
-
-        private void DeleteProfilePictureFile(string? relativePath)
-        {
-            if (string.IsNullOrWhiteSpace(relativePath)) return;
-
-            try
-            {
-                var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-                var profileRoot = Path.GetFullPath(Path.Combine(webRoot, "profiles"));
-                var candidate = Path.GetFullPath(Path.Combine(webRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
-                if (!candidate.StartsWith(profileRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return;
-                if (File.Exists(candidate)) File.Delete(candidate);
-            }
-            catch
-            {
-                // A stale profile photo must not prevent the doctor profile from being saved.
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
     }

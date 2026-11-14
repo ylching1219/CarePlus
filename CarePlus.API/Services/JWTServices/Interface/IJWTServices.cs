@@ -8,7 +8,8 @@
             string accountType,
             string role, 
             string? patientId = null, 
-            string? staffId = null
+            string? staffId = null,
+            bool rememberMe = false
         );
     }
 }

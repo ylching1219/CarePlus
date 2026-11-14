@@ -7,6 +7,7 @@ namespace CarePlus.API.Services.MedicineOrderServices.Interface
         Task<ApiResponse<List<MedicineOrderResponse>>> ListAsync(long userId);
         Task<ApiResponse<List<MedicineOrderResponse>>> ListPaidAsync(long userId);
         Task<ApiResponse<MedicineOrderResponse>> PlaceAsync(long userId, MedicineOrderPlaceRequest request);
+        Task<ApiResponse<MedicineOrderResponse>> PayAsync(long userId, string orderId, MedicineOrderPayRequest request);
         Task<ApiResponse<MapPointResponse?>> LocateAsync(string? address);
     }
 }

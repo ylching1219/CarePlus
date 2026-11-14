@@ -3,6 +3,7 @@ using CarePlus.API.Services.InvoiceServices.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+// PayAsync stays on IInvoiceServices for Stripe Checkout/Complete only.
 
 namespace CarePlus.API.Controllers
 {
@@ -40,15 +41,7 @@ namespace CarePlus.API.Controllers
             return Ok(await _invoices.ListPaidAsync(userId));
         }
 
-        [HttpPost("{id}/Pay")]
-        public async Task<IActionResult> Pay(string id, InvoicePayRequest request)
-        {
-            if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
-            {
-                return Unauthorized(ApiResponse<OutstandingInvoiceResponse>.Fail("Invalid token.", 401));
-            }
-
-            return Ok(await _invoices.PayAsync(userId, id, request));
-        }
+        // Patients pay through Stripe Checkout only (`POST /api/Stripe/Checkout/Complete`).
+        // Keeping PayAsync for that server-side path; do not re-expose a client Pay endpoint.
     }
 }

@@ -45,10 +45,10 @@ namespace CarePlus.API.Services.MedicineServices
 
                 return ApiResponse<object>.Ok(Map(medicine));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -63,14 +63,15 @@ namespace CarePlus.API.Services.MedicineServices
                     return ApiResponse<object>.Fail("No medicine found", 404);
                 }
 
-                var result = medicines.Select(Map).ToList();
+                var stock = await _medicineRepo.AvailableStockAsync();
+                var result = medicines.Select(medicine => Map(medicine, stock.GetValueOrDefault(medicine.MedicineId))).ToList();
 
                 return ApiResponse<object>.Ok(result);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -87,12 +88,13 @@ namespace CarePlus.API.Services.MedicineServices
                     return ApiResponse<object>.Fail("Medicine not found", 404);
                 }
 
-                return ApiResponse<object>.Ok(Map(medicine));
+                var stock = await _medicineRepo.AvailableStockAsync();
+                return ApiResponse<object>.Ok(Map(medicine, stock.GetValueOrDefault(medicine.MedicineId)));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
@@ -165,14 +167,14 @@ namespace CarePlus.API.Services.MedicineServices
 
                 return ApiResponse<object>.Ok(null);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<object>.Fail(
-                    $"An error occurred: {ex.Message}", 500);
+                    "An unexpected error occurred.", 500);
             }
         }
 
-        private static MedicineRetrieveResponse Map(Medicine medicine) => new()
+        private static MedicineRetrieveResponse Map(Medicine medicine, int stock = 0) => new()
         {
             MedicineId = medicine.MedicineId,
             MedicineName = medicine.MedicineName,
@@ -187,7 +189,8 @@ namespace CarePlus.API.Services.MedicineServices
             MethodZh = medicine.MethodZh,
             ImageKey = medicine.ImageKey,
             Price = medicine.Price,
-            Status = medicine.Status
+            Status = medicine.Status,
+            Stock = stock
         };
     }
 }

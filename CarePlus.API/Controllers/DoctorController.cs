@@ -1,8 +1,8 @@
+using System.Security.Claims;
 using CarePlus.API.DTO.StaffDTO;
 using CarePlus.API.Services.StaffService.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace CarePlus.API.Controllers
 {
@@ -54,22 +54,22 @@ namespace CarePlus.API.Controllers
         [HttpPut("Update")]
         public async Task<IActionResult> UpdateDoctor(DoctorUpdateRequest request)
         {
-            return Ok(await _doctorServices.UpdateDoctorAsync(request));
-        }
-
-        [HttpPost("{staffId}/Photo")]
-        [RequestSizeLimit(2 * 1024 * 1024)]
-        public async Task<IActionResult> UploadDoctorPhoto(string staffId, IFormFile? file)
-        {
-            if (User.IsInRole("Doctor") && !string.Equals(
-                User.FindFirstValue("staffId"),
-                staffId,
-                StringComparison.OrdinalIgnoreCase))
+            if (!User.IsInRole("Admin"))
             {
-                return Forbid();
+                var staffId = User.FindFirstValue("staffId");
+                if (string.IsNullOrWhiteSpace(staffId))
+                {
+                    return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+                }
+
+                if (!string.Equals(request.StaffId, staffId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        ApiResponse<object>.Fail("You can only update your own doctor profile.", 403));
+                }
             }
 
-            return Ok(await _doctorServices.SaveProfilePictureAsync(staffId, file));
+            return Ok(await _doctorServices.UpdateDoctorAsync(request));
         }
     }
 }

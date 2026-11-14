@@ -9,8 +9,10 @@ using CarePlus.API.Models.Payment;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.User;
 using CarePlus.API.Repository.Interface;
+using CarePlus.API.Services.EmailServices;
 using CarePlus.API.Services.EmailServices.Interface;
 using CarePlus.API.Services.JWTServices.Interface;
+using CarePlus.API.Services.TwoFactorServices.Interface;
 using CarePlus.API.Services.UserServices.Interface;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +34,7 @@ namespace CarePlus.API.Services.UserServices
         private readonly AddressGeocoder _geocoder;
         private readonly AppDbContext _db;
         private readonly IEmailSender _emailSender;
+        private readonly ITwoFactorServices _twoFactorServices;
         private readonly ILogger<UserServices> _logger;
 
         public UserServices(
@@ -44,6 +47,7 @@ namespace CarePlus.API.Services.UserServices
             AddressGeocoder geocoder,
             AppDbContext db,
             IEmailSender emailSender,
+            ITwoFactorServices twoFactorServices,
             ILogger<UserServices> logger)
         {
             _userRepo = userRepo;
@@ -55,6 +59,7 @@ namespace CarePlus.API.Services.UserServices
             _geocoder = geocoder;
             _db = db;
             _emailSender = emailSender;
+            _twoFactorServices = twoFactorServices;
             _logger = logger;
         }
 
@@ -162,9 +167,9 @@ namespace CarePlus.API.Services.UserServices
             {
                 return ApiResponse<object>.Fail("Username already exists", 400);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -189,14 +194,19 @@ namespace CarePlus.API.Services.UserServices
                     return ApiResponse<object>.Fail("Incorrect username/email or password.", 401);
                 }
 
-                bool passwordMatch = VerifyPassword(user,request.Password);
-
-                if (!passwordMatch) {
-                    return ApiResponse<object>.Fail("Incorrect username/email or password.", 401);
-                }
-
                 var lockout = GetPasswordLockoutResponse(user.PasswordLockoutUntilUtc);
                 if (lockout != null) return lockout;
+
+                if (!VerifyPassword(user, request.Password))
+                {
+                    return await RecordFailedPasswordAttemptAsync(user.UserId)
+                        ?? ApiResponse<object>.Fail("Incorrect username/email or password.", 401);
+                }
+
+                if (!await ClearFailedPasswordAttemptsAsync(user.UserId))
+                {
+                    return ApiResponse<object>.Fail("Account temporarily locked. Try again later.", 423);
+                }
 
                 if (user.Status != "Active")
                 {
@@ -232,29 +242,88 @@ namespace CarePlus.API.Services.UserServices
                         $"This account is not a {expectedAccountType.ToLowerInvariant()} account.", 403);
                 }
 
-                var role = staff?.Role ?? "Patient";
-
-                var token = _jwtService.GenerateToken(
-                    user.UserId,
-                    user.Username,
-                    accountType,
-                    role,
-                    patient?.PatientId,
-                    staff?.StaffId);
-
-                await RecordLoginAsync(user.UserId);
-
-                return ApiResponse<object>.Ok(new
+                if (expectedAccountType == "Patient")
                 {
-                    token
-                });
+                    var twoFactorEnabled = await _db.AppSettings.AsNoTracking()
+                        .Where(row => row.UserId == user.UserId)
+                        .Select(row => (bool?)row.TwoFactorEnabled)
+                        .FirstOrDefaultAsync() == true;
+                    if (twoFactorEnabled)
+                    {
+                        return await _twoFactorServices.StartLoginChallengeAsync(user);
+                    }
+                }
 
-
+                return await IssueLoginTokenAsync(user, patient, staff, accountType, request.RememberMe);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
+        }
+
+        public async Task<ApiResponse<object>> CompletePatientLoginTwoFactorAsync(LoginTwoFactorVerifyRequest request)
+        {
+            try
+            {
+                var verified = await _twoFactorServices.ConsumeLoginChallengeAsync(request.ChallengeId, request.Code);
+                if (!verified.IsSuccess)
+                {
+                    return ApiResponse<object>.Fail(verified.RespMessage, verified.RespCode);
+                }
+
+                var userId = verified.Data;
+                var user = await _userRepo.GetUserByIdAsync(userId);
+                if (user == null || user.Status != "Active")
+                {
+                    return ApiResponse<object>.Fail("This account is not active.", 403);
+                }
+
+                var patient = await _patientRepo.GetPatientByUserIdAsync(user.UserId);
+                if (patient == null)
+                {
+                    return ApiResponse<object>.Fail("This account is not a patient account.", 403);
+                }
+
+                var staff = await _staffRepo.GetStaffByUserIdAsync(user.UserId);
+                if (staff != null)
+                {
+                    return ApiResponse<object>.Fail("This account is not a patient account.", 403);
+                }
+
+                return await IssueLoginTokenAsync(user, patient, null, "Patient", request.RememberMe);
+            }
+            catch (Exception)
+            {
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
+            }
+        }
+
+        public async Task<ApiResponse<object>> ResendPatientLoginTwoFactorAsync(LoginTwoFactorResendRequest request)
+        {
+            return await _twoFactorServices.ResendLoginChallengeAsync(request.ChallengeId);
+        }
+
+        private async Task<ApiResponse<object>> IssueLoginTokenAsync(
+            User user,
+            CarePlus.API.Models.Patient.Patient? patient,
+            CarePlus.API.Models.User.Staff.Staff? staff,
+            string accountType,
+            bool rememberMe = false)
+        {
+            var role = staff?.Role ?? "Patient";
+            var token = _jwtService.GenerateToken(
+                user.UserId,
+                user.Username,
+                accountType,
+                role,
+                patient?.PatientId,
+                staff?.StaffId,
+                rememberMe);
+
+            await RecordLoginAsync(user.UserId);
+
+            return ApiResponse<object>.Ok(new { token });
         }
         public async Task<ApiResponse<object>> RetrieveAllUserAsync()
         {
@@ -279,9 +348,9 @@ namespace CarePlus.API.Services.UserServices
 
                 return ApiResponse<object>.Fail("No user found", 404);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -309,9 +378,9 @@ namespace CarePlus.API.Services.UserServices
 
                 return ApiResponse<object>.Ok(result);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail( $"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail( "An unexpected error occurred.", 500);
             }
         }
 
@@ -362,9 +431,9 @@ namespace CarePlus.API.Services.UserServices
 
                 return ApiResponse<object>.Ok(result);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -383,9 +452,9 @@ namespace CarePlus.API.Services.UserServices
 
                 return ApiResponse<object>.Ok(result);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -412,9 +481,9 @@ namespace CarePlus.API.Services.UserServices
 
                 return ApiResponse<object>.Fail("No active user found", 404);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -471,9 +540,9 @@ namespace CarePlus.API.Services.UserServices
 
                 return ApiResponse<object>.Fail("User not found", 404);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -499,30 +568,6 @@ namespace CarePlus.API.Services.UserServices
             user.PasswordHash = HashPassword(user, request.NewPassword);
             await _userRepo.UpdateUserAsync(user);
             return ApiResponse<object>.Ok(new { updated = true }, "Password updated.");
-        }
-
-        public async Task<ApiResponse<object>> SetPasswordAsync(long userId, string newPassword)
-        {
-            var user = await _userRepo.GetUserByIdAsync(userId);
-            if (user == null)
-            {
-                return ApiResponse<object>.Fail("User not found.", 404);
-            }
-
-            var ruleError = PasswordRuleError(newPassword);
-            if (ruleError != null)
-            {
-                return ApiResponse<object>.Fail(ruleError, 400);
-            }
-
-            user.PasswordHash = HashPassword(user, newPassword);
-            user.FailedPasswordAttempts = 0;
-            user.PasswordLockoutUntilUtc = null;
-
-            var updated = await _userRepo.UpdateUserAsync(user);
-            return updated
-                ? ApiResponse<object>.Ok(new { updated = true }, "Password updated.")
-                : ApiResponse<object>.Fail("Unable to update the password.", 500);
         }
 
         public async Task<ApiResponse<object>> DeleteCurrentAccountAsync(long userId, AccountDeleteRequest request)
@@ -560,6 +605,13 @@ namespace CarePlus.API.Services.UserServices
             if (patient == null)
             {
                 return ApiResponse<object>.Fail("Only patient accounts can be deleted here.", 400);
+            }
+
+            var hasUnpaidInvoice = await _db.Invoices.AnyAsync(row =>
+                row.PatientId == patient.PatientId && row.PaymentStatus != "Paid");
+            if (hasUnpaidInvoice)
+            {
+                return ApiResponse<object>.Fail("Pay all outstanding invoices before deleting your account.", 409);
             }
 
             var ownedGroup = await _db.FamilyGroups.FirstOrDefaultAsync(group => group.CreatedBy == patient.PatientId);
@@ -729,9 +781,9 @@ namespace CarePlus.API.Services.UserServices
                 await _patientRepo.UpdatePatientAsync(patient);
                 return await RetrieveCurrentUserAsync(userId);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -770,9 +822,9 @@ namespace CarePlus.API.Services.UserServices
 
                 return await DeliveryAddressListAsync(userId);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -807,9 +859,9 @@ namespace CarePlus.API.Services.UserServices
                 await _patientRepo.UpdateDeliveryAddressAsync(row);
                 return await DeliveryAddressListAsync(userId);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -832,9 +884,9 @@ namespace CarePlus.API.Services.UserServices
                 await _patientRepo.DeleteDeliveryAddressAsync(row);
                 return await DeliveryAddressListAsync(userId);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -856,9 +908,9 @@ namespace CarePlus.API.Services.UserServices
 
                 return await DeliveryAddressListAsync(userId);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -964,9 +1016,9 @@ namespace CarePlus.API.Services.UserServices
         {
             try
             {
-                if (file == null || file.Length == 0 || file.Length > 2 * 1024 * 1024)
+                if (file == null || file.Length == 0 || file.Length > 5 * 1024 * 1024)
                 {
-                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 2 MB.", 400);
+                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 5 MB.", 400);
                 }
 
                 var extension = file.ContentType switch
@@ -978,7 +1030,7 @@ namespace CarePlus.API.Services.UserServices
                 };
                 if (extension == null)
                 {
-                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 2 MB.", 400);
+                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 5 MB.", 400);
                 }
 
                 var patient = await _patientRepo.GetPatientByUserIdAsync(userId);
@@ -994,11 +1046,7 @@ namespace CarePlus.API.Services.UserServices
                 Directory.CreateDirectory(folder);
 
                 var oldProfilePicture = patient.ProfilePicture;
-                var user = await _userRepo.GetUserByIdAsync(userId);
-                var fileName = UploadFileNameHelper.Generate(
-                    "profile",
-                    user?.Username ?? patient.PatientId,
-                    extension);
+                var fileName = UploadFileNameHelper.GenerateOpaque(extension);
                 await using (var stream = File.Create(Path.Combine(folder, fileName)))
                 {
                     await file.CopyToAsync(stream);
@@ -1009,9 +1057,9 @@ namespace CarePlus.API.Services.UserServices
                 DeleteProfilePictureFile(oldProfilePicture);
                 return await RetrieveCurrentUserAsync(userId);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
             }
         }
 
@@ -1049,29 +1097,10 @@ namespace CarePlus.API.Services.UserServices
                     return;
                 }
 
-                var safeName = WebUtility.HtmlEncode(user.Name);
-                var safeDevice = WebUtility.HtmlEncode(device.Replace(" · ", " on ", StringComparison.Ordinal));
-                var safeIp = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(ipAddress) ? "Unknown" : ipAddress);
-                var emailBody = $"""
-                    <html>
-                      <body style="margin:0;padding:0;background:#111827;font-family:Arial,sans-serif;color:#e5e7eb;line-height:1.5">
-                        <div style="max-width:520px;margin:0 auto;padding:28px 20px">
-                          <p style="margin:0 0 8px 0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af">CarePlus</p>
-                          <h1 style="margin:0 0 20px 0;font-size:22px;color:#ffffff">New login notification</h1>
-                          <p style="margin:0 0 12px 0">Hi {safeName},</p>
-                          <p style="margin:0 0 20px 0">A sign-in to your CarePlus account was detected from a new or unrecognized device.</p>
-                          <div style="background:#1f2937;border-radius:12px;padding:16px 18px;margin:0 0 20px 0">
-                            <p style="margin:0 0 4px 0;font-size:12px;color:#9ca3af">Device</p>
-                            <p style="margin:0 0 14px 0;font-size:16px;font-weight:700;color:#ffffff">{safeDevice}</p>
-                            <p style="margin:0 0 4px 0;font-size:12px;color:#9ca3af">IP address</p>
-                            <p style="margin:0;font-size:16px;font-weight:700;color:#ffffff">{safeIp}</p>
-                          </div>
-                          <p style="margin:0 0 16px 0;color:#d1d5db">If this was you, no action is needed. If you do not recognize this sign-in, change your password and review account activity in Settings → Security.</p>
-                          <p style="margin:0;font-size:12px;color:#9ca3af">Clinic care for patients and families.</p>
-                        </div>
-                      </body>
-                    </html>
-                    """;
+                var emailBody = CarePlusEmailHtml.NewLogin(
+                    user.Name,
+                    device.Replace(" · ", " on ", StringComparison.Ordinal),
+                    ipAddress);
 
                 await _emailSender.SendAsync(
                     user.Email,
@@ -1557,13 +1586,12 @@ namespace CarePlus.API.Services.UserServices
             return ApiResponse<object>.Fail($"Account temporarily locked. Try again in {minutes} minute(s).", 423);
         }
 
-        private async Task<ApiResponse<object>> RecordFailedDeletionPasswordAsync(long userId)
+        private async Task<ApiResponse<object>?> RecordFailedPasswordAttemptAsync(long userId)
         {
             var now = DateTime.UtcNow;
             var lockoutUntil = now.Add(PasswordLockoutDuration);
 
             // MySQL evaluates assignments in order. Reset/increment first, then lock on attempt five.
-            // One update keeps concurrent account-deletion attempts on the same database counter.
             await _db.Database.ExecuteSqlInterpolatedAsync($@"
                 UPDATE `Users`
                 SET `FailedPasswordAttempts` = CASE
@@ -1583,11 +1611,16 @@ namespace CarePlus.API.Services.UserServices
                 .Select(user => user.PasswordLockoutUntilUtc)
                 .SingleAsync();
 
-            return GetPasswordLockoutResponse(currentLockout)
+            return GetPasswordLockoutResponse(currentLockout);
+        }
+
+        private async Task<ApiResponse<object>> RecordFailedDeletionPasswordAsync(long userId)
+        {
+            return await RecordFailedPasswordAttemptAsync(userId)
                 ?? ApiResponse<object>.Fail("Current password is incorrect.", 400);
         }
 
-        private async Task<bool> ClearFailedDeletionPasswordAttemptsAsync(long userId)
+        private async Task<bool> ClearFailedPasswordAttemptsAsync(long userId)
         {
             var now = DateTime.UtcNow;
             await _db.Users
@@ -1602,6 +1635,9 @@ namespace CarePlus.API.Services.UserServices
                 .SingleAsync();
             return currentLockout == null || currentLockout <= DateTime.UtcNow;
         }
+
+        private Task<bool> ClearFailedDeletionPasswordAttemptsAsync(long userId)
+            => ClearFailedPasswordAttemptsAsync(userId);
 
         private bool VerifyPassword(User user, string password)
         {
