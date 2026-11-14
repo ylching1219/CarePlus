@@ -1,4 +1,5 @@
 using CarePlus.API.DTO.MedicineDTO;
+using CarePlus.API.Extension;
 using CarePlus.API.Models.Medicine;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.CounterServices.Interface;
@@ -10,13 +11,16 @@ namespace CarePlus.API.Services.MedicineServices
     {
         private readonly IMedicineRepository _medicineRepo;
         private readonly ICounterServices _counterService;
+        private readonly IWebHostEnvironment _environment;
 
         public MedicineServices(
             IMedicineRepository medicineRepo,
-            ICounterServices counterService)
+            ICounterServices counterService,
+            IWebHostEnvironment environment)
         {
             _medicineRepo = medicineRepo;
             _counterService = counterService;
+            _environment = environment;
         }
 
         public async Task<ApiResponse<object>> CreateMedicineAsync(
@@ -180,6 +184,132 @@ namespace CarePlus.API.Services.MedicineServices
             }
         }
 
+        public async Task<ApiResponse<object>> SaveImageAsync(string medicineId, IFormFile? file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0 || file.Length > 5 * 1024 * 1024)
+                {
+                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 5 MB.", 400);
+                }
+
+                var extension = file.ContentType switch
+                {
+                    "image/jpeg" => ".jpg",
+                    "image/png" => ".png",
+                    "image/webp" => ".webp",
+                    _ => null
+                };
+                if (extension == null)
+                {
+                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 5 MB.", 400);
+                }
+
+                var medicine = await _medicineRepo.GetMedicineByIdAsync(medicineId);
+                if (medicine == null)
+                {
+                    return ApiResponse<object>.Fail("Medicine not found", 404);
+                }
+
+                var root = string.IsNullOrWhiteSpace(_environment.WebRootPath)
+                    ? Path.Combine(_environment.ContentRootPath, "wwwroot")
+                    : _environment.WebRootPath;
+                var folder = Path.Combine(root, "medicines");
+                Directory.CreateDirectory(folder);
+
+                var oldPath = medicine.ImagePath;
+                var fileName = UploadFileNameHelper.GenerateOpaque(extension);
+                await using (var stream = File.Create(Path.Combine(folder, fileName)))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                var relativePath = $"medicines/{fileName}";
+                var storedFile = Path.Combine(folder, fileName);
+                medicine.ImagePath = relativePath;
+                var saved = await _medicineRepo.UpdateMedicineAsync(medicine);
+                if (!saved)
+                {
+                    TryDelete(storedFile);
+                    return ApiResponse<object>.Fail("Failed to save the medicine photo.", 500);
+                }
+
+                DeleteImageFile(oldPath);
+                return ApiResponse<object>.Ok(new { imagePath = relativePath });
+            }
+            catch (Exception)
+            {
+                return ApiResponse<object>.Fail("An unexpected error occurred.", 500);
+            }
+        }
+
+        public async Task<string?> ResolveStoredImageAsync(string medicineId)
+        {
+            var medicine = await _medicineRepo.GetMedicineByIdAsync(medicineId);
+            if (string.IsNullOrWhiteSpace(medicine?.ImagePath)
+                || !medicine.ImagePath.StartsWith("medicines/", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return ResolveImageFile(Path.GetFileName(medicine.ImagePath));
+        }
+
+        private string? ResolveImageFile(string fileName)
+        {
+            var safeName = Path.GetFileName(fileName);
+            if (string.IsNullOrWhiteSpace(safeName) || safeName != fileName)
+            {
+                return null;
+            }
+
+            var root = string.IsNullOrWhiteSpace(_environment.WebRootPath)
+                ? Path.Combine(_environment.ContentRootPath, "wwwroot")
+                : _environment.WebRootPath;
+            var folder = Path.GetFullPath(Path.Combine(root, "medicines"));
+            var path = Path.GetFullPath(Path.Combine(folder, safeName));
+            if (!path.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+            {
+                return null;
+            }
+
+            return path;
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch
+            {
+                // A leftover file must not block the error response.
+            }
+        }
+
+        private void DeleteImageFile(string? relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath) || !relativePath.StartsWith("medicines/", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            try
+            {
+                var fileName = Path.GetFileName(relativePath);
+                var path = ResolveImageFile(fileName);
+                if (path != null)
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+                // A leftover file must not block saving the new photo.
+            }
+        }
+
         private static MedicineRetrieveResponse Map(Medicine medicine, int stock = 0) => new()
         {
             MedicineId = medicine.MedicineId,
@@ -194,6 +324,7 @@ namespace CarePlus.API.Services.MedicineServices
             Method = medicine.Method,
             MethodZh = medicine.MethodZh,
             ImageKey = medicine.ImageKey,
+            ImagePath = medicine.ImagePath,
             Price = medicine.Price,
             RequiresPrescription = medicine.RequiresPrescription,
             Status = medicine.Status,

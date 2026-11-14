@@ -849,6 +849,10 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("varchar(10)")
                         .HasDefaultValue("para");
 
+                    b.Property<string>("ImagePath")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
