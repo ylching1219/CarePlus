@@ -52,6 +52,12 @@ namespace CarePlus.API.Models.Medicine
         [Required]
         public decimal Price { get; set; }
 
+        /// <summary>
+        /// When true, the medicine can only be supplied from a doctor's prescription.
+        /// When false, patients may purchase it directly.
+        /// </summary>
+        public bool RequiresPrescription { get; set; } = false;
+
         public string Status { get; set; } = "Available";
     }
 }

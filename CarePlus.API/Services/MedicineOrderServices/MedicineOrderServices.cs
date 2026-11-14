@@ -17,6 +17,17 @@ namespace CarePlus.API.Services.MedicineOrderServices
 {
     public class MedicineOrderServices : IMedicineOrderServices
     {
+        private static readonly HashSet<string> StaffStatuses = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "awaiting_payment",
+            "paid",
+            "preparing",
+            "ready_pickup",
+            "picked_up",
+            "shipped",
+            "delivered",
+        };
+
         private readonly AppDbContext _db;
         private readonly AddressGeocoder _geocoder;
         private readonly ICounterServices _counters;
@@ -89,6 +100,77 @@ namespace CarePlus.API.Services.MedicineOrderServices
             }).ToList();
 
             return ApiResponse<List<MedicineOrderResponse>>.Ok(rows);
+        }
+
+        public async Task<ApiResponse<List<MedicineOrderResponse>>> ListForStaffAsync()
+        {
+            var orders = await _db.MedicineOrders
+                .AsNoTracking()
+                .Include(row => row.Patient)
+                    .ThenInclude(patient => patient.User)
+                .OrderByDescending(row => row.OrderDate)
+                .ToListAsync();
+            var ids = orders.Select(row => row.OrderId).ToList();
+            var items = await _db.OrderItems.AsNoTracking()
+                .Where(row => ids.Contains(row.OrderId))
+                .ToListAsync();
+
+            return ApiResponse<List<MedicineOrderResponse>>.Ok(
+                orders.Select(row => ToResponse(row, items)).ToList());
+        }
+
+        public async Task<ApiResponse<MedicineOrderResponse>> UpdateStatusAsync(string orderId, string status)
+        {
+            var id = orderId?.Trim() ?? "";
+            var normalized = CanonicalStatus(status ?? "");
+            if (id.Length == 0 || !StaffStatuses.Contains(normalized))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Choose a valid medicine order status.", 400);
+            }
+
+            if (normalized == "paid")
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Payment status is updated by the payment flow.", 400);
+            }
+
+            var order = await _db.MedicineOrders
+                .Include(row => row.Patient)
+                    .ThenInclude(patient => patient.User)
+                .FirstOrDefaultAsync(row => row.OrderId == id);
+            if (order == null)
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Medicine order not found.", 404);
+            }
+
+            if ((normalized is "ready_pickup" or "picked_up") && !IsPickup(order.Fulfilment))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Pickup statuses are only valid for pickup orders.", 400);
+            }
+
+            if ((normalized is "shipped" or "delivered") && !IsDelivery(order.Fulfilment))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Delivery statuses are only valid for delivery orders.", 400);
+            }
+
+            var current = CanonicalStatus(order.Status);
+            if (current is "completed" or "dispensed")
+            {
+                current = IsDelivery(order.Fulfilment) ? "delivered" : "picked_up";
+            }
+
+            if (!CanMoveToStatus(order.Fulfilment, current, normalized))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Order status cannot move backwards.", 409);
+            }
+
+            order.Status = normalized;
+            await _db.SaveChangesAsync();
+            await SettleDeliveredCashOrdersAsync(order.PatientId);
+
+            var items = await _db.OrderItems.AsNoTracking()
+                .Where(row => row.OrderId == order.OrderId)
+                .ToListAsync();
+            return ApiResponse<MedicineOrderResponse>.Ok(ToResponse(order, items));
         }
 
         public async Task<ApiResponse<MedicineOrderResponse>> PlaceAsync(long userId, MedicineOrderPlaceRequest request)
@@ -545,12 +627,47 @@ namespace CarePlus.API.Services.MedicineOrderServices
         private static string CanonicalStatus(string status) =>
             System.Text.RegularExpressions.Regex.Replace(status.Trim().ToLowerInvariant(), @"[\s-]+", "_");
 
+        private static bool IsPickup(string fulfilment) =>
+            fulfilment.Equals("pickup", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsDelivery(string fulfilment) =>
+            fulfilment.Equals("delivery", StringComparison.OrdinalIgnoreCase);
+
+        private static bool CanMoveToStatus(string fulfilment, string current, string next)
+        {
+            if (current == next) return true;
+
+            var rank = IsDelivery(fulfilment)
+                ? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["awaiting_payment"] = 0,
+                    ["paid"] = 0,
+                    ["preparing"] = 1,
+                    ["shipped"] = 2,
+                    ["delivered"] = 3,
+                }
+                : new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["awaiting_payment"] = 0,
+                    ["paid"] = 0,
+                    ["preparing"] = 1,
+                    ["ready_pickup"] = 2,
+                    ["picked_up"] = 3,
+                };
+
+            return rank.TryGetValue(current, out var currentRank)
+                && rank.TryGetValue(next, out var nextRank)
+                && nextRank >= currentRank;
+        }
+
         private static MedicineOrderResponse ToResponse(OrderRow order, IEnumerable<OrderItem> items)
         {
             var placed = new DateTimeOffset(DateTime.SpecifyKind(order.OrderDate, DateTimeKind.Unspecified), TimeSpan.FromHours(8));
             return new MedicineOrderResponse
             {
                 Id = order.OrderId,
+                PatientId = order.PatientId,
+                PatientName = order.Patient?.User?.Name ?? order.PatientId,
                 PlacedAt = placed.ToString("yyyy-MM-ddTHH:mm:sszzz"),
                 Status = ShownStatus(order),
                 Fulfilment = order.Fulfilment,

@@ -15,6 +15,7 @@ namespace CarePlus.API.DTO.MedicineDTO
         public string? MethodZh { get; set; }
         public string ImageKey { get; set; } = string.Empty;
         public decimal Price { get; set; }
+        public bool RequiresPrescription { get; set; }
         public string Status { get; set; } = string.Empty;
         public int Stock { get; set; }
     }

@@ -1,5 +1,10 @@
 namespace CarePlus.API.DTO.MedicineOrderDTO
 {
+    public class MedicineOrderStatusUpdateRequest
+    {
+        public string Status { get; set; } = "";
+    }
+
     public class MedicineOrderPlaceRequest
     {
         public string Fulfilment { get; set; } = "";
@@ -28,6 +33,8 @@ namespace CarePlus.API.DTO.MedicineOrderDTO
     public class MedicineOrderResponse
     {
         public string Id { get; set; } = "";
+        public string PatientId { get; set; } = "";
+        public string PatientName { get; set; } = "";
         public string PlacedAt { get; set; } = "";
         public string Status { get; set; } = "";
         public string Fulfilment { get; set; } = "";

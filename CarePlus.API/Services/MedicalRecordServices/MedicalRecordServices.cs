@@ -41,11 +41,6 @@ public class MedicalRecordServices : IMedicalRecordServices
                 .ThenInclude(recordDoctor => recordDoctor.User)
             .AsQueryable();
 
-        if (doctor != null)
-        {
-            query = query.Where(record => record.DoctorId == doctor.StaffId);
-        }
-
         var records = await query
             .OrderByDescending(record => record.ConsultationDate)
             .ToListAsync();

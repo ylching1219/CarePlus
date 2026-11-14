@@ -32,6 +32,7 @@ namespace CarePlus.API.Services.MedicineServices
                     Description = request.Description.Trim(),
                     DescriptionZh = string.IsNullOrWhiteSpace(request.DescriptionZh) ? null : request.DescriptionZh.Trim(),
                     Price = request.Price,
+                    RequiresPrescription = request.RequiresPrescription,
                     Status = "Available",
                     Pack = "",
                     Form = "tablet",
@@ -152,6 +153,11 @@ namespace CarePlus.API.Services.MedicineServices
                     medicine.Price = request.Price.Value;
                 }
 
+                if (request.RequiresPrescription.HasValue)
+                {
+                    medicine.RequiresPrescription = request.RequiresPrescription.Value;
+                }
+
                 if (!string.IsNullOrWhiteSpace(request.Status))
                 {
                     medicine.Status = request.Status.Trim();
@@ -189,6 +195,7 @@ namespace CarePlus.API.Services.MedicineServices
             MethodZh = medicine.MethodZh,
             ImageKey = medicine.ImageKey,
             Price = medicine.Price,
+            RequiresPrescription = medicine.RequiresPrescription,
             Status = medicine.Status,
             Stock = stock
         };

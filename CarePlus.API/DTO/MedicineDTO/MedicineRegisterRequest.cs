@@ -27,5 +27,7 @@ namespace CarePlus.API.DTO.MedicineDTO
         [Range(typeof(decimal), "0.01", "9999999999999999.99", ErrorMessage = "Price must be greater than 0.")]
         public decimal Price { get; init; }
 
+        public bool RequiresPrescription { get; init; }
+
     }
 }

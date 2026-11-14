@@ -891,6 +891,9 @@ namespace CarePlus.API.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<bool>("RequiresPrescription")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -917,6 +920,7 @@ namespace CarePlus.API.Migrations
                             Pack = "16 capsules",
                             PackZh = "16 粒",
                             Price = 12.50m,
+                            RequiresPrescription = false,
                             Status = "Available"
                         },
                         new
@@ -934,6 +938,7 @@ namespace CarePlus.API.Migrations
                             Pack = "20 tablets",
                             PackZh = "20 片",
                             Price = 8.90m,
+                            RequiresPrescription = false,
                             Status = "Available"
                         },
                         new
@@ -951,6 +956,7 @@ namespace CarePlus.API.Migrations
                             Pack = "10 tablets",
                             PackZh = "10 片",
                             Price = 16.50m,
+                            RequiresPrescription = false,
                             Status = "Available"
                         },
                         new
@@ -968,6 +974,7 @@ namespace CarePlus.API.Migrations
                             Pack = "24 tablets",
                             PackZh = "24 片",
                             Price = 9.50m,
+                            RequiresPrescription = false,
                             Status = "Available"
                         },
                         new
@@ -985,6 +992,7 @@ namespace CarePlus.API.Migrations
                             Pack = "10 tablets",
                             PackZh = "10 片",
                             Price = 11.00m,
+                            RequiresPrescription = false,
                             Status = "Available"
                         },
                         new
@@ -1002,6 +1010,7 @@ namespace CarePlus.API.Migrations
                             Pack = "20 capsules",
                             PackZh = "20 粒",
                             Price = 14.80m,
+                            RequiresPrescription = false,
                             Status = "Available"
                         });
                 });
