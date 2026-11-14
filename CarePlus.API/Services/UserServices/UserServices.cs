@@ -501,6 +501,30 @@ namespace CarePlus.API.Services.UserServices
             return ApiResponse<object>.Ok(new { updated = true }, "Password updated.");
         }
 
+        public async Task<ApiResponse<object>> SetPasswordAsync(long userId, string newPassword)
+        {
+            var user = await _userRepo.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                return ApiResponse<object>.Fail("User not found.", 404);
+            }
+
+            var ruleError = PasswordRuleError(newPassword);
+            if (ruleError != null)
+            {
+                return ApiResponse<object>.Fail(ruleError, 400);
+            }
+
+            user.PasswordHash = HashPassword(user, newPassword);
+            user.FailedPasswordAttempts = 0;
+            user.PasswordLockoutUntilUtc = null;
+
+            var updated = await _userRepo.UpdateUserAsync(user);
+            return updated
+                ? ApiResponse<object>.Ok(new { updated = true }, "Password updated.")
+                : ApiResponse<object>.Fail("Unable to update the password.", 500);
+        }
+
         public async Task<ApiResponse<object>> DeleteCurrentAccountAsync(long userId, AccountDeleteRequest request)
         {
             var user = await _userRepo.GetUserByIdAsync(userId);

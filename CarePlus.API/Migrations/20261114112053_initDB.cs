@@ -498,7 +498,8 @@ namespace CarePlus.API.Migrations
                     LicenseNumber = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
                     Specialization = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false),
                     Qualification = table.Column<string>(type: "varchar(150)", maxLength: 150, nullable: false),
-                    YearsOfExperience = table.Column<int>(type: "int", nullable: false)
+                    YearsOfExperience = table.Column<int>(type: "int", nullable: false),
+                    ProfilePicture = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1152,13 +1153,13 @@ namespace CarePlus.API.Migrations
 
             migrationBuilder.InsertData(
                 table: "Doctors",
-                columns: new[] { "StaffId", "LicenseNumber", "Qualification", "Specialization", "YearsOfExperience" },
+                columns: new[] { "StaffId", "LicenseNumber", "ProfilePicture", "Qualification", "Specialization", "YearsOfExperience" },
                 values: new object[,]
                 {
-                    { "STF000002", "DOC-LIC-0001", "MBBS", "General Medicine", 5 },
-                    { "STF000003", "DOC-LIC-0002", "MBBS", "Family Medicine", 7 },
-                    { "STF000004", "DOC-LIC-0003", "MD", "Internal Medicine", 9 },
-                    { "STF000005", "DOC-LIC-0004", "MBBS, Paediatrics", "Paediatrics", 4 }
+                    { "STF000002", "DOC-LIC-0001", null, "MBBS", "General Medicine", 5 },
+                    { "STF000003", "DOC-LIC-0002", null, "MBBS", "Family Medicine", 7 },
+                    { "STF000004", "DOC-LIC-0003", null, "MD", "Internal Medicine", 9 },
+                    { "STF000005", "DOC-LIC-0004", null, "MBBS, Paediatrics", "Paediatrics", 4 }
                 });
 
             migrationBuilder.InsertData(

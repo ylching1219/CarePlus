@@ -10,5 +10,6 @@ namespace CarePlus.API.Services.StaffService.Interface
         Task<ApiResponse<List<PublicDoctorResponse>>> RetrievePublicDoctorsAsync();
         Task<ApiResponse<PublicDoctorResponse>> RetrievePublicDoctorByIdAsync(string staffId);
         Task<ApiResponse<object>> UpdateDoctorAsync(DoctorUpdateRequest request);
+        Task<ApiResponse<object>> SaveProfilePictureAsync(string staffId, IFormFile? file);
     }
 }

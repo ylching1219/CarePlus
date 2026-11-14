@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CarePlus.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261113121431_initDB")]
+    [Migration("20261114112053_initDB")]
     partial class initDB
     {
         /// <inheritdoc />
@@ -1998,6 +1998,10 @@ namespace CarePlus.API.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ProfilePicture")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Qualification")
                         .IsRequired()

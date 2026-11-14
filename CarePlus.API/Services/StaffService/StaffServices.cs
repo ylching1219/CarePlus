@@ -232,5 +232,23 @@ namespace CarePlus.API.Services.StaffService
                 return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
             }
         }
+
+        public async Task<ApiResponse<object>> UpdateStaffPasswordAsync(StaffPasswordUpdateRequest request)
+        {
+            try
+            {
+                var staff = await _staffRepo.GetStaffByIdAsync(request.StaffId);
+                if (staff == null)
+                {
+                    return ApiResponse<object>.Fail("Staff not found", 404);
+                }
+
+                return await _userService.SetPasswordAsync(staff.UserId, request.NewPassword);
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<object>.Fail($"An error occurred: {ex.Message}", 500);
+            }
+        }
     }
 }

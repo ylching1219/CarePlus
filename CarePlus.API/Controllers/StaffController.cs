@@ -59,5 +59,12 @@ namespace CarePlus.API.Controllers
         {
             return Ok(await _staffServices.UpdateStaffAsync(request));
         }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPut("Password")]
+        public async Task<IActionResult> StaffPasswordUpdate(StaffPasswordUpdateRequest request)
+        {
+            return Ok(await _staffServices.UpdateStaffPasswordAsync(request));
+        }
     }
 }

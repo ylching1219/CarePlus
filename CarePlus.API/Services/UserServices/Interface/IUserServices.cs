@@ -31,6 +31,8 @@ namespace CarePlus.API.Services.UserServices.Interface
 
         Task<ApiResponse<object>> ChangePasswordAsync(long userId, PasswordChangeRequest request);
 
+        Task<ApiResponse<object>> SetPasswordAsync(long userId, string newPassword);
+
         Task<ApiResponse<object>> DeleteCurrentAccountAsync(long userId, AccountDeleteRequest request);
 
         Task<ApiResponse<object>> RetrieveDeliveryAddressesAsync(long userId);

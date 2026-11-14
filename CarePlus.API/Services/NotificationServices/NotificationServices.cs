@@ -193,20 +193,27 @@ public class NotificationServices : INotificationServices
                 && row.WorkingDate <= today.AddDays(14))
             .OrderBy(row => row.WorkingDate)
             .ToListAsync();
-        foreach (var schedule in schedules)
+        if (schedules.Count > 0)
         {
-            var date = schedule.WorkingDate.ToDateTime(TimeOnly.MinValue);
+            var preview = string.Join(", ", schedules.Take(5).Select(schedule =>
+                $"{schedule.WorkingDate:dd MMM} ({schedule.Shift})"));
+            if (schedules.Count > 5) preview += $", and {schedules.Count - 5} more";
+
             Add(drafts, new NotificationDraft(
-                $"staff-schedule:{schedule.ScheduleId}:user:{userId}",
-                "Upcoming schedule",
-                $"You are scheduled for a {schedule.Shift.ToLowerInvariant()} shift on {schedule.WorkingDate:dd MMM yyyy}.",
-                null,
-                null,
+                $"staff-schedules:{staff.StaffId}:user:{userId}",
+                schedules.Count == 1 ? "Upcoming schedule" : "Upcoming schedules",
+                schedules.Count == 1
+                    ? $"You are scheduled for {preview}."
+                    : $"You have {schedules.Count} upcoming shifts: {preview}.",
+                schedules.Count == 1 ? "即将到来的工作安排" : "即将到来的工作安排",
+                schedules.Count == 1
+                    ? $"您将在 {schedules[0].WorkingDate:dd MMM yyyy} 上 {schedules[0].Shift.ToLowerInvariant()} 班。"
+                    : $"您有 {schedules.Count} 个即将到来的班次：{preview}。",
                 "CarePlus Clinic",
                 "CC",
                 "schedule_update",
                 "/staff/schedules",
-                date));
+                now));
         }
 
         var ownLeaves = await _db.LeaveApplications
@@ -369,6 +376,10 @@ public class NotificationServices : INotificationServices
             row.Initials = draft.Initials;
             row.Type = draft.Type;
             row.Href = draft.Href;
+            if (row.Status == "Deleted" && draft.Id.StartsWith("staff-schedules:", StringComparison.Ordinal))
+            {
+                row.Status = "Unread";
+            }
         }
 
         var preference = await _db.AppSettings.AsNoTracking()
@@ -386,6 +397,14 @@ public class NotificationServices : INotificationServices
         }
 
         var currentIds = drafts.Keys.ToHashSet(StringComparer.Ordinal);
+        foreach (var row in existing.Where(row =>
+            (row.NotificationId.StartsWith("staff-schedule:", StringComparison.Ordinal)
+                || row.NotificationId.StartsWith("staff-schedules:", StringComparison.Ordinal))
+            && !currentIds.Contains(row.NotificationId)))
+        {
+            row.Status = "Deleted";
+        }
+
         foreach (var row in existing.Where(row => row.Status == "Unread" && IsGenerated(row.NotificationId) && !currentIds.Contains(row.NotificationId)))
         {
             row.Status = "Read";
@@ -683,6 +702,7 @@ public class NotificationServices : INotificationServices
         || id.StartsWith("medicine-update:", StringComparison.Ordinal)
         || id.StartsWith("family-invite:", StringComparison.Ordinal)
         || id.StartsWith("staff-schedule:", StringComparison.Ordinal)
+        || id.StartsWith("staff-schedules:", StringComparison.Ordinal)
         || id.StartsWith("staff-leave:", StringComparison.Ordinal)
         || id.StartsWith("staff-leave-review:", StringComparison.Ordinal)
         || id.StartsWith("staff-appointment:", StringComparison.Ordinal)
