@@ -62,6 +62,18 @@ namespace CarePlus.API.Services.CartServices
                 return ApiResponse<CartStateResponse>.Fail("That medicine is not available.", 400);
             }
 
+            if (qty > 0)
+            {
+                var now = DateTimeHelper.MalaysiaNow();
+                var stock = await _db.MedicineBatches.AsNoTracking()
+                    .Where(batch => batch.MedicineId == medicineId && batch.StockQuantity > 0 && batch.ExpiryDate > now)
+                    .SumAsync(batch => (int?)batch.StockQuantity) ?? 0;
+                if (qty > stock)
+                {
+                    return ApiResponse<CartStateResponse>.Fail("Not enough stock left for this medicine.", 409);
+                }
+            }
+
             var cart = await EnsureCartAsync(patient.PatientId);
             var item = await _db.CartItems.FirstOrDefaultAsync(row => row.CartId == cart.CartId && row.MedicineId == medicineId);
             if (qty == 0)

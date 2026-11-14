@@ -63,7 +63,8 @@ namespace CarePlus.API.Services.MedicineServices
                     return ApiResponse<object>.Fail("No medicine found", 404);
                 }
 
-                var result = medicines.Select(Map).ToList();
+                var stock = await _medicineRepo.AvailableStockAsync();
+                var result = medicines.Select(medicine => Map(medicine, stock.GetValueOrDefault(medicine.MedicineId))).ToList();
 
                 return ApiResponse<object>.Ok(result);
             }
@@ -87,7 +88,8 @@ namespace CarePlus.API.Services.MedicineServices
                     return ApiResponse<object>.Fail("Medicine not found", 404);
                 }
 
-                return ApiResponse<object>.Ok(Map(medicine));
+                var stock = await _medicineRepo.AvailableStockAsync();
+                return ApiResponse<object>.Ok(Map(medicine, stock.GetValueOrDefault(medicine.MedicineId)));
             }
             catch (Exception)
             {
@@ -172,7 +174,7 @@ namespace CarePlus.API.Services.MedicineServices
             }
         }
 
-        private static MedicineRetrieveResponse Map(Medicine medicine) => new()
+        private static MedicineRetrieveResponse Map(Medicine medicine, int stock = 0) => new()
         {
             MedicineId = medicine.MedicineId,
             MedicineName = medicine.MedicineName,
@@ -187,7 +189,8 @@ namespace CarePlus.API.Services.MedicineServices
             MethodZh = medicine.MethodZh,
             ImageKey = medicine.ImageKey,
             Price = medicine.Price,
-            Status = medicine.Status
+            Status = medicine.Status,
+            Stock = stock
         };
     }
 }

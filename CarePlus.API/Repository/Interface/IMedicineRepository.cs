@@ -7,6 +7,7 @@ namespace CarePlus.API.Repository.Interface
         Task<string> CreateMedicineAsync(Medicine medicine);
         Task<Medicine?> GetMedicineByIdAsync(string medicineId);
         Task<List<Medicine>> GetAllMedicinesAsync();
+        Task<Dictionary<string, int>> AvailableStockAsync();
         Task<bool> UpdateMedicineAsync(Medicine medicine);
     }
 }
