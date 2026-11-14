@@ -181,7 +181,7 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 TotalAmount = goods + fee,
                 DeliveryFee = fee,
                 OrderDate = now,
-                Status = fulfilment == "pickup" ? "ready_pickup" : "processing",
+                Status = "awaiting_payment",
                 Fulfilment = fulfilment,
                 PaymentMethod = (request.PaymentMethod ?? "").Trim(),
                 DeliveryAddressId = chosen?.Id,
@@ -195,23 +195,18 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 return ApiResponse<MedicineOrderResponse>.Fail("One of the order fields is too long.", 400);
             }
 
-            var cashOnDelivery = IsCashOnDelivery(order.PaymentMethod);
             var paid = false;
-            if (!cashOnDelivery)
+            if (!string.IsNullOrWhiteSpace(request.StripeSessionId))
             {
-                var stripePaid = await VerifyStripeMedicinePaymentAsync(userId, request.StripeSessionId, order.TotalAmount);
+                var stripePaid = await VerifyStripeMedicinePaymentAsync(userId, request.StripeSessionId, order.TotalAmount, null);
                 if (stripePaid != null)
                 {
                     return stripePaid;
                 }
 
                 paid = true;
-                if (!string.IsNullOrWhiteSpace(request.StripeSessionId))
-                {
-                    var shortId = request.StripeSessionId.Trim();
-                    shortId = shortId.Length > 8 ? shortId[^8..] : shortId;
-                    order.PaymentMethod = Truncate($"{order.PaymentMethod} · Stripe {shortId}", 80);
-                }
+                order.Status = "paid";
+                order.PaymentMethod = StripePaymentLabel(order.PaymentMethod, request.StripeSessionId);
             }
 
             var invoiceId = await _counters.GenerateNextIdAsync("InvoiceId");
@@ -237,6 +232,13 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 Status = paid ? "Paid" : "Pending",
             });
 
+            await using var stockTx = await _db.Database.BeginTransactionAsync();
+            if (!await TryReserveStockAsync(savedLines))
+            {
+                await stockTx.RollbackAsync();
+                return ApiResponse<MedicineOrderResponse>.Fail("Not enough stock left for this order.", 409);
+            }
+
             var cart = await _db.Carts.FirstOrDefaultAsync(row => row.PatientId == patient.PatientId);
             if (cart != null)
             {
@@ -247,6 +249,7 @@ namespace CarePlus.API.Services.MedicineOrderServices
             }
 
             await _db.SaveChangesAsync();
+            await stockTx.CommitAsync();
             return ApiResponse<MedicineOrderResponse>.Ok(ToResponse(order, savedLines));
         }
 
@@ -303,6 +306,97 @@ namespace CarePlus.API.Services.MedicineOrderServices
             });
         }
 
+        public async Task<ApiResponse<MedicineOrderResponse>> PayAsync(long userId, string orderId, MedicineOrderPayRequest request)
+        {
+            var patient = await _db.Patients.FirstOrDefaultAsync(row => row.UserId == userId);
+            if (patient == null)
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("This account is not a patient account.", 400);
+            }
+
+            var id = orderId?.Trim() ?? "";
+            var order = await _db.MedicineOrders.FirstOrDefaultAsync(row => row.OrderId == id && row.PatientId == patient.PatientId);
+            if (order == null)
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Order not found.", 404);
+            }
+
+            var items = await _db.OrderItems.Where(row => row.OrderId == order.OrderId).ToListAsync();
+            if (CanonicalStatus(order.Status) == "paid")
+            {
+                return ApiResponse<MedicineOrderResponse>.Ok(ToResponse(order, items));
+            }
+
+            if (CanonicalStatus(order.Status) != "awaiting_payment")
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("This order is not waiting for payment.", 400);
+            }
+
+            var stripePaid = await VerifyStripeMedicinePaymentAsync(userId, request?.StripeSessionId, order.TotalAmount, order.OrderId);
+            if (stripePaid != null)
+            {
+                return stripePaid;
+            }
+
+            order.Status = "paid";
+            order.PaymentMethod = StripePaymentLabel(order.PaymentMethod, request?.StripeSessionId);
+            var invoice = await _db.Invoices.FirstOrDefaultAsync(row => row.OrderId == order.OrderId);
+            if (invoice != null)
+            {
+                invoice.PaymentStatus = "Paid";
+                var payment = await _db.Payments.FirstOrDefaultAsync(row => row.InvoiceId == invoice.InvoiceId);
+                if (payment != null)
+                {
+                    payment.Status = "Paid";
+                    payment.PaymentMethod = order.PaymentMethod;
+                    payment.TransactionDate = DateTimeHelper.MalaysiaNow();
+                }
+            }
+
+            await _db.SaveChangesAsync();
+            return ApiResponse<MedicineOrderResponse>.Ok(ToResponse(order, items));
+        }
+
+        /// <summary>
+        /// Hold the units when the order is saved. Rows are locked so two orders cannot take the last unit.
+        /// </summary>
+        private async Task<bool> TryReserveStockAsync(IReadOnlyList<OrderItem> lines)
+        {
+            var now = DateTimeHelper.MalaysiaNow();
+            foreach (var line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line.MedicineId) || line.Quantity < 1)
+                {
+                    return false;
+                }
+
+                var batches = await _db.MedicineBatches
+                    .FromSqlRaw(
+                        """
+                        SELECT * FROM `MedicineBatches`
+                        WHERE `MedicineId` = {0} AND `StockQuantity` > 0 AND `ExpiryDate` > {1}
+                        ORDER BY `ExpiryDate`
+                        FOR UPDATE
+                        """,
+                        line.MedicineId,
+                        now)
+                    .ToListAsync();
+
+                var left = line.Quantity;
+                foreach (var batch in batches)
+                {
+                    if (left == 0) break;
+                    var take = Math.Min(batch.StockQuantity, left);
+                    batch.StockQuantity -= take;
+                    left -= take;
+                }
+
+                if (left > 0) return false;
+            }
+
+            return true;
+        }
+
         private static bool IsCashOnDelivery(string method)
         {
             var value = method.Trim();
@@ -312,10 +406,19 @@ namespace CarePlus.API.Services.MedicineOrderServices
         }
 
         /// <returns>Failure response, or null when the Stripe session is paid for this user.</returns>
+        private static string StripePaymentLabel(string method, string? sessionId)
+        {
+            var shortId = sessionId?.Trim() ?? "";
+            if (shortId.Length == 0) return method;
+            shortId = shortId.Length > 8 ? shortId[^8..] : shortId;
+            return Truncate($"{method} · Stripe {shortId}", 80);
+        }
+
         private async Task<ApiResponse<MedicineOrderResponse>?> VerifyStripeMedicinePaymentAsync(
             long userId,
             string? sessionId,
-            decimal expectedTotal)
+            decimal expectedTotal,
+            string? expectedOrderId)
         {
             var id = sessionId?.Trim() ?? "";
             if (id.Length == 0)
@@ -351,6 +454,13 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 && !string.Equals(kind, "medicine", StringComparison.OrdinalIgnoreCase))
             {
                 return ApiResponse<MedicineOrderResponse>.Fail("This Stripe session is not a medicine checkout.", 400);
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedOrderId)
+                && session.Metadata.TryGetValue("orderId", out var metaOrder)
+                && !string.Equals(metaOrder, expectedOrderId, StringComparison.Ordinal))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("This payment is for a different order.", 400);
             }
 
             if (!string.Equals(session.PaymentStatus, "paid", StringComparison.OrdinalIgnoreCase)
@@ -429,12 +539,6 @@ namespace CarePlus.API.Services.MedicineOrderServices
                     ? "delivered"
                     : "picked_up";
             }
-            if (order.Fulfilment.Equals("pickup", StringComparison.OrdinalIgnoreCase)
-                && (status == "processing" || status == "pending"))
-            {
-                return "ready_pickup";
-            }
-
             return status;
         }
 

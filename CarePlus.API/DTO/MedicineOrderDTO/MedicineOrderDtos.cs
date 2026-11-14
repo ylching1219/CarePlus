@@ -4,11 +4,16 @@ namespace CarePlus.API.DTO.MedicineOrderDTO
     {
         public string Fulfilment { get; set; } = "";
         public string PaymentMethod { get; set; } = "";
-        /// <summary>Required for card/FPX. Server verifies this Stripe session before marking Paid.</summary>
+        /// <summary>Set only when this call is finishing a Stripe session. Checkout itself saves the order first.</summary>
         public string? StripeSessionId { get; set; }
         public long? DeliveryAddressId { get; set; }
         public decimal DeliveryFee { get; set; }
         public List<MedicineOrderLineRequest> Lines { get; set; } = [];
+    }
+
+    public class MedicineOrderPayRequest
+    {
+        public string? StripeSessionId { get; set; }
     }
 
     public class MedicineOrderLineRequest

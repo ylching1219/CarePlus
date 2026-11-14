@@ -1,9 +1,11 @@
+using CarePlus.API.Data;
 using CarePlus.API.DTO.InvoiceDTO;
 using CarePlus.API.DTO.StripeDTO;
 using CarePlus.API.Options;
 using CarePlus.API.Services.CartServices.Interface;
 using CarePlus.API.Services.InvoiceServices.Interface;
 using CarePlus.API.Services.StripeServices.Interface;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Stripe;
 using Stripe.Checkout;
@@ -22,17 +24,20 @@ namespace CarePlus.API.Services.StripeServices
 
         private readonly IInvoiceServices _invoices;
         private readonly ICartServices _cart;
+        private readonly AppDbContext _db;
         private readonly StripeOptions _stripe;
         private readonly IConfiguration _config;
 
         public StripeCheckoutServices(
             IInvoiceServices invoices,
             ICartServices cart,
+            AppDbContext db,
             IOptions<StripeOptions> stripe,
             IConfiguration config)
         {
             _invoices = invoices;
             _cart = cart;
+            _db = db;
             _stripe = stripe.Value;
             _config = config;
         }
@@ -154,14 +159,41 @@ namespace CarePlus.API.Services.StripeServices
                 return ApiResponse<CheckoutSessionResponse>.Fail("Choose card or FPX.", 400);
             }
 
-            // ponytail: ignore client Amount; charge server cart total only
-            var cart = await _cart.ListAsync(userId);
-            if (!cart.IsSuccess || cart.Data == null || cart.Data.Lines.Count == 0)
+            // ponytail: ignore client Amount. A saved order is charged its own total; otherwise the cart.
+            var orderId = request.OrderId?.Trim() ?? "";
+            decimal amount;
+            if (orderId.Length > 0)
             {
-                return ApiResponse<CheckoutSessionResponse>.Fail("Your cart is empty.", 400);
-            }
+                var patient = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(row => row.UserId == userId);
+                if (patient == null)
+                {
+                    return ApiResponse<CheckoutSessionResponse>.Fail("This account is not a patient account.", 400);
+                }
 
-            var amount = cart.Data.Lines.Sum(line => line.UnitPrice * line.Qty);
+                var order = await _db.MedicineOrders.AsNoTracking()
+                    .FirstOrDefaultAsync(row => row.OrderId == orderId && row.PatientId == patient.PatientId);
+                if (order == null)
+                {
+                    return ApiResponse<CheckoutSessionResponse>.Fail("Order not found.", 404);
+                }
+
+                if (!string.Equals(order.Status, "awaiting_payment", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ApiResponse<CheckoutSessionResponse>.Fail("This order is not waiting for payment.", 400);
+                }
+
+                amount = order.TotalAmount;
+            }
+            else
+            {
+                var cart = await _cart.ListAsync(userId);
+                if (!cart.IsSuccess || cart.Data == null || cart.Data.Lines.Count == 0)
+                {
+                    return ApiResponse<CheckoutSessionResponse>.Fail("Your cart is empty.", 400);
+                }
+
+                amount = cart.Data.Lines.Sum(line => line.UnitPrice * line.Qty);
+            }
             var amountCents = ToCents(amount);
             if (amountCents < 200)
             {
@@ -180,6 +212,18 @@ namespace CarePlus.API.Services.StripeServices
 
             var successPath = NormalizePath(request.SuccessPath, "/pay/stripe/return");
             var cancelPath = NormalizePath(request.CancelPath, "/checkout");
+            var metadata = new Dictionary<string, string>
+            {
+                ["kind"] = "medicine",
+                ["userId"] = userId.ToString(),
+                ["method"] = method,
+                ["methodLabel"] = Truncate(methodLabel, 80),
+                ["amountCents"] = amountCents.ToString(),
+            };
+            if (orderId.Length > 0)
+            {
+                metadata["orderId"] = orderId;
+            }
 
             try
             {
@@ -207,14 +251,7 @@ namespace CarePlus.API.Services.StripeServices
                             },
                         },
                     },
-                    Metadata = new Dictionary<string, string>
-                    {
-                        ["kind"] = "medicine",
-                        ["userId"] = userId.ToString(),
-                        ["method"] = method,
-                        ["methodLabel"] = Truncate(methodLabel, 80),
-                        ["amountCents"] = amountCents.ToString(),
-                    },
+                    Metadata = metadata,
                 });
 
                 if (string.IsNullOrWhiteSpace(session.Url))
@@ -273,6 +310,7 @@ namespace CarePlus.API.Services.StripeServices
             session.Metadata.TryGetValue("method", out var method);
             session.Metadata.TryGetValue("methodLabel", out var methodLabel);
             session.Metadata.TryGetValue("invoiceId", out var invoiceId);
+            session.Metadata.TryGetValue("orderId", out var orderId);
             session.Metadata.TryGetValue("amountCents", out var amountCentsRaw);
             _ = long.TryParse(amountCentsRaw, out var amountCents);
             var amount = amountCents / 100m;
@@ -331,6 +369,7 @@ namespace CarePlus.API.Services.StripeServices
                     Kind = "medicine",
                     Method = method,
                     MethodLabel = paidLabel,
+                    OrderId = string.IsNullOrWhiteSpace(orderId) ? null : orderId,
                     Amount = amount,
                     Paid = true,
                 });
