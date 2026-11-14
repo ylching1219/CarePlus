@@ -87,5 +87,25 @@ namespace CarePlus.API.Controllers
 
             return Ok(await _doctorServices.SaveProfilePictureAsync(staffId, file));
         }
+
+        [AllowAnonymous]
+        [HttpGet("Public/{staffId}/Photo")]
+        public async Task<IActionResult> PublicPhoto(string staffId)
+        {
+            var path = await _doctorServices.GetPublicPhotoFileAsync(staffId);
+            if (path == null)
+            {
+                return NotFound();
+            }
+
+            var contentType = Path.GetExtension(path).ToLowerInvariant() switch
+            {
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                _ => "application/octet-stream",
+            };
+            return PhysicalFile(path, contentType);
+        }
     }
 }
