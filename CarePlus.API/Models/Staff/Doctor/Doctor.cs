@@ -19,5 +19,8 @@ namespace CarePlus.API.Models.User.Staff.Doctor
 
         [Range(0, 80)]
         public int YearsOfExperience { get; set; }
+
+        [StringLength(255)]
+        public string? ProfilePicture { get; set; }
     }
 }

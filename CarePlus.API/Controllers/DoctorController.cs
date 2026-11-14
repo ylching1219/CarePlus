@@ -71,5 +71,21 @@ namespace CarePlus.API.Controllers
 
             return Ok(await _doctorServices.UpdateDoctorAsync(request));
         }
+
+        [HttpPost("{staffId}/Photo")]
+        [RequestSizeLimit(5 * 1024 * 1024)]
+        public async Task<IActionResult> UploadDoctorPhoto(string staffId, IFormFile? file)
+        {
+            if (User.IsInRole("Doctor") && !string.Equals(
+                User.FindFirstValue("staffId"),
+                staffId,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse<object>.Fail("You can only update your own doctor photo.", 403));
+            }
+
+            return Ok(await _doctorServices.SaveProfilePictureAsync(staffId, file));
+        }
     }
 }

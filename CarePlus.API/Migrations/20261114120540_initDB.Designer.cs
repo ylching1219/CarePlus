@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CarePlus.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261113121431_initDB")]
+    [Migration("20261114120540_initDB")]
     partial class initDB
     {
         /// <inheritdoc />
@@ -962,7 +962,7 @@ namespace CarePlus.API.Migrations
                             Description = "For pain or swelling after a visit. Take it with food.",
                             DescriptionZh = "用于就诊后的疼痛或肿。饭后服用。",
                             Form = "tablet",
-                            ImageKey = "para",
+                            ImageKey = "ibu",
                             Kind = "analgesic",
                             MedicineName = "Ibuprofen 200 mg tablets",
                             Method = "1 tablet, up to 3 times a day",
@@ -979,7 +979,7 @@ namespace CarePlus.API.Migrations
                             Description = "For hay fever and itchy skin. It can make some people sleepy.",
                             DescriptionZh = "用于花粉过敏和皮肤发痒。有些人吃了会困。",
                             Form = "tablet",
-                            ImageKey = "lora",
+                            ImageKey = "ceti",
                             Kind = "antihistamine",
                             MedicineName = "Cetirizine 10 mg tablets",
                             Method = "1 tablet once a day",
@@ -996,7 +996,7 @@ namespace CarePlus.API.Migrations
                             Description = "For a skin infection. Take it on an empty stomach and finish the course.",
                             DescriptionZh = "用于皮肤感染。空腹服用，并把疗程吃完。",
                             Form = "capsule",
-                            ImageKey = "amox",
+                            ImageKey = "clox",
                             Kind = "antibiotic",
                             MedicineName = "Cloxacillin 500 mg capsules",
                             Method = "1 capsule, 4 times a day",
@@ -1998,6 +1998,10 @@ namespace CarePlus.API.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ProfilePicture")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Qualification")
                         .IsRequired()

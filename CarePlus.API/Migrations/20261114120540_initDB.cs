@@ -498,7 +498,8 @@ namespace CarePlus.API.Migrations
                     LicenseNumber = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
                     Specialization = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false),
                     Qualification = table.Column<string>(type: "varchar(150)", maxLength: 150, nullable: false),
-                    YearsOfExperience = table.Column<int>(type: "int", nullable: false)
+                    YearsOfExperience = table.Column<int>(type: "int", nullable: false),
+                    ProfilePicture = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1093,9 +1094,9 @@ namespace CarePlus.API.Migrations
                     { "MED0001", "For a bacterial infection. Finish the course unless the doctor tells you to stop.", "用于细菌感染。除非医生叫停，请把疗程吃完。", "capsule", "amox", "antibiotic", "Amoxicillin 500 mg capsules", "1 capsule, 3 times a day", "每日 3 次，每次 1 粒", "阿莫西林 500 毫克胶囊", "16 capsules", "16 粒", 12.50m, "Available" },
                     { "MED0002", "For fever or pain. Do not take more than 4 g in 24 hours.", "用来退烧或止痛。24 小时内不要超过 4 克。", "tablet", "para", "analgesic", "Paracetamol 500 mg tablets", "1 to 2 tablets, up to 4 times a day", "每次 1 至 2 片，每日最多 4 次", "扑热息痛 500 毫克片", "20 tablets", "20 片", 8.90m, "Available" },
                     { "MED0003", "For allergy symptoms. Take it at the same time each day.", "针对过敏症状。尽量每天同一时间服用。", "tablet", "lora", "antihistamine", "Loratadine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "氯雷他定 10 毫克片", "10 tablets", "10 片", 16.50m, "Available" },
-                    { "MED0004", "For pain or swelling after a visit. Take it with food.", "用于就诊后的疼痛或肿。饭后服用。", "tablet", "para", "analgesic", "Ibuprofen 200 mg tablets", "1 tablet, up to 3 times a day", "每次 1 片，每日最多 3 次", "布洛芬 200 毫克片", "24 tablets", "24 片", 9.50m, "Available" },
-                    { "MED0005", "For hay fever and itchy skin. It can make some people sleepy.", "用于花粉过敏和皮肤发痒。有些人吃了会困。", "tablet", "lora", "antihistamine", "Cetirizine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "西替利嗪 10 毫克片", "10 tablets", "10 片", 11.00m, "Available" },
-                    { "MED0006", "For a skin infection. Take it on an empty stomach and finish the course.", "用于皮肤感染。空腹服用，并把疗程吃完。", "capsule", "amox", "antibiotic", "Cloxacillin 500 mg capsules", "1 capsule, 4 times a day", "每日 4 次，每次 1 粒", "氯唑西林 500 毫克胶囊", "20 capsules", "20 粒", 14.80m, "Available" }
+                    { "MED0004", "For pain or swelling after a visit. Take it with food.", "用于就诊后的疼痛或肿。饭后服用。", "tablet", "ibu", "analgesic", "Ibuprofen 200 mg tablets", "1 tablet, up to 3 times a day", "每次 1 片，每日最多 3 次", "布洛芬 200 毫克片", "24 tablets", "24 片", 9.50m, "Available" },
+                    { "MED0005", "For hay fever and itchy skin. It can make some people sleepy.", "用于花粉过敏和皮肤发痒。有些人吃了会困。", "tablet", "ceti", "antihistamine", "Cetirizine 10 mg tablets", "1 tablet once a day", "每日 1 次，每次 1 片", "西替利嗪 10 毫克片", "10 tablets", "10 片", 11.00m, "Available" },
+                    { "MED0006", "For a skin infection. Take it on an empty stomach and finish the course.", "用于皮肤感染。空腹服用，并把疗程吃完。", "capsule", "clox", "antibiotic", "Cloxacillin 500 mg capsules", "1 capsule, 4 times a day", "每日 4 次，每次 1 粒", "氯唑西林 500 毫克胶囊", "20 capsules", "20 粒", 14.80m, "Available" }
                 });
 
             migrationBuilder.InsertData(
@@ -1152,13 +1153,13 @@ namespace CarePlus.API.Migrations
 
             migrationBuilder.InsertData(
                 table: "Doctors",
-                columns: new[] { "StaffId", "LicenseNumber", "Qualification", "Specialization", "YearsOfExperience" },
+                columns: new[] { "StaffId", "LicenseNumber", "ProfilePicture", "Qualification", "Specialization", "YearsOfExperience" },
                 values: new object[,]
                 {
-                    { "STF000002", "DOC-LIC-0001", "MBBS", "General Medicine", 5 },
-                    { "STF000003", "DOC-LIC-0002", "MBBS", "Family Medicine", 7 },
-                    { "STF000004", "DOC-LIC-0003", "MD", "Internal Medicine", 9 },
-                    { "STF000005", "DOC-LIC-0004", "MBBS, Paediatrics", "Paediatrics", 4 }
+                    { "STF000002", "DOC-LIC-0001", null, "MBBS", "General Medicine", 5 },
+                    { "STF000003", "DOC-LIC-0002", null, "MBBS", "Family Medicine", 7 },
+                    { "STF000004", "DOC-LIC-0003", null, "MD", "Internal Medicine", 9 },
+                    { "STF000005", "DOC-LIC-0004", null, "MBBS, Paediatrics", "Paediatrics", 4 }
                 });
 
             migrationBuilder.InsertData(
