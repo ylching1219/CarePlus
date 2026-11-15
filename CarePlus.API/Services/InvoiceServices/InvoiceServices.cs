@@ -143,6 +143,20 @@ namespace CarePlus.API.Services.InvoiceServices
             return ApiResponse<List<PaidInvoiceResponse>>.Ok(result);
         }
 
+        public async Task<ApiResponse<OutstandingInvoiceResponse>> PayWithSavedCardAsync(long userId, string invoiceId, long cardId)
+        {
+            var card = await _db.PaymentCards.AsNoTracking().FirstOrDefaultAsync(row => row.Id == cardId && row.UserId == userId);
+            if (card == null)
+            {
+                return ApiResponse<OutstandingInvoiceResponse>.Fail("Choose a saved card.", 400);
+            }
+
+            return await PayAsync(userId, invoiceId, new InvoicePayRequest
+            {
+                PaymentMethod = $"{card.Brand} ···· {card.Last4}",
+            });
+        }
+
         public async Task<ApiResponse<OutstandingInvoiceResponse>> PayAsync(long userId, string invoiceId, InvoicePayRequest request)
         {
             var patient = await _db.Patients.FirstOrDefaultAsync(row => row.UserId == userId);
