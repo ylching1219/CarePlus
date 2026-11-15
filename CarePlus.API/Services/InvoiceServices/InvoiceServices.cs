@@ -111,7 +111,7 @@ namespace CarePlus.API.Services.InvoiceServices
                 .Include(row => row.Invoice)
                     .ThenInclude(invoice => invoice.MedicalRecord)
                 .Where(row => row.Invoice.PatientId == patient.PatientId
-                    && row.Invoice.MedicalRecordId != null
+                    && row.Invoice.OrderId == null
                     && (row.Status == "Paid" || row.Status == "Completed"))
                 .OrderByDescending(row => row.TransactionDate)
                 .ToListAsync();
