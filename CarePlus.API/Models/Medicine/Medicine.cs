@@ -49,6 +49,9 @@ namespace CarePlus.API.Models.Medicine
         [StringLength(10)]
         public string ImageKey { get; set; } = "para";
 
+        [StringLength(500)]
+        public string? ImagePath { get; set; }
+
         [Required]
         public decimal Price { get; set; }
 

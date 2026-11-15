@@ -44,5 +44,33 @@ namespace CarePlus.API.Controllers
         {
             return Ok(await _medicineServices.UpdateMedicineAsync(request));
         }
+
+        [HttpPost("{medicineId}/Image")]
+        [Authorize(Roles = "Admin,Pharmacist")]
+        [RequestSizeLimit(5 * 1024 * 1024)]
+        public async Task<IActionResult> UploadMedicineImage(string medicineId, IFormFile? file)
+        {
+            return Ok(await _medicineServices.SaveImageAsync(medicineId, file));
+        }
+
+        [HttpGet("{medicineId}/Image")]
+        public async Task<IActionResult> GetMedicineImage(string medicineId)
+        {
+            var path = await _medicineServices.GetImageFileAsync(medicineId);
+            if (path == null)
+            {
+                return NotFound();
+            }
+
+            var contentType = Path.GetExtension(path).ToLowerInvariant() switch
+            {
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                _ => "application/octet-stream",
+            };
+
+            return PhysicalFile(path, contentType);
+        }
     }
 }
