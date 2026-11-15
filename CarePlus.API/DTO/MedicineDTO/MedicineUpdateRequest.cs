@@ -19,6 +19,18 @@ namespace CarePlus.API.DTO.MedicineDTO
         [StringLength(500)]
         public string? DescriptionZh { get; init; }
 
+        [StringLength(40)]
+        public string? Pack { get; init; }
+
+        [StringLength(40)]
+        public string? PackZh { get; init; }
+
+        [StringLength(20)]
+        public string? Form { get; init; }
+
+        [StringLength(30)]
+        public string? Kind { get; init; }
+
         [StringLength(160)]
         public string? Method { get; init; }
 

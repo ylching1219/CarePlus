@@ -19,6 +19,13 @@ namespace CarePlus.API.Controllers
             _invoices = invoices;
         }
 
+        [Authorize(Roles = "Admin")]
+        [HttpGet("Admin")]
+        public async Task<IActionResult> Admin()
+        {
+            return Ok(await _invoices.ListForAdminAsync());
+        }
+
         [HttpGet("Outstanding")]
         public async Task<IActionResult> Outstanding()
         {

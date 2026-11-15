@@ -36,12 +36,13 @@ namespace CarePlus.API.Services.MedicineServices
                     NameZh = string.IsNullOrWhiteSpace(request.NameZh) ? null : request.NameZh.Trim(),
                     Description = request.Description.Trim(),
                     DescriptionZh = string.IsNullOrWhiteSpace(request.DescriptionZh) ? null : request.DescriptionZh.Trim(),
+                    Pack = request.Pack.Trim(),
+                    PackZh = string.IsNullOrWhiteSpace(request.PackZh) ? null : request.PackZh.Trim(),
+                    Form = request.Form.Trim(),
+                    Kind = request.Kind.Trim(),
                     Price = request.Price,
                     RequiresPrescription = request.RequiresPrescription,
                     Status = "Available",
-                    Pack = "",
-                    Form = "tablet",
-                    Kind = "analgesic",
                     Method = request.Method?.Trim() ?? "",
                     MethodZh = string.IsNullOrWhiteSpace(request.MethodZh) ? null : request.MethodZh.Trim(),
                     ImageKey = "para"
@@ -139,6 +140,28 @@ namespace CarePlus.API.Services.MedicineServices
                     medicine.DescriptionZh = string.IsNullOrWhiteSpace(request.DescriptionZh)
                         ? null
                         : request.DescriptionZh.Trim();
+                }
+
+                if (request.Pack != null)
+                {
+                    medicine.Pack = request.Pack.Trim();
+                }
+
+                if (request.PackZh != null)
+                {
+                    medicine.PackZh = string.IsNullOrWhiteSpace(request.PackZh)
+                        ? null
+                        : request.PackZh.Trim();
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Form))
+                {
+                    medicine.Form = request.Form.Trim();
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Kind))
+                {
+                    medicine.Kind = request.Kind.Trim();
                 }
 
                 if (request.Method != null)

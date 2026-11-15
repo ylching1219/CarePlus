@@ -15,7 +15,8 @@ namespace CarePlus.API.Services.AppointmentServices.Interface
         Task<ApiResponse<List<StaffAppointmentResponse>>> ListStaffAsync(
             long userId,
             string role,
-            string? date);
+            string? date,
+            string? endDate = null);
         Task<ApiResponse<AppointmentResponse>> BookAsync(long userId, AppointmentBookRequest request);
         Task<ApiResponse<AppointmentResponse>> BookForStaffAsync(StaffAppointmentBookRequest request);
         Task<ApiResponse<AppointmentResponse>> CancelAsync(long userId, string appointmentId);

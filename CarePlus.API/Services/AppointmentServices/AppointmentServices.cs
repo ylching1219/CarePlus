@@ -207,7 +207,8 @@ namespace CarePlus.API.Services.AppointmentServices
         public async Task<ApiResponse<List<StaffAppointmentResponse>>> ListStaffAsync(
             long userId,
             string role,
-            string? date)
+            string? date,
+            string? endDate = null)
         {
             if (!string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase)
@@ -252,9 +253,31 @@ namespace CarePlus.API.Services.AppointmentServices
                 }
 
                 var nextDate = selectedDate.Date.AddDays(1);
+                if (!string.IsNullOrWhiteSpace(endDate))
+                {
+                    if (!TryParseDate(endDate, out var selectedEndDate))
+                    {
+                        return ApiResponse<List<StaffAppointmentResponse>>.Fail(
+                            "Pick a valid report end date.", 400);
+                    }
+
+                    if (selectedEndDate.Date < selectedDate.Date)
+                    {
+                        return ApiResponse<List<StaffAppointmentResponse>>.Fail(
+                            "The report end date cannot be before the start date.", 400);
+                    }
+
+                    nextDate = selectedEndDate.Date.AddDays(1);
+                }
+
                 query = query.Where(row =>
                     row.AppointmentDate >= selectedDate.Date
                     && row.AppointmentDate < nextDate);
+            }
+            else if (!string.IsNullOrWhiteSpace(endDate))
+            {
+                return ApiResponse<List<StaffAppointmentResponse>>.Fail(
+                    "A report start date is required.", 400);
             }
 
             var rows = await query

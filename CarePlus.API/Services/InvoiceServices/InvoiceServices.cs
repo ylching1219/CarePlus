@@ -19,6 +19,69 @@ namespace CarePlus.API.Services.InvoiceServices
             _counters = counters;
         }
 
+        public async Task<ApiResponse<List<AdminBillingRecordResponse>>> ListForAdminAsync()
+        {
+            var today = DateTimeHelper.MalaysiaNow().Date;
+            var invoices = await _db.Invoices
+                .AsNoTracking()
+                .Include(row => row.Patient)
+                    .ThenInclude(patient => patient.User)
+                .OrderByDescending(row => row.IssueAt)
+                .ToListAsync();
+
+            var invoiceIds = invoices.Select(row => row.InvoiceId).ToList();
+            var payments = invoiceIds.Count == 0
+                ? new List<PaymentRow>()
+                : await _db.Payments
+                    .AsNoTracking()
+                    .Where(row => invoiceIds.Contains(row.InvoiceId))
+                    .OrderByDescending(row => row.TransactionDate)
+                    .ToListAsync();
+
+            var paymentsByInvoice = payments
+                .GroupBy(row => row.InvoiceId)
+                .ToDictionary(group => group.Key, group => group.ToList());
+
+            var result = invoices.Select(invoice =>
+            {
+                paymentsByInvoice.TryGetValue(invoice.InvoiceId, out var invoicePayments);
+                invoicePayments ??= [];
+
+                var paidPayment = invoicePayments.FirstOrDefault(row => IsPaidStatus(row.Status));
+                var isPaid = IsPaidStatus(invoice.PaymentStatus) || paidPayment != null;
+                var daysOverdue = !isPaid && invoice.DueDate.HasValue
+                    ? Math.Max(0, (today - invoice.DueDate.Value.Date).Days)
+                    : 0;
+                var lateFee = daysOverdue * PaymentRow.LateFeePerDay;
+                var paidAmount = paidPayment?.TotalAmount ?? (isPaid ? invoice.TotalAmount : 0m);
+                var lastPayment = invoicePayments.FirstOrDefault();
+
+                return new AdminBillingRecordResponse
+                {
+                    InvoiceId = invoice.InvoiceId,
+                    PatientId = invoice.PatientId,
+                    PatientName = invoice.Patient?.User?.Name ?? "Unknown patient",
+                    PatientUsername = invoice.Patient?.User?.Username ?? "",
+                    Source = invoice.OrderId != null ? "Medicine order" : "Consultation",
+                    RecordId = invoice.RecordRef ?? invoice.MedicalRecordId ?? invoice.OrderId ?? "",
+                    DoctorName = invoice.DoctorName ?? "",
+                    VisitType = invoice.VisitType ?? "",
+                    IssuedAt = ToMalaysiaOffset(invoice.IssueAt),
+                    DueAt = invoice.DueDate.HasValue ? ToMalaysiaOffset(invoice.DueDate.Value) : null,
+                    Status = isPaid ? "Paid" : daysOverdue > 0 ? "Overdue" : "Pending",
+                    Total = invoice.TotalAmount,
+                    PaidAmount = paidAmount,
+                    LateFee = lateFee,
+                    AmountOutstanding = isPaid ? 0m : invoice.TotalAmount + lateFee,
+                    DaysOverdue = daysOverdue,
+                    PaymentMethod = lastPayment?.PaymentMethod,
+                    PaidAt = paidPayment == null ? null : ToMalaysiaOffset(paidPayment.TransactionDate),
+                };
+            }).ToList();
+
+            return ApiResponse<List<AdminBillingRecordResponse>>.Ok(result);
+        }
+
         public async Task<ApiResponse<List<OutstandingInvoiceResponse>>> ListOutstandingAsync(long userId)
         {
             var patient = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(row => row.UserId == userId);
@@ -155,6 +218,12 @@ namespace CarePlus.API.Services.InvoiceServices
         {
             return new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Unspecified), TimeSpan.FromHours(8))
                 .ToString("yyyy-MM-ddTHH:mm:sszzz");
+        }
+
+        private static bool IsPaidStatus(string? status)
+        {
+            return string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

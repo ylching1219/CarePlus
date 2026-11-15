@@ -85,7 +85,9 @@ namespace CarePlus.API.Controllers
 
         [Authorize(Roles = "Admin,Doctor,Pharmacist")]
         [HttpGet("Staff")]
-        public async Task<IActionResult> StaffAppointments([FromQuery] string? date)
+        public async Task<IActionResult> StaffAppointments(
+            [FromQuery] string? date,
+            [FromQuery] string? endDate)
         {
             if (!TryUserId(out var userId))
             {
@@ -93,7 +95,7 @@ namespace CarePlus.API.Controllers
             }
 
             var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
-            return Ok(await _appointments.ListStaffAsync(userId, role, date));
+            return Ok(await _appointments.ListStaffAsync(userId, role, date, endDate));
         }
 
         [HttpPost]

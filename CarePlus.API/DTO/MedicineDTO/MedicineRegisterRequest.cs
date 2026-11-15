@@ -18,6 +18,20 @@ namespace CarePlus.API.DTO.MedicineDTO
         [StringLength(500)]
         public string? DescriptionZh { get; init; }
 
+        [StringLength(40)]
+        public string Pack { get; init; } = string.Empty;
+
+        [StringLength(40)]
+        public string? PackZh { get; init; }
+
+        [Required(ErrorMessage = "Medicine form is required.")]
+        [StringLength(20)]
+        public string Form { get; init; } = "tablet";
+
+        [Required(ErrorMessage = "Medicine kind is required.")]
+        [StringLength(30)]
+        public string Kind { get; init; } = "analgesic";
+
         [StringLength(160)]
         public string? Method { get; init; }
 
