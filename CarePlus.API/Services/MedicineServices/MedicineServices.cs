@@ -4,6 +4,7 @@ using CarePlus.API.Models.Medicine;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.CounterServices.Interface;
 using CarePlus.API.Services.MedicineServices.Interface;
+using Microsoft.AspNetCore.Http;
 
 namespace CarePlus.API.Services.MedicineServices
 {
@@ -218,7 +219,9 @@ namespace CarePlus.API.Services.MedicineServices
                 Directory.CreateDirectory(folder);
 
                 var oldPath = medicine.ImagePath;
-                var fileName = UploadFileNameHelper.GenerateOpaque(extension);
+                var fileName = UploadFileNameHelper.GenerateForIdentifier(
+                    medicine.MedicineId,
+                    extension);
                 await using (var stream = File.Create(Path.Combine(folder, fileName)))
                 {
                     await file.CopyToAsync(stream);
@@ -234,7 +237,10 @@ namespace CarePlus.API.Services.MedicineServices
                     return ApiResponse<object>.Fail("Failed to save the medicine photo.", 500);
                 }
 
-                DeleteImageFile(oldPath);
+                if (!string.Equals(oldPath, relativePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    DeleteImageFile(oldPath);
+                }
                 return ApiResponse<object>.Ok(new { imagePath = relativePath });
             }
             catch (Exception)

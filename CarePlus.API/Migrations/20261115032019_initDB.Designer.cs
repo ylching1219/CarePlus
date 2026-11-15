@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CarePlus.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261114131925_initDB")]
+    [Migration("20261115032019_initDB")]
     partial class initDB
     {
         /// <inheritdoc />
@@ -852,6 +852,10 @@ namespace CarePlus.API.Migrations
                         .HasColumnType("varchar(10)")
                         .HasDefaultValue("para");
 
+                    b.Property<string>("ImagePath")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -915,6 +919,7 @@ namespace CarePlus.API.Migrations
                             DescriptionZh = "用于细菌感染。除非医生叫停，请把疗程吃完。",
                             Form = "capsule",
                             ImageKey = "amox",
+                            ImagePath = "medicines/med0001.jpg",
                             Kind = "antibiotic",
                             MedicineName = "Amoxicillin 500 mg capsules",
                             Method = "1 capsule, 3 times a day",
@@ -933,6 +938,7 @@ namespace CarePlus.API.Migrations
                             DescriptionZh = "用来退烧或止痛。24 小时内不要超过 4 克。",
                             Form = "tablet",
                             ImageKey = "para",
+                            ImagePath = "medicines/med0002.jpg",
                             Kind = "analgesic",
                             MedicineName = "Paracetamol 500 mg tablets",
                             Method = "1 to 2 tablets, up to 4 times a day",
@@ -951,6 +957,7 @@ namespace CarePlus.API.Migrations
                             DescriptionZh = "针对过敏症状。尽量每天同一时间服用。",
                             Form = "tablet",
                             ImageKey = "lora",
+                            ImagePath = "medicines/med0003.jpg",
                             Kind = "antihistamine",
                             MedicineName = "Loratadine 10 mg tablets",
                             Method = "1 tablet once a day",
@@ -969,6 +976,7 @@ namespace CarePlus.API.Migrations
                             DescriptionZh = "用于就诊后的疼痛或肿。饭后服用。",
                             Form = "tablet",
                             ImageKey = "ibu",
+                            ImagePath = "medicines/med0004.jpg",
                             Kind = "analgesic",
                             MedicineName = "Ibuprofen 200 mg tablets",
                             Method = "1 tablet, up to 3 times a day",
@@ -987,6 +995,7 @@ namespace CarePlus.API.Migrations
                             DescriptionZh = "用于花粉过敏和皮肤发痒。有些人吃了会困。",
                             Form = "tablet",
                             ImageKey = "ceti",
+                            ImagePath = "medicines/med0005.jpg",
                             Kind = "antihistamine",
                             MedicineName = "Cetirizine 10 mg tablets",
                             Method = "1 tablet once a day",
@@ -1005,6 +1014,7 @@ namespace CarePlus.API.Migrations
                             DescriptionZh = "用于皮肤感染。空腹服用，并把疗程吃完。",
                             Form = "capsule",
                             ImageKey = "clox",
+                            ImagePath = "medicines/med0006.jpg",
                             Kind = "antibiotic",
                             MedicineName = "Cloxacillin 500 mg capsules",
                             Method = "1 capsule, 4 times a day",
