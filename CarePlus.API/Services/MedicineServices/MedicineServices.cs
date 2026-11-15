@@ -191,7 +191,7 @@ namespace CarePlus.API.Services.MedicineServices
             {
                 if (file == null || file.Length == 0 || file.Length > 5 * 1024 * 1024)
                 {
-                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP image under 5 MB.", 400);
+                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 5 MB.", 400);
                 }
 
                 var extension = file.ContentType switch
@@ -201,13 +201,12 @@ namespace CarePlus.API.Services.MedicineServices
                     "image/webp" => ".webp",
                     _ => null
                 };
-
                 if (extension == null)
                 {
-                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP image under 5 MB.", 400);
+                    return ApiResponse<object>.Fail("Use a JPG, PNG, or WebP photo under 5 MB.", 400);
                 }
 
-                var medicine = await _medicineRepo.GetMedicineByIdAsync(medicineId.Trim());
+                var medicine = await _medicineRepo.GetMedicineByIdAsync(medicineId);
                 if (medicine == null)
                 {
                     return ApiResponse<object>.Fail("Medicine not found", 404);
@@ -219,29 +218,25 @@ namespace CarePlus.API.Services.MedicineServices
                 var folder = Path.Combine(root, "medicines");
                 Directory.CreateDirectory(folder);
 
-                var oldImagePath = medicine.ImagePath;
-                var fileName = UploadFileNameHelper.Generate(
-                    "medicine",
-                    medicine.MedicineId,
-                    extension);
-
+                var oldPath = medicine.ImagePath;
+                var fileName = UploadFileNameHelper.GenerateOpaque(extension);
                 await using (var stream = File.Create(Path.Combine(folder, fileName)))
                 {
                     await file.CopyToAsync(stream);
                 }
 
-                medicine.ImagePath = $"medicines/{fileName}";
-                var success = await _medicineRepo.UpdateMedicineAsync(medicine);
-                if (!success)
+                var relativePath = $"medicines/{fileName}";
+                var storedFile = Path.Combine(folder, fileName);
+                medicine.ImagePath = relativePath;
+                var saved = await _medicineRepo.UpdateMedicineAsync(medicine);
+                if (!saved)
                 {
-                    DeleteImageFile(medicine.ImagePath);
-                    return ApiResponse<object>.Fail("Failed to save the medicine image", 500);
+                    TryDelete(storedFile);
+                    return ApiResponse<object>.Fail("Failed to save the medicine photo.", 500);
                 }
 
-                DeleteImageFile(oldImagePath);
-
-                var stock = await _medicineRepo.AvailableStockAsync();
-                return ApiResponse<object>.Ok(Map(medicine, stock.GetValueOrDefault(medicine.MedicineId)));
+                DeleteImageFile(oldPath);
+                return ApiResponse<object>.Ok(new { imagePath = relativePath });
             }
             catch (Exception)
             {
@@ -249,40 +244,70 @@ namespace CarePlus.API.Services.MedicineServices
             }
         }
 
-        public async Task<string?> GetImageFileAsync(string medicineId)
+        public async Task<string?> ResolveStoredImageAsync(string medicineId)
         {
-            var medicine = await _medicineRepo.GetMedicineByIdAsync(medicineId.Trim());
-            if (medicine == null || string.IsNullOrWhiteSpace(medicine.ImagePath))
+            var medicine = await _medicineRepo.GetMedicineByIdAsync(medicineId);
+            if (string.IsNullOrWhiteSpace(medicine?.ImagePath)
+                || !medicine.ImagePath.StartsWith("medicines/", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
 
-            var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-            var medicineRoot = Path.GetFullPath(Path.Combine(webRoot, "medicines"));
-            var candidate = Path.GetFullPath(Path.Combine(webRoot, medicine.ImagePath.Replace('/', Path.DirectorySeparatorChar)));
-            if (!candidate.StartsWith(medicineRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return ResolveImageFile(Path.GetFileName(medicine.ImagePath));
+        }
+
+        private string? ResolveImageFile(string fileName)
+        {
+            var safeName = Path.GetFileName(fileName);
+            if (string.IsNullOrWhiteSpace(safeName) || safeName != fileName)
             {
                 return null;
             }
 
-            return File.Exists(candidate) ? candidate : null;
+            var root = string.IsNullOrWhiteSpace(_environment.WebRootPath)
+                ? Path.Combine(_environment.ContentRootPath, "wwwroot")
+                : _environment.WebRootPath;
+            var folder = Path.GetFullPath(Path.Combine(root, "medicines"));
+            var path = Path.GetFullPath(Path.Combine(folder, safeName));
+            if (!path.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+            {
+                return null;
+            }
+
+            return path;
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch
+            {
+                // A leftover file must not block the error response.
+            }
         }
 
         private void DeleteImageFile(string? relativePath)
         {
-            if (string.IsNullOrWhiteSpace(relativePath)) return;
+            if (string.IsNullOrWhiteSpace(relativePath) || !relativePath.StartsWith("medicines/", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
 
             try
             {
-                var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-                var medicineRoot = Path.GetFullPath(Path.Combine(webRoot, "medicines"));
-                var candidate = Path.GetFullPath(Path.Combine(webRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
-                if (!candidate.StartsWith(medicineRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return;
-                if (File.Exists(candidate)) File.Delete(candidate);
+                var fileName = Path.GetFileName(relativePath);
+                var path = ResolveImageFile(fileName);
+                if (path != null)
+                {
+                    File.Delete(path);
+                }
             }
             catch
             {
-                // A stale image must not prevent the medicine record from being saved.
+                // A leftover file must not block saving the new photo.
             }
         }
 

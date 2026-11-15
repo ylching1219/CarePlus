@@ -49,7 +49,8 @@ namespace CarePlus.API.Models.Medicine
         [StringLength(10)]
         public string ImageKey { get; set; } = "para";
 
-        [StringLength(500)]
+        /// <summary>Relative file under wwwroot, for example medicines/abc.jpg. Empty means use ImageKey.</summary>
+        [StringLength(255)]
         public string? ImagePath { get; set; }
 
         [Required]
