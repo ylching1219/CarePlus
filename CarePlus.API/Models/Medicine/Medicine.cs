@@ -45,13 +45,10 @@ namespace CarePlus.API.Models.Medicine
         [StringLength(160)]
         public string? MethodZh { get; set; }
 
+        /// <summary>Relative file under wwwroot, for example medicines/abc.jpg.</summary>
         [Required]
-        [StringLength(10)]
-        public string ImageKey { get; set; } = "para";
-
-        /// <summary>Relative file under wwwroot, for example medicines/abc.jpg. Empty means use ImageKey.</summary>
         [StringLength(255)]
-        public string? ImagePath { get; set; }
+        public string ImagePath { get; set; } = "";
 
         [Required]
         public decimal Price { get; set; }

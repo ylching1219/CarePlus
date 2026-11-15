@@ -45,7 +45,7 @@ namespace CarePlus.API.Services.MedicineServices
                     Status = "Available",
                     Method = request.Method?.Trim() ?? "",
                     MethodZh = string.IsNullOrWhiteSpace(request.MethodZh) ? null : request.MethodZh.Trim(),
-                    ImageKey = "para"
+                    ImagePath = ""
                 };
 
                 await _medicineRepo.CreateMedicineAsync(medicine);
@@ -352,7 +352,6 @@ namespace CarePlus.API.Services.MedicineServices
             Kind = medicine.Kind,
             Method = medicine.Method,
             MethodZh = medicine.MethodZh,
-            ImageKey = medicine.ImageKey,
             ImagePath = medicine.ImagePath,
             Price = medicine.Price,
             RequiresPrescription = medicine.RequiresPrescription,
