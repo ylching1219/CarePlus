@@ -316,7 +316,6 @@ namespace CarePlus.API.Data
             modelBuilder.Entity<Medicine>().Property(m => m.Kind).HasMaxLength(30).HasDefaultValue("analgesic");
             modelBuilder.Entity<Medicine>().Property(m => m.Method).HasMaxLength(160).HasDefaultValue("");
             modelBuilder.Entity<Medicine>().Property(m => m.MethodZh).HasMaxLength(160);
-            modelBuilder.Entity<Medicine>().Property(m => m.ImageKey).HasMaxLength(10).HasDefaultValue("para");
             modelBuilder.Entity<Medicine>().Property(m => m.Status).HasDefaultValueSql("('Available')");
             MedicineSeed.Apply(modelBuilder);
 
