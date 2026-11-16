@@ -10,7 +10,5 @@ namespace CarePlus.API.DTO.StaffDTO
         public string Phone { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
-        public int AccessLevel { get; set; }
-        public string? Department { get; set; }
     }
 }

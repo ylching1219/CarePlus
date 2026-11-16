@@ -158,6 +158,13 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 current = IsDelivery(order.Fulfilment) ? "delivered" : "picked_up";
             }
 
+            if (current == "awaiting_payment"
+                && normalized != "awaiting_payment"
+                && !IsCashOnDelivery(order.PaymentMethod))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Complete payment before preparing this order.", 409);
+            }
+
             if (!CanMoveToStatus(order.Fulfilment, current, normalized))
             {
                 return ApiResponse<MedicineOrderResponse>.Fail("Order status cannot move backwards.", 409);
@@ -657,7 +664,7 @@ namespace CarePlus.API.Services.MedicineOrderServices
 
             return rank.TryGetValue(current, out var currentRank)
                 && rank.TryGetValue(next, out var nextRank)
-                && nextRank >= currentRank;
+                && nextRank == currentRank + 1;
         }
 
         private static MedicineOrderResponse ToResponse(OrderRow order, IEnumerable<OrderItem> items)

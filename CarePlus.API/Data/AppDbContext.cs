@@ -318,6 +318,7 @@ namespace CarePlus.API.Data
             modelBuilder.Entity<Medicine>().Property(m => m.MethodZh).HasMaxLength(160);
             modelBuilder.Entity<Medicine>().Property(m => m.Status).HasDefaultValueSql("('Available')");
             MedicineSeed.Apply(modelBuilder);
+            MedicineBatchSeed.Apply(modelBuilder);
 
             modelBuilder.Entity<MedicineBatch>()
                 .HasOne(batch => batch.Medicine)
@@ -618,9 +619,7 @@ namespace CarePlus.API.Data
                 {
                     StaffId = "STF000001",
                     UserId = 1,
-                    Role = "Admin",
-                    AccessLevel = 3,
-                    Department = "Administration"
+                    Role = "Admin"
                 }
             );
 
@@ -633,7 +632,8 @@ namespace CarePlus.API.Data
                     LicenseNumber = "DOC-LIC-0001",
                     Specialization = "General Medicine",
                     Qualification = "MBBS",
-                    YearsOfExperience = 5
+                    YearsOfExperience = 5,
+                    ProfilePicture = "profiles/doctor-stf000002.jpg"
                 },
                 new Doctor
                 {
@@ -643,7 +643,8 @@ namespace CarePlus.API.Data
                     LicenseNumber = "DOC-LIC-0002",
                     Specialization = "Family Medicine",
                     Qualification = "MBBS",
-                    YearsOfExperience = 7
+                    YearsOfExperience = 7,
+                    ProfilePicture = "profiles/doctor-stf000003.jpg"
                 },
                 new Doctor
                 {
@@ -653,7 +654,8 @@ namespace CarePlus.API.Data
                     LicenseNumber = "DOC-LIC-0003",
                     Specialization = "Internal Medicine",
                     Qualification = "MD",
-                    YearsOfExperience = 9
+                    YearsOfExperience = 9,
+                    ProfilePicture = "profiles/doctor-stf000004.jpg"
                 },
                 new Doctor
                 {
@@ -663,7 +665,8 @@ namespace CarePlus.API.Data
                     LicenseNumber = "DOC-LIC-0004",
                     Specialization = "Paediatrics",
                     Qualification = "MBBS, Paediatrics",
-                    YearsOfExperience = 4
+                    YearsOfExperience = 4,
+                    ProfilePicture = "profiles/doctor-stf000005.png"
                 }
             );
 

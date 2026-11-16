@@ -1,3 +1,7 @@
 *
 !.gitignore
 !.gitkeep
+!med*.jpg
+!med*.jpeg
+!med*.png
+!med*.webp

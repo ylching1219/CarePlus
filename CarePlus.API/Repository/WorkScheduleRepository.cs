@@ -1,4 +1,5 @@
 using CarePlus.API.Data;
+using CarePlus.API.Models.RoomAssg;
 using CarePlus.API.Models.WorkSch;
 using CarePlus.API.Repository.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,20 @@ namespace CarePlus.API.Repository
             await _context.WorkSchedules.AddAsync(workSchedule);
             await _context.SaveChangesAsync();
 
+            return workSchedule.ScheduleId;
+        }
+
+        public async Task<string> CreateWorkScheduleWithRoomAsync(
+            WorkSchedule workSchedule,
+            RoomAssignment roomAssignment)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            await _context.WorkSchedules.AddAsync(workSchedule);
+            await _context.RoomAssignments.AddAsync(roomAssignment);
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
             return workSchedule.ScheduleId;
         }
 

@@ -29,26 +29,7 @@ namespace CarePlus.API.Services.StaffService
         {
             try
             {
-                
                 var errors = await _userService.ValidateUserAsync(request);
-
-                if (request.AccessLevel < 1 || request.AccessLevel > 3)
-                {
-                    errors.Add("Access level must be between 1 and 3");
-                }
-
-                var departments = new[]
-                {
-                    "Human Resources",
-                    "Clinic Operations",
-                    "IT",
-                    "Administration"
-                };
-
-                if (request.Department == null ||!departments.Contains(request.Department))
-                {
-                    errors.Add("Invalid department");
-                }
 
                 if (errors.Count > 0)
                 {
@@ -73,9 +54,7 @@ namespace CarePlus.API.Services.StaffService
                 {
                     StaffId = await _counterService.GenerateNextIdAsync("StaffId"),
                     UserId = user.UserId,
-                    Role = "Admin",
-                    AccessLevel = request.AccessLevel,
-                    Department = request.Department
+                    Role = "Admin"
                 };
 
                 var staffId = await _adminRepo.CreateAdminAsync(admin);
@@ -85,9 +64,7 @@ namespace CarePlus.API.Services.StaffService
                 {
                     StaffId = staffId,
                     UserId = user.UserId,
-                    Name = request.Name,
-                    AccessLevel = admin.AccessLevel,
-                    Department = admin.Department
+                    Name = request.Name
                 });
             }
             catch (Exception)
@@ -116,9 +93,7 @@ namespace CarePlus.API.Services.StaffService
                     Email = admin.User.Email,
                     Phone = admin.User.Phone ?? string.Empty,
                     Status = admin.User.Status,
-                    Role = admin.Role,
-                    AccessLevel = admin.AccessLevel,
-                    Department = admin.Department
+                    Role = admin.Role
                 }).ToList();
 
                 return ApiResponse<object>.Ok(result);
@@ -151,9 +126,7 @@ namespace CarePlus.API.Services.StaffService
                     Email = admin.User.Email,
                     Phone = admin.User.Phone ?? string.Empty,
                     Status = admin.User.Status,
-                    Role = admin.Role,
-                    AccessLevel = admin.AccessLevel,
-                    Department = admin.Department
+                    Role = admin.Role
                 });
             }
             catch (Exception)
@@ -173,22 +146,6 @@ namespace CarePlus.API.Services.StaffService
                 if (admin == null)
                 {
                     return ApiResponse<object>.Fail("Admin not found", 404);
-                }
-
-                if (request.AccessLevel != null)
-                {
-                    if (request.AccessLevel < 1 || request.AccessLevel > 3)
-                    {
-                        return ApiResponse<object>.Fail(
-                            "Access level must be between 1 and 3", 400);
-                    }
-
-                    admin.AccessLevel = request.AccessLevel.Value;
-                }
-
-                if (!string.IsNullOrWhiteSpace(request.Department))
-                {
-                    admin.Department = request.Department.Trim();
                 }
 
                 var success = await _adminRepo.UpdateAdminAsync(admin);

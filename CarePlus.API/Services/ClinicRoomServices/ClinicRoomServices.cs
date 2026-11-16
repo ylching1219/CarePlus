@@ -1,10 +1,12 @@
-using CarePlus.API.Data;
 using CarePlus.API.DTO.ClinicRoomDTO;
+using CarePlus.API.Extension;
 using CarePlus.API.Models.Room;
 using CarePlus.API.Models.RoomAssg;
+using CarePlus.API.Models.Notification;
+using CarePlus.API.Models.WorkSch;
+using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.ClinicRoomServices.Interface;
 using CarePlus.API.Services.CounterServices.Interface;
-using Microsoft.EntityFrameworkCore;
 
 namespace CarePlus.API.Services.ClinicRoomServices;
 
@@ -18,24 +20,32 @@ public class ClinicRoomServices : IClinicRoomServices
         "Inactive",
     };
 
-    private readonly AppDbContext _db;
+    private readonly IClinicRoomRepository _roomRepo;
+    private readonly INotificationRepository _notificationRepo;
+    private readonly IStaffRepository _staffRepo;
+    private readonly IDoctorRepository _doctorRepo;
     private readonly ICounterServices _counterService;
 
-    public ClinicRoomServices(AppDbContext db, ICounterServices counterService)
+    public ClinicRoomServices(
+        IClinicRoomRepository roomRepo,
+        INotificationRepository notificationRepo,
+        IStaffRepository staffRepo,
+        IDoctorRepository doctorRepo,
+        ICounterServices counterService)
     {
-        _db = db;
+        _roomRepo = roomRepo;
+        _notificationRepo = notificationRepo;
+        _staffRepo = staffRepo;
+        _doctorRepo = doctorRepo;
         _counterService = counterService;
     }
 
     public async Task<ApiResponse<List<ClinicRoomResponse>>> RetrieveAllAsync()
     {
-        var rooms = await _db.ClinicRooms
-            .AsNoTracking()
-            .OrderBy(room => room.RoomName)
-            .Select(room => ToResponse(room))
-            .ToListAsync();
+        var rooms = await _roomRepo.GetAllRoomsAsync();
 
-        return ApiResponse<List<ClinicRoomResponse>>.Ok(rooms);
+        return ApiResponse<List<ClinicRoomResponse>>.Ok(
+            rooms.Select(ToResponse).ToList());
     }
 
     public async Task<ApiResponse<ClinicRoomResponse>> CreateAsync(ClinicRoomCreateRequest request)
@@ -53,7 +63,7 @@ public class ClinicRoomServices : IClinicRoomServices
                 "Status must be Available, Occupied, Maintenance, or Inactive.", 400);
         }
 
-        if (await _db.ClinicRooms.AnyAsync(room => room.RoomName == roomName))
+        if (await _roomRepo.RoomNameExistsAsync(roomName))
         {
             return ApiResponse<ClinicRoomResponse>.Fail("A room with this name already exists.", 409);
         }
@@ -65,16 +75,15 @@ public class ClinicRoomServices : IClinicRoomServices
             Status = status,
         };
 
-        await _db.ClinicRooms.AddAsync(room);
-        await _db.SaveChangesAsync();
+        await _roomRepo.AddRoomAsync(room);
+        await _roomRepo.SaveChangesAsync();
 
         return ApiResponse<ClinicRoomResponse>.Ok(ToResponse(room));
     }
 
     public async Task<ApiResponse<ClinicRoomResponse>> UpdateAsync(ClinicRoomUpdateRequest request)
     {
-        var room = await _db.ClinicRooms
-            .FirstOrDefaultAsync(item => item.RoomId == request.RoomId.Trim());
+        var room = await _roomRepo.GetRoomByIdAsync(request.RoomId.Trim());
 
         if (room == null)
         {
@@ -94,15 +103,22 @@ public class ClinicRoomServices : IClinicRoomServices
                 "Status must be Available, Occupied, Maintenance, or Inactive.", 400);
         }
 
-        if (await _db.ClinicRooms.AnyAsync(item =>
-                item.RoomId != room.RoomId && item.RoomName == roomName))
+        if (await _roomRepo.RoomNameExistsAsync(roomName, room.RoomId))
         {
             return ApiResponse<ClinicRoomResponse>.Fail("A room with this name already exists.", 409);
         }
 
+        var becameUnavailable = !string.Equals(room.Status, status, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(status, "Available", StringComparison.OrdinalIgnoreCase);
         room.RoomName = roomName;
         room.Status = status;
-        await _db.SaveChangesAsync();
+
+        if (becameUnavailable)
+        {
+            await ReassignAffectedSchedulesAsync(room);
+        }
+
+        await _roomRepo.SaveChangesAsync();
 
         return ApiResponse<ClinicRoomResponse>.Ok(ToResponse(room));
     }
@@ -111,30 +127,7 @@ public class ClinicRoomServices : IClinicRoomServices
         DateOnly? date,
         string? scheduleId)
     {
-        var query = _db.RoomAssignments
-            .AsNoTracking()
-            .Include(assignment => assignment.Room)
-            .Include(assignment => assignment.Schedule)
-                .ThenInclude(schedule => schedule!.Staff)
-                    .ThenInclude(staff => staff.User)
-            .Include(assignment => assignment.Doctor)
-                .ThenInclude(doctor => doctor.User)
-            .AsQueryable();
-
-        if (date.HasValue)
-        {
-            query = query.Where(assignment => assignment.AssignmentDate == date.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(scheduleId))
-        {
-            query = query.Where(assignment => assignment.ScheduleId == scheduleId.Trim());
-        }
-
-        var assignments = await query
-            .OrderBy(assignment => assignment.AssignmentDate)
-            .ThenBy(assignment => assignment.StartTime)
-            .ToListAsync();
+        var assignments = await _roomRepo.GetRoomAssignmentsAsync(date, scheduleId);
 
         return ApiResponse<List<RoomAssignmentResponse>>.Ok(
             assignments.Select(ToAssignmentResponse).ToList());
@@ -146,10 +139,7 @@ public class ClinicRoomServices : IClinicRoomServices
         var scheduleId = request.ScheduleId.Trim();
         var roomId = request.RoomId.Trim();
 
-        var schedule = await _db.WorkSchedules
-            .Include(item => item.Staff)
-                .ThenInclude(staff => staff.User)
-            .FirstOrDefaultAsync(item => item.ScheduleId == scheduleId);
+        var schedule = await _roomRepo.GetScheduleWithStaffAsync(scheduleId);
 
         if (schedule == null)
         {
@@ -162,17 +152,18 @@ public class ClinicRoomServices : IClinicRoomServices
                 "Only doctor schedules can be assigned to clinic rooms.", 400);
         }
 
-        if (!string.Equals(schedule.Status, "Active", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(schedule.Status, WorkScheduleStatus.Active, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(schedule.Status, WorkScheduleStatus.RoomReassignmentRequired, StringComparison.OrdinalIgnoreCase))
         {
             return ApiResponse<RoomAssignmentResponse>.Fail(
-                "Only active schedules can be assigned to a clinic room.", 400);
+                "Only active schedules or schedules requiring room reassignment can be assigned to a clinic room.", 400);
         }
 
-        var assignment = await _db.RoomAssignments
-            .FirstOrDefaultAsync(item => item.ScheduleId == scheduleId);
+        var assignment = await _roomRepo.GetAssignmentByScheduleIdAsync(
+            scheduleId,
+            trackChanges: true);
 
-        var room = await _db.ClinicRooms
-            .FirstOrDefaultAsync(item => item.RoomId == roomId);
+        var room = await _roomRepo.GetRoomByIdAsync(roomId);
         if (room == null)
         {
             return ApiResponse<RoomAssignmentResponse>.Fail("Clinic room not found.", 404);
@@ -192,10 +183,7 @@ public class ClinicRoomServices : IClinicRoomServices
             requestedEnd = requestedEnd.AddDays(1);
         }
 
-        var roomAssignments = await _db.RoomAssignments
-            .AsNoTracking()
-            .Where(item => item.RoomId == roomId)
-            .ToListAsync();
+        var roomAssignments = await _roomRepo.GetAssignmentsByRoomIdAsync(roomId);
 
         var roomConflict = roomAssignments.Any(item =>
         {
@@ -217,19 +205,21 @@ public class ClinicRoomServices : IClinicRoomServices
                 "This clinic room is already assigned during that shift.", 409);
         }
 
-        var doctor = await _db.Doctors
-            .Include(item => item.User)
-            .FirstOrDefaultAsync(item => item.StaffId == schedule.StaffId);
+        var doctor = await _doctorRepo.GetDoctorByIdAsync(schedule.StaffId);
         if (doctor == null)
         {
             return ApiResponse<RoomAssignmentResponse>.Fail("Doctor profile not found.", 404);
         }
 
-        assignment ??= new RoomAssignment
+        if (assignment == null)
         {
-            AssignmentId = $"RA-{Guid.NewGuid():N}"[..11].ToUpperInvariant(),
-            ScheduleId = schedule.ScheduleId,
-        };
+            assignment = new RoomAssignment
+            {
+                AssignmentId = $"RA-{Guid.NewGuid():N}"[..11].ToUpperInvariant(),
+                ScheduleId = schedule.ScheduleId,
+            };
+            await _roomRepo.AddAssignmentAsync(assignment);
+        }
 
         assignment.RoomId = room.RoomId;
         assignment.DoctorId = schedule.StaffId;
@@ -239,31 +229,182 @@ public class ClinicRoomServices : IClinicRoomServices
         assignment.Room = room;
         assignment.Schedule = schedule;
         assignment.Doctor = doctor;
-
-        if (_db.Entry(assignment).State == EntityState.Detached)
-        {
-            _db.RoomAssignments.Add(assignment);
-        }
-        await _db.SaveChangesAsync();
+        schedule.Status = WorkScheduleStatus.Active;
+        await _roomRepo.SaveChangesAsync();
 
         return ApiResponse<RoomAssignmentResponse>.Ok(ToAssignmentResponse(assignment));
     }
 
     public async Task<ApiResponse<object>> RemoveAssignmentAsync(string assignmentId)
     {
-        var assignment = await _db.RoomAssignments
-            .FirstOrDefaultAsync(item => item.AssignmentId == assignmentId.Trim());
+        var assignment = await _roomRepo.GetAssignmentByIdAsync(assignmentId.Trim());
         if (assignment == null)
         {
             return ApiResponse<object>.Fail("Room assignment not found.", 404);
         }
 
-        _db.RoomAssignments.Remove(assignment);
-        await _db.SaveChangesAsync();
+        _roomRepo.RemoveAssignment(assignment);
+        await _roomRepo.SaveChangesAsync();
         return ApiResponse<object>.Ok(
             new { assignmentId = assignment.AssignmentId },
             "Room assignment removed.");
     }
+
+    private async Task ReassignAffectedSchedulesAsync(ClinicRoom unavailableRoom)
+    {
+        var affectedAssignments = await _roomRepo
+            .GetAssignmentsForRoomReassignmentAsync(unavailableRoom.RoomId);
+
+        if (affectedAssignments.Count == 0)
+        {
+            return;
+        }
+
+        var availableRooms = await _roomRepo
+            .GetAvailableRoomsExceptAsync(unavailableRoom.RoomId);
+        var existingAssignments = await _roomRepo
+            .GetAssignmentsExceptRoomAsync(unavailableRoom.RoomId);
+        var reservedRooms = new List<RoomReservation>();
+        var adminStaff = await _staffRepo.GetAllStaffsByAsync(
+            staff => staff.Role == "Admin");
+        var adminUserIds = adminStaff
+            .Select(staff => staff.UserId)
+            .ToList();
+        var now = DateTimeHelper.MalaysiaNow();
+
+        foreach (var assignment in affectedAssignments)
+        {
+            var schedule = assignment.Schedule;
+            if (schedule == null)
+            {
+                continue;
+            }
+
+            var assignedStaff = schedule.Staff;
+            if (assignedStaff == null)
+            {
+                continue;
+            }
+
+            var requestedStart = assignment.AssignmentDate.ToDateTime(assignment.StartTime);
+            var requestedEnd = assignment.AssignmentDate.ToDateTime(assignment.EndTime);
+            if (requestedEnd <= requestedStart)
+            {
+                requestedEnd = requestedEnd.AddDays(1);
+            }
+
+            if (requestedEnd <= now)
+            {
+                continue;
+            }
+
+            var replacement = availableRooms.FirstOrDefault(room =>
+                !existingAssignments.Any(existing =>
+                    existing.RoomId == room.RoomId
+                    && existing.AssignmentId != assignment.AssignmentId
+                    && Overlaps(requestedStart, requestedEnd, existing.AssignmentDate, existing.StartTime, existing.EndTime))
+                && !reservedRooms.Any(reserved =>
+                    reserved.RoomId == room.RoomId
+                    && Overlaps(requestedStart, requestedEnd, reserved.AssignmentDate, reserved.StartTime, reserved.EndTime)));
+
+            var doctorName = schedule.Staff?.User?.Name ?? schedule.StaffId;
+            if (replacement != null)
+            {
+                assignment.RoomId = replacement.RoomId;
+                assignment.Room = replacement;
+                reservedRooms.Add(new RoomReservation(
+                    replacement.RoomId,
+                    assignment.AssignmentDate,
+                    assignment.StartTime,
+                    assignment.EndTime));
+
+                var message = $"Your {schedule.Shift.ToLowerInvariant()} schedule on {schedule.WorkingDate:dd MMM yyyy} was moved from {unavailableRoom.RoomName} to {replacement.RoomName} because the original room is {unavailableRoom.Status.ToLowerInvariant()}.";
+                await QueueRoomNotificationAsync(
+                    assignedStaff.UserId,
+                    schedule.ScheduleId,
+                    "Consultation room reassigned",
+                    message);
+                await QueueAdminNotificationsAsync(
+                    adminUserIds,
+                    schedule.ScheduleId,
+                    "Consultation room reassigned",
+                    $"{doctorName}'s {schedule.Shift.ToLowerInvariant()} schedule on {schedule.WorkingDate:dd MMM yyyy} was moved from {unavailableRoom.RoomName} to {replacement.RoomName}.");
+            }
+            else
+            {
+                _roomRepo.RemoveAssignment(assignment);
+                schedule.Status = WorkScheduleStatus.RoomReassignmentRequired;
+
+                await QueueRoomNotificationAsync(
+                    assignedStaff.UserId,
+                    schedule.ScheduleId,
+                    "Room reassignment required",
+                    $"Your {schedule.Shift.ToLowerInvariant()} schedule on {schedule.WorkingDate:dd MMM yyyy} no longer has an available consultation room. An administrator must assign a new room before appointments can be booked.");
+                await QueueAdminNotificationsAsync(
+                    adminUserIds,
+                    schedule.ScheduleId,
+                    "Room reassignment required",
+                    $"{doctorName}'s {schedule.Shift.ToLowerInvariant()} schedule on {schedule.WorkingDate:dd MMM yyyy} needs a new room because {unavailableRoom.RoomName} is {unavailableRoom.Status.ToLowerInvariant()}.");
+            }
+        }
+    }
+
+    private async Task QueueAdminNotificationsAsync(
+        IEnumerable<long> adminUserIds,
+        string scheduleId,
+        string title,
+        string message)
+    {
+        foreach (var adminUserId in adminUserIds)
+        {
+            await QueueRoomNotificationAsync(adminUserId, scheduleId, title, message);
+        }
+    }
+
+    private Task QueueRoomNotificationAsync(
+        long userId,
+        string scheduleId,
+        string title,
+        string message)
+    {
+        return _notificationRepo.AddAsync(new Notification
+        {
+            NotificationId = $"room-assignment:{scheduleId}:{Guid.NewGuid():N}:user:{userId}",
+            UserId = userId,
+            Title = title,
+            Message = message,
+            Type = "room_assignment",
+            Actor = "CarePlus Clinic",
+            Initials = "CC",
+            Href = "/staff/schedules",
+            Status = "Unread",
+            IsPublished = true,
+            CreatedAt = DateTimeHelper.MalaysiaNow(),
+        });
+    }
+
+    private static bool Overlaps(
+        DateTime requestedStart,
+        DateTime requestedEnd,
+        DateOnly existingDate,
+        TimeOnly existingStartTime,
+        TimeOnly existingEndTime)
+    {
+        var existingStart = existingDate.ToDateTime(existingStartTime);
+        var existingEnd = existingDate.ToDateTime(existingEndTime);
+        if (existingEnd <= existingStart)
+        {
+            existingEnd = existingEnd.AddDays(1);
+        }
+
+        return requestedStart < existingEnd && existingStart < requestedEnd;
+    }
+
+    private sealed record RoomReservation(
+        string RoomId,
+        DateOnly AssignmentDate,
+        TimeOnly StartTime,
+        TimeOnly EndTime);
 
     private static RoomAssignmentResponse ToAssignmentResponse(RoomAssignment assignment) => new()
     {

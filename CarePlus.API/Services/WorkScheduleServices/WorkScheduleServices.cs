@@ -1,4 +1,3 @@
-using CarePlus.API.Data;
 using CarePlus.API.DTO.WorkScheduleDTO;
 using CarePlus.API.Models.Room;
 using CarePlus.API.Models.RoomAssg;
@@ -6,7 +5,6 @@ using CarePlus.API.Models.WorkSch;
 using CarePlus.API.Repository.Interface;
 using CarePlus.API.Services.CounterServices.Interface;
 using CarePlus.API.Services.WorkScheduleServices.Interface;
-using Microsoft.EntityFrameworkCore;
 
 namespace CarePlus.API.Services.WorkScheduleServices
 {
@@ -15,8 +13,9 @@ namespace CarePlus.API.Services.WorkScheduleServices
         private static readonly HashSet<string> ValidStatuses =
             new(StringComparer.Ordinal)
             {
-                "Active",
-                "Inactive"
+                WorkScheduleStatus.Active,
+                WorkScheduleStatus.Inactive,
+                WorkScheduleStatus.RoomReassignmentRequired
             };
 
         private static readonly HashSet<string> ValidShifts =
@@ -27,20 +26,20 @@ namespace CarePlus.API.Services.WorkScheduleServices
             };
 
         private readonly IWorkScheduleRepository _workScheduleRepo;
+        private readonly IClinicRoomRepository _roomRepo;
         private readonly IStaffRepository _staffRepo;
         private readonly ICounterServices _counterService;
-        private readonly AppDbContext _db;
 
         public WorkScheduleServices(
             IWorkScheduleRepository workScheduleRepo,
+            IClinicRoomRepository roomRepo,
             IStaffRepository staffRepo,
-            ICounterServices counterService,
-            AppDbContext db)
+            ICounterServices counterService)
         {
             _workScheduleRepo = workScheduleRepo;
+            _roomRepo = roomRepo;
             _staffRepo = staffRepo;
             _counterService = counterService;
-            _db = db;
         }
 
         public async Task<ApiResponse<object>> CreateWorkScheduleAsync(
@@ -81,8 +80,7 @@ namespace CarePlus.API.Services.WorkScheduleServices
                             "A clinic room is required for doctor schedules.", 400);
                     }
 
-                    room = await _db.ClinicRooms
-                        .FirstOrDefaultAsync(item => item.RoomId == roomId);
+                    room = await _roomRepo.GetRoomByIdAsync(roomId);
                     if (room == null)
                     {
                         return ApiResponse<object>.Fail("Clinic room not found.", 404);
@@ -102,10 +100,8 @@ namespace CarePlus.API.Services.WorkScheduleServices
                         requestedEnd = requestedEnd.AddDays(1);
                     }
 
-                    var roomAssignments = await _db.RoomAssignments
-                        .AsNoTracking()
-                        .Where(item => item.RoomId == room.RoomId)
-                        .ToListAsync();
+                    var roomAssignments = await _roomRepo
+                        .GetAssignmentsByRoomIdAsync(room.RoomId);
                     var roomConflict = roomAssignments.Any(item =>
                     {
                         var existingStart = item.AssignmentDate.ToDateTime(item.StartTime);
@@ -144,9 +140,6 @@ namespace CarePlus.API.Services.WorkScheduleServices
                     Status = "Active"
                 };
 
-                await using var transaction = await _db.Database.BeginTransactionAsync();
-                await _db.WorkSchedules.AddAsync(workSchedule);
-
                 RoomAssignment? roomAssignment = null;
                 if (room != null)
                 {
@@ -162,11 +155,14 @@ namespace CarePlus.API.Services.WorkScheduleServices
                         Room = room,
                         Schedule = workSchedule,
                     };
-                    await _db.RoomAssignments.AddAsync(roomAssignment);
+                    await _workScheduleRepo.CreateWorkScheduleWithRoomAsync(
+                        workSchedule,
+                        roomAssignment);
                 }
-
-                await _db.SaveChangesAsync();
-                await transaction.CommitAsync();
+                else
+                {
+                    await _workScheduleRepo.CreateWorkScheduleAsync(workSchedule);
+                }
 
                 workSchedule.Staff = staff;
                 return ApiResponse<object>.Ok(ToResponse(workSchedule, roomAssignment));
@@ -335,7 +331,7 @@ namespace CarePlus.API.Services.WorkScheduleServices
                 if (!ValidStatuses.Contains(status))
                 {
                     return ApiResponse<object>.Fail(
-                        "Status must be Active or Inactive.", 400);
+                        "Status must be Active, Inactive, or Room Reassignment Required.", 400);
                 }
 
                 if (status == "Active")
@@ -373,11 +369,8 @@ namespace CarePlus.API.Services.WorkScheduleServices
                         requestedEnd = requestedEnd.AddDays(1);
                     }
 
-                    var conflictingAssignments = await _db.RoomAssignments
-                        .AsNoTracking()
-                        .Where(item => item.RoomId == roomAssignment.RoomId
-                            && item.AssignmentId != roomAssignment.AssignmentId)
-                        .ToListAsync();
+                    var conflictingAssignments = await _roomRepo
+                        .GetAssignmentsByRoomIdAsync(roomAssignment.RoomId);
 
                     var roomConflict = conflictingAssignments.Any(item =>
                     {
@@ -443,16 +436,9 @@ namespace CarePlus.API.Services.WorkScheduleServices
             string scheduleId,
             bool trackChanges = false)
         {
-            var query = _db.RoomAssignments
-                .Include(assignment => assignment.Room)
-                .Where(assignment => assignment.ScheduleId == scheduleId);
-
-            if (!trackChanges)
-            {
-                query = query.AsNoTracking();
-            }
-
-            return await query.FirstOrDefaultAsync();
+            return await _roomRepo.GetAssignmentByScheduleIdAsync(
+                scheduleId,
+                trackChanges);
         }
 
         private async Task<Dictionary<string, RoomAssignment>> LoadRoomAssignmentsAsync(
@@ -468,12 +454,8 @@ namespace CarePlus.API.Services.WorkScheduleServices
                 return new Dictionary<string, RoomAssignment>(StringComparer.OrdinalIgnoreCase);
             }
 
-            var assignments = await _db.RoomAssignments
-                .AsNoTracking()
-                .Include(assignment => assignment.Room)
-                .Where(assignment => assignment.ScheduleId != null
-                    && ids.Contains(assignment.ScheduleId))
-                .ToListAsync();
+            var assignments = await _roomRepo
+                .GetRoomAssignmentsByScheduleIdsAsync(ids);
 
             return assignments
                 .Where(assignment => assignment.ScheduleId != null)

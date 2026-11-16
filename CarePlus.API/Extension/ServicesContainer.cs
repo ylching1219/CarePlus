@@ -36,6 +36,8 @@ using CarePlus.API.Services.FamilyServices;
 using CarePlus.API.Services.FamilyServices.Interface;
 using CarePlus.API.Services.NotificationServices;
 using CarePlus.API.Services.NotificationServices.Interface;
+using CarePlus.API.Services.AnnouncementServices;
+using CarePlus.API.Services.AnnouncementServices.Interface;
 using CarePlus.API.Services.QueueServices;
 using CarePlus.API.Services.QueueServices.Interface;
 using CarePlus.API.Services.StaffService;
@@ -81,6 +83,7 @@ namespace CarePlus.API.Extension
             services.AddScoped<IPatientServices, PatientServices>();
             services.AddScoped<IFamilyServices, FamilyServices>();
             services.AddScoped<INotificationServices, NotificationServices>();
+            services.AddScoped<IAnnouncementServices, AnnouncementServices>();
             services.AddScoped<IQueueServices, QueueServices>();
             services.AddHostedService<AppointmentCheckInMonitor>();
             services.AddScoped<ICounterServices, CounterServices>();
@@ -132,6 +135,9 @@ namespace CarePlus.API.Extension
             services.AddScoped<IMedicineRepository, MedicineRepository>();
             services.AddScoped<IMedicineBatchRepository, MedicineBatchRepository>();
             services.AddScoped<IWorkScheduleRepository, WorkScheduleRepository>();
+            services.AddScoped<IAnnouncementRepository, AnnouncementRepository>();
+            services.AddScoped<IClinicRoomRepository, ClinicRoomRepository>();
+            services.AddScoped<INotificationRepository, NotificationRepository>();
             services.AddScoped<ILeaveRepository, LeaveRepository>();
             services.AddScoped<ICounterRepository, CounterRepository>();
             services.AddHttpContextAccessor();

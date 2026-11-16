@@ -1,3 +1,4 @@
+using CarePlus.API.Models.RoomAssg;
 using CarePlus.API.Models.WorkSch;
 
 namespace CarePlus.API.Repository.Interface
@@ -5,6 +6,9 @@ namespace CarePlus.API.Repository.Interface
     public interface IWorkScheduleRepository
     {
         Task<string> CreateWorkScheduleAsync(WorkSchedule workSchedule);
+        Task<string> CreateWorkScheduleWithRoomAsync(
+            WorkSchedule workSchedule,
+            RoomAssignment roomAssignment);
         Task<WorkSchedule?> GetWorkScheduleByIdAsync(string scheduleId);
         Task<List<WorkSchedule>> GetAllWorkSchedulesAsync();
         Task<List<WorkSchedule>> GetWorkSchedulesByStaffIdAsync(string staffId);

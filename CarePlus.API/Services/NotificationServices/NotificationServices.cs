@@ -674,7 +674,7 @@ public class NotificationServices : INotificationServices
 
     private static void Add(Dictionary<string, NotificationDraft> drafts, NotificationDraft draft) => drafts[draft.Id] = draft;
 
-    private static bool IsReminder(string type) => type is "appointment_reminder" or "appointment_cancelled" or "check_in_reminder" or "queue_update" or "payment_reminder" or "medicine_update";
+    private static bool IsReminder(string type) => type is "appointment_reminder" or "appointment_cancelled" or "check_in_reminder" or "queue_update" or "payment_reminder" or "medicine_update" or "room_assignment";
 
     private static bool IsGenerated(string id) => id.StartsWith("appointment-reminder:", StringComparison.Ordinal)
         || id.StartsWith("check-in-reminder:", StringComparison.Ordinal)
