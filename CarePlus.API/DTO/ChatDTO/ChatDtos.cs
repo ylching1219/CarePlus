@@ -5,7 +5,7 @@ namespace CarePlus.API.DTO.ChatDTO;
 public sealed class ChatRequest
 {
     [Required]
-    [StringLength(2000, MinimumLength = 1)]
+    [StringLength(500, MinimumLength = 1)]
     public string Message { get; set; } = string.Empty;
 
     [MaxLength(12)]
@@ -19,7 +19,7 @@ public sealed class ChatTurnRequest
     public string Role { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(2000, MinimumLength = 1)]
+    [StringLength(500, MinimumLength = 1)]
     public string Content { get; set; } = string.Empty;
 }
 
@@ -35,7 +35,7 @@ public sealed class PersistedChatMessageRequest
     public string? ThreadId { get; set; }
 
     [Required]
-    [StringLength(2000, MinimumLength = 1)]
+    [StringLength(500, MinimumLength = 1)]
     public string Message { get; set; } = string.Empty;
 }
 
@@ -73,7 +73,7 @@ public sealed class ImportChatMessageRequest
     public string Role { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(2000, MinimumLength = 1)]
+    [StringLength(500, MinimumLength = 1)]
     public string Content { get; set; } = string.Empty;
 
     public long? At { get; set; }

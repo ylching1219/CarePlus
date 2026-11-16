@@ -26,6 +26,14 @@ public sealed class ChatServices : IChatServices
     public async Task<ChatResponse> AnswerAsync(ChatRequest request, CancellationToken cancellationToken)
     {
         var question = request.Message.Trim();
+        var wordCount = question.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+        if (question.Length > 500 || wordCount > 80)
+        {
+            return new ChatResponse(
+                "Please keep your message under 80 words.",
+                _options.Disclaimer,
+                Array.Empty<ChatSourceResponse>());
+        }
         if (TryAnswerCommonWebsiteQuestion(question, out var commonResponse))
         {
             return commonResponse;
@@ -107,6 +115,17 @@ public sealed class ChatServices : IChatServices
     {
         var normalized = question.Trim().Trim('.', '!', '?', ',', '，', '。', '！', '？').ToLowerInvariant();
         var isChinese = ContainsChinese(question);
+        if (ContainsAny(normalized, "what can you do", "what can i do", "what can this", "what are you able to do", "how can you help", "你能做什么", "我可以做什么", "你能帮我什么", "这个网站能做什么"))
+        {
+            response = new ChatResponse(
+                isChinese
+                    ? "登录后，您可以在 CarePlus 做这些事：\n\n- 在 [预约](/book) 挂号，并在 [即将到来的就诊](/visits) 查看、改期或取消。\n- 在 [医生](/doctors) 查看医生资料。\n- 阅读 [诊所记录](/clinic-records)，并在 [个人健康记录](/records) 添加自己的记录。\n- 在 [药品](/medicine) 订购处方药，选择到诊所取药或配送。\n- 在 [未付账单](/invoices) 付款，并在 [付款记录](/payments) 下载收据。\n- 管理 [家庭档案](/family)，并查看 [通知](/notifications)。\n- 在 [账户](/account) 更新个人资料、付款卡和密码。\n\n未登录时可以查看医生、公告、[联系我们](/contact)、[注册](/register) 和 [登录](/login)。我不能诊断症状，也不能打开您的私人记录。"
+                    : "After you sign in, you can:\n\n- Book, reschedule, or cancel a visit in [Booking](/book) and [Upcoming visits](/visits).\n- Look up doctors in [Doctors](/doctors).\n- Read [Clinic records](/clinic-records) and add your own [Personal health records](/records).\n- Order prescribed medicine for pickup or delivery in [Medicine](/medicine).\n- Pay a bill in [Outstanding bill](/invoices) and open [Payment history](/payments).\n- Manage [Family profiles](/family) and read [Notifications](/notifications).\n- Update your profile, cards, and password in [Account](/account).\n\nBefore login, you can browse doctors, announcements, [Contact us](/contact), [Register](/register), and [Login](/login). I can't diagnose symptoms or open your private records.",
+                _options.Disclaimer,
+                [WebsiteGuideSource()]);
+            return true;
+        }
+
         var mentionsDoctor = ContainsAny(normalized, "doctor", "医生");
         var asksAvailability = ContainsAny(normalized, "available", "availability", "free", "open slot", "有空", "可预约", "空档");
         if (mentionsDoctor && asksAvailability)

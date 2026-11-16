@@ -113,6 +113,28 @@ public class FamilyServices : Interface.IFamilyServices
         if (targetPatient == null) return Fail("No active patient account was found for this email.", 404);
         if (targetPatient.PatientId == patientId) return Fail("You cannot invite yourself.", 400);
 
+        var since = DateTimeHelper.MalaysiaNow().AddHours(-24);
+        var ownerUserId = await _db.Patients.Where(row => row.PatientId == patientId).Select(row => row.UserId).FirstAsync();
+        var declineKey = $"family-decline:{targetPatient.PatientId}:";
+        var recentDeclines = await _db.Notifications.CountAsync(row =>
+            row.UserId == ownerUserId
+            && row.Type == "family_invitation_declined"
+            && row.CreatedAt >= since
+            && row.NotificationId.StartsWith(declineKey));
+        if (recentDeclines >= 3)
+        {
+            return Fail("You've invited them too many times. Please wait 24 hours before sending another invitation.", 429);
+        }
+
+        var pendingHere = await _db.FamilyMembers.AnyAsync(row =>
+            row.FamilyGroupId == group.FamilyGroupId
+            && row.PatientId == targetPatient.PatientId
+            && row.Status == "Pending");
+        if (pendingHere)
+        {
+            return Fail("You've invited them recently. Please wait for them to accept.", 409);
+        }
+
         if (await HasAnyActiveFamilyMembershipAsync(targetPatient.PatientId))
         {
             return Fail("This patient already belongs to a family.", 409);
@@ -345,7 +367,7 @@ public class FamilyServices : Interface.IFamilyServices
             var inviteeName = member.Patient.User.Name;
             await UpsertNotificationAsync(
                 member.FamilyGroup.Patient.UserId,
-                $"family-invite-declined:{familyMemberId}",
+                $"family-decline:{member.PatientId}:{familyMemberId}",
                 "Family invitation declined",
                 $"{inviteeName} declined your family invitation.",
                 "家庭邀请已拒绝",
@@ -450,7 +472,7 @@ public class FamilyServices : Interface.IFamilyServices
             var inviteeName = member.Patient.User.Name;
             await UpsertNotificationAsync(
                 member.FamilyGroup.Patient.UserId,
-                $"family-invite-declined:{member.FamilyMemberId}",
+                $"family-decline:{member.PatientId}:{member.FamilyMemberId}",
                 "Family invitation declined",
                 $"{inviteeName} declined your family invitation.",
                 "家庭邀请已拒绝",

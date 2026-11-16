@@ -27,6 +27,11 @@ namespace CarePlus.API.DTO.StripeDTO
         public string SessionId { get; set; } = "";
     }
 
+    public class CreateCardSetupRequest
+    {
+        public string? ReturnOrigin { get; set; }
+    }
+
     public class CheckoutSessionResponse
     {
         public string SessionId { get; set; } = "";
