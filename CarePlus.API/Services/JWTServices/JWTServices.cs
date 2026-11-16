@@ -22,7 +22,8 @@ public class JWTServices : IJWTServices
         string role,
         string? patientId = null,
         string? staffId = null,
-        bool rememberMe = false)
+        bool rememberMe = false,
+        int sessionVersion = 0)
     {
         var settings = _configuration.GetSection("JwtSettings");
         var secretKey = settings["SecretKey"]?? throw new InvalidOperationException("JWT secret key is missing.");
@@ -32,7 +33,8 @@ public class JWTServices : IJWTServices
             new(ClaimTypes.NameIdentifier, userId.ToString()),
             new(ClaimTypes.Name, username),
             new(ClaimTypes.Role, role),
-            new("accountType", accountType)
+            new("accountType", accountType),
+            new("sv", sessionVersion.ToString())
         };
 
         if (patientId != null)
@@ -41,6 +43,9 @@ public class JWTServices : IJWTServices
         if (staffId != null)
             claims.Add(new Claim("staffId", staffId));
 
+        if (rememberMe)
+            claims.Add(new Claim("remember", "1"));
+
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(secretKey));
 
@@ -48,8 +53,10 @@ public class JWTServices : IJWTServices
             key,
             SecurityAlgorithms.HmacSha256);
 
+        // ponytail: Remember Me has no session timer. Logout clears the token.
+        // The exp claim is only there because JWT validation expects one; remember tokens skip it.
         var expiryMinutes = rememberMe
-            ? settings.GetValue("RememberMeExpiryMinutes", 60 * 24 * 30)
+            ? 60 * 24 * 365 * 10
             : settings.GetValue("AccessTokenExpiryMinutes", 60);
 
         var token = new JwtSecurityToken(

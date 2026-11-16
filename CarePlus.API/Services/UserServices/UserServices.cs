@@ -304,6 +304,39 @@ namespace CarePlus.API.Services.UserServices
             return await _twoFactorServices.ResendLoginChallengeAsync(request.ChallengeId);
         }
 
+        public async Task<ApiResponse<object>> RefreshSessionAsync(long userId, bool rememberMe)
+        {
+            var user = await _userRepo.GetUserByIdAsync(userId);
+            if (user == null || !string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiResponse<object>.Fail("This account is not active.", 401);
+            }
+
+            var patient = await _patientRepo.GetPatientByUserIdAsync(user.UserId);
+            var staff = await _staffRepo.GetStaffByUserIdAsync(user.UserId);
+            if (patient == null && staff == null)
+            {
+                return ApiResponse<object>.Fail("User profile was not found", 404);
+            }
+
+            if (patient != null && staff != null)
+            {
+                return ApiResponse<object>.Fail("This account has multiple profiles", 409);
+            }
+
+            var token = _jwtService.GenerateToken(
+                user.UserId,
+                user.Username,
+                staff != null ? "Staff" : "Patient",
+                staff?.Role ?? "Patient",
+                patient?.PatientId,
+                staff?.StaffId,
+                rememberMe,
+                user.SessionVersion);
+
+            return ApiResponse<object>.Ok(new { token });
+        }
+
         private async Task<ApiResponse<object>> IssueLoginTokenAsync(
             User user,
             CarePlus.API.Models.Patient.Patient? patient,
@@ -319,7 +352,8 @@ namespace CarePlus.API.Services.UserServices
                 role,
                 patient?.PatientId,
                 staff?.StaffId,
-                rememberMe);
+                rememberMe,
+                user.SessionVersion);
 
             await RecordLoginAsync(user.UserId);
 
@@ -546,7 +580,7 @@ namespace CarePlus.API.Services.UserServices
             }
         }
 
-        public async Task<ApiResponse<object>> ChangePasswordAsync(long userId, PasswordChangeRequest request)
+        public async Task<ApiResponse<object>> ChangePasswordAsync(long userId, PasswordChangeRequest request, bool rememberMe = false)
         {
             var user = await _userRepo.GetUserByIdAsync(userId);
             if (user == null)
@@ -566,8 +600,26 @@ namespace CarePlus.API.Services.UserServices
             }
 
             user.PasswordHash = HashPassword(user, request.NewPassword);
+            user.SessionVersion += 1;
             await _userRepo.UpdateUserAsync(user);
-            return ApiResponse<object>.Ok(new { updated = true }, "Password updated.");
+
+            var patient = await _patientRepo.GetPatientByUserIdAsync(user.UserId);
+            var staff = await _staffRepo.GetStaffByUserIdAsync(user.UserId);
+            if ((patient == null && staff == null) || (patient != null && staff != null))
+            {
+                return ApiResponse<object>.Ok(new { updated = true }, "Password updated.");
+            }
+
+            var token = _jwtService.GenerateToken(
+                user.UserId,
+                user.Username,
+                staff != null ? "Staff" : "Patient",
+                staff?.Role ?? "Patient",
+                patient?.PatientId,
+                staff?.StaffId,
+                rememberMe,
+                user.SessionVersion);
+            return ApiResponse<object>.Ok(new { updated = true, token }, "Password updated.");
         }
 
         public async Task<ApiResponse<object>> DeleteCurrentAccountAsync(long userId, AccountDeleteRequest request)

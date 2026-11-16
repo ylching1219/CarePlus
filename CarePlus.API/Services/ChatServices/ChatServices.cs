@@ -1,5 +1,9 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+using CarePlus.API.Data;
 using CarePlus.API.DTO.ChatDTO;
 using CarePlus.API.Services.ChatServices.Interface;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace CarePlus.API.Services.ChatServices;
@@ -10,22 +14,33 @@ public sealed class ChatServices : IChatServices
     private readonly IGroqChatClient _groqClient;
     private readonly ChatOptions _options;
     private readonly IWebHostEnvironment _environment;
+    private readonly AppDbContext _db;
 
     public ChatServices(
         IVectorKnowledgeStore knowledgeStore,
         IGroqChatClient groqClient,
         IOptions<ChatOptions> options,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        AppDbContext db)
     {
         _knowledgeStore = knowledgeStore;
         _groqClient = groqClient;
         _options = options.Value;
         _environment = environment;
+        _db = db;
     }
 
     public async Task<ChatResponse> AnswerAsync(ChatRequest request, CancellationToken cancellationToken)
     {
         var question = request.Message.Trim();
+        var wordCount = question.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+        if (question.Length > 500 || wordCount > 80)
+        {
+            return new ChatResponse(
+                "Please keep your message under 80 words.",
+                _options.Disclaimer,
+                Array.Empty<ChatSourceResponse>());
+        }
         if (TryAnswerCommonWebsiteQuestion(question, out var commonResponse))
         {
             return commonResponse;
@@ -33,6 +48,12 @@ public sealed class ChatServices : IChatServices
         if (TryAnswerSmallTalk(question, out var smallTalkResponse))
         {
             return smallTalkResponse;
+        }
+
+        var clinicMedicine = await TryAnswerClinicMedicineAsync(question, cancellationToken);
+        if (clinicMedicine != null)
+        {
+            return clinicMedicine;
         }
 
         var matches = await _knowledgeStore.SearchAsync(ExpandRetrievalQuery(question), cancellationToken);
@@ -105,8 +126,19 @@ public sealed class ChatServices : IChatServices
 
     private bool TryAnswerCommonWebsiteQuestion(string question, out ChatResponse response)
     {
-        var normalized = question.Trim().Trim('.', '!', '?', ',', '，', '。', '！', '？').ToLowerInvariant();
+        var normalized = NormalizeChatText(question);
         var isChinese = ContainsChinese(question);
+        if (AsksWhatCarePlusCanDo(normalized))
+        {
+            response = new ChatResponse(
+                isChinese
+                    ? "登录后，您可以在 CarePlus 做这些事：\n\n- 在 [预约](/book) 挂号，并在 [即将到来的就诊](/visits) 查看、改期或取消。\n- 在 [医生](/doctors) 查看医生资料。\n- 阅读 [诊所记录](/clinic-records)，并在 [个人健康记录](/records) 添加自己的记录。\n- 在 [药品](/medicine) 订购处方药，选择到诊所取药或配送。\n- 在 [未付账单](/invoices) 付款，并在 [付款记录](/payments) 下载收据。\n- 管理 [家庭档案](/family)，并查看 [通知](/notifications)。\n- 在 [账户](/account) 更新个人资料、付款卡和密码。\n\n未登录时可以查看医生、公告、[联系我们](/contact)、[注册](/register) 和 [登录](/login)。我不能诊断症状，也不能打开您的私人记录。"
+                    : "After you sign in, you can:\n\n- Book, reschedule, or cancel a visit in [Booking](/book) and [Upcoming visits](/visits).\n- Look up doctors in [Doctors](/doctors).\n- Read [Clinic records](/clinic-records) and add your own [Personal health records](/records).\n- Order prescribed medicine for pickup or delivery in [Medicine](/medicine).\n- Pay a bill in [Outstanding bill](/invoices) and open [Payment history](/payments).\n- Manage [Family profiles](/family) and read [Notifications](/notifications).\n- Update your profile, cards, and password in [Account](/account).\n\nBefore login, you can browse doctors, announcements, [Contact us](/contact), [Register](/register), and [Login](/login). I can't diagnose symptoms or open your private records.",
+                _options.Disclaimer,
+                [WebsiteGuideSource()]);
+            return true;
+        }
+
         var mentionsDoctor = ContainsAny(normalized, "doctor", "医生");
         var asksAvailability = ContainsAny(normalized, "available", "availability", "free", "open slot", "有空", "可预约", "空档");
         if (mentionsDoctor && asksAvailability)
@@ -169,9 +201,271 @@ public sealed class ChatServices : IChatServices
         return false;
     }
 
+    private async Task<ChatResponse?> TryAnswerClinicMedicineAsync(string question, CancellationToken cancellationToken)
+    {
+        var rows = await _db.Medicines.AsNoTracking()
+            .OrderBy(row => row.MedicineName)
+            .Select(row => new
+            {
+                row.MedicineName,
+                row.NameZh,
+                row.Pack,
+                row.PackZh,
+                row.Description,
+                row.DescriptionZh,
+                row.Method,
+                row.MethodZh,
+                row.Price,
+                row.RequiresPrescription,
+                row.Status,
+            })
+            .ToListAsync(cancellationToken);
+        var catalog = rows.Select(row => new ClinicMedicine(
+            row.MedicineName,
+            row.NameZh,
+            row.Pack,
+            row.PackZh,
+            row.Description,
+            row.DescriptionZh,
+            row.Method,
+            row.MethodZh,
+            row.Price,
+            row.RequiresPrescription,
+            row.Status == "Available")).ToList();
+        if (!TryAnswerClinicMedicine(question, catalog, out var answer))
+        {
+            return null;
+        }
+
+        return new ChatResponse(answer, _options.Disclaimer, [new ChatSourceResponse(
+            "CarePlus clinic medicine list",
+            "CarePlus medicines uploaded for the clinic",
+            1)]);
+    }
+
+    private readonly record struct ClinicMedicine(
+        string Name,
+        string? NameZh,
+        string Pack,
+        string? PackZh,
+        string Description,
+        string? DescriptionZh,
+        string Method,
+        string? MethodZh,
+        decimal Price,
+        bool RequiresPrescription,
+        bool Available);
+
+    private static readonly string[] MedicineNameSkip = ["tablet", "tablets", "capsule", "capsules", "syrup", "pack", "oral", "suspension", "drops", "mg"];
+
+    private static bool TryAnswerClinicMedicine(string question, IReadOnlyList<ClinicMedicine> catalog, out string answer)
+    {
+        answer = "";
+        var normalized = NormalizeChatText(question);
+        var isChinese = ContainsChinese(question);
+        var hits = catalog.Where(item => NameMatches(normalized, item.Name) || NameMatches(normalized, item.NameZh)).Take(3).ToList();
+        var asksList = ContainsAny(normalized, "what medicine", "which medicine", "medicines do you", "medicines can i", "what can i buy", "list of medicine", "有什么药", "哪些药", "有哪些药", "可以买什么");
+        var asksBuy = ContainsAny(normalized, "buy", "purchase", "买", "购买");
+        var asksLimit = ContainsAny(normalized, "how many", "limit", "maximum", "最多", "几盒", "多少");
+        var asksDose = ContainsAny(normalized, "dose", "dosage", "what is it for", "used for", "should i take", "how do i take", "吃", "服用", "剂量", "用来", "作用");
+        var medicineWord = ContainsAny(normalized, "medicine", "medication", "drug", "药");
+        var askingCatalog = asksList || asksBuy || ((asksLimit || asksDose) && (medicineWord || hits.Count > 0)) || hits.Count > 0;
+        if (!askingCatalog)
+        {
+            return false;
+        }
+
+        if (hits.Count == 0)
+        {
+            answer = asksList
+                ? ListMedicines(catalog, isChinese)
+                : isChinese
+                    ? "诊所目前上传的药品里没有这个。请打开 [药品](/medicine) 查看现有药品。同一种药在同一个月内最多买 5 个单位。"
+                    : "That medicine is not in the list uploaded for the clinic. Open [Medicine](/medicine) to see what is available. Each medicine is capped at 5 units in one calendar month.";
+            return true;
+        }
+
+        var overLimit = OverMonthlyLimit(normalized, hits);
+
+        var lines = hits.Select(item => DescribeMedicine(item, isChinese, overLimit, asksDose)).ToArray();
+        var lead = overLimit
+            ? (isChinese ? "不可以。同一个月内，同一种药最多买 5 个单位。" : "No. The same patient can buy at most 5 units of the same medicine in one calendar month.")
+            : "";
+        answer = string.Join("\n\n", new[] { lead }.Concat(lines).Where(line => line.Length > 0));
+        return true;
+    }
+
+    private static string ListMedicines(IReadOnlyList<ClinicMedicine> catalog, bool isChinese)
+    {
+        var available = catalog.Where(item => item.Available).ToList();
+        if (available.Count == 0)
+        {
+            return isChinese
+                ? "诊所还没有上传可购买的药品。请稍后再打开 [药品](/medicine)，或联系诊所。"
+                : "The clinic has not uploaded any medicine that can be ordered yet. Open [Medicine](/medicine) later, or contact the clinic.";
+        }
+
+        var shown = available.Take(20).Select(item =>
+        {
+            var name = isChinese && !string.IsNullOrWhiteSpace(item.NameZh) ? item.NameZh! : item.Name;
+            var pack = isChinese && !string.IsNullOrWhiteSpace(item.PackZh) ? item.PackZh! : item.Pack;
+            return $"- {name} — {pack} — RM {item.Price.ToString("0.00", CultureInfo.InvariantCulture)}";
+        });
+        var more = available.Count > 20
+            ? (isChinese ? $"\n\n还有 {available.Count - 20} 种，请打开 [药品](/medicine) 查看。" : $"\n\n{available.Count - 20} more are on [Medicine](/medicine).")
+            : (isChinese ? "\n\n打开 [药品](/medicine) 可以查看详情并加入 [购物车](/cart)。" : "\n\nOpen [Medicine](/medicine) for details, then add a medicine to the [Cart](/cart).");
+        var intro = isChinese
+            ? "诊所目前上传了这些药品。同一种药在同一个月内最多买 5 个单位："
+            : "These are the medicines uploaded for the clinic. Each one is capped at 5 units in one calendar month:";
+        return intro + "\n\n" + string.Join("\n", shown) + more;
+    }
+
+    private static string DescribeMedicine(ClinicMedicine item, bool isChinese, bool overLimit, bool asksDose)
+    {
+        var name = isChinese && !string.IsNullOrWhiteSpace(item.NameZh) ? item.NameZh! : item.Name;
+        var pack = isChinese && !string.IsNullOrWhiteSpace(item.PackZh) ? item.PackZh! : item.Pack;
+        var price = item.Price.ToString("0.00", CultureInfo.InvariantCulture);
+        if (!item.Available)
+        {
+            return isChinese
+                ? $"{name} 已在诊所名单里，但现在不能下单。请打开 [药品](/medicine) 查看可购买的药品。"
+                : $"{name} is on the clinic list, but it cannot be ordered right now. Open [Medicine](/medicine) for medicines that are available.";
+        }
+
+        var prescription = item.RequiresPrescription
+            ? (isChinese ? " 这是处方药，需要医生先开药。" : " A doctor has to prescribe it before the clinic can supply it.")
+            : "";
+        if (asksDose)
+        {
+            var note = isChinese && !string.IsNullOrWhiteSpace(item.DescriptionZh) ? item.DescriptionZh! : item.Description;
+            var method = isChinese && !string.IsNullOrWhiteSpace(item.MethodZh) ? item.MethodZh! : item.Method;
+            var how = string.IsNullOrWhiteSpace(method) ? "" : (isChinese ? $" 诊所标注的用法：{method}。" : $" The clinic lists the directions as: {method}.");
+            return isChinese
+                ? $"{name}：{note}{how} 一个单位是 {pack}，RM {price}。这是诊所上传的说明，不是针对个人的剂量。同一种药一个月最多买 5 个单位。请打开 [药品](/medicine)。{prescription}"
+                : $"{name}: {note}{how} One unit is {pack}, RM {price}. This is the note uploaded by the clinic, not a personal dose. The monthly cap is 5 units. Open [Medicine](/medicine).{prescription}";
+        }
+
+        return isChinese
+            ? $"{name} 在 [药品](/medicine) 里。一个单位是 {pack}，RM {price}。{(overLimit ? "这个数量超过了每月 5 个单位的限制。" : "若还有库存，同一个月最多买 5 个单位。")}请登录后加入 [购物车](/cart)，再选择到诊所取药或配送。我看不到您的购物车和今天的库存。{prescription}"
+            : $"{name} is listed in [Medicine](/medicine). One unit is {pack}, RM {price}. {(overLimit ? "That quantity is over the monthly limit of 5 units." : "If it is in stock, you can buy up to 5 units of it in one calendar month.")} Sign in, add it to the [Cart](/cart), then choose clinic pickup or delivery. I can't see your cart or today's stock.{prescription}";
+    }
+
+    private static bool NameMatches(string normalized, string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        var lower = name.Trim().ToLowerInvariant();
+        if (normalized.Contains(lower, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        foreach (var token in lower.Split([' ', '-', '/', ',', '(', ')'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.Length < 4 || MedicineNameSkip.Contains(token) || int.TryParse(token, out _))
+            {
+                continue;
+            }
+            if (normalized.Contains(token, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool OverMonthlyLimit(string normalized, IReadOnlyList<ClinicMedicine> hits)
+    {
+        var inName = hits
+            .SelectMany(item => Regex.Matches(item.Name, @"\d+").Select(match => int.Parse(match.Value)))
+            .ToHashSet();
+        foreach (Match match in Regex.Matches(normalized, @"\d+"))
+        {
+            var count = int.Parse(match.Value);
+            if (inName.Contains(count))
+            {
+                continue;
+            }
+            var after = normalized[(match.Index + match.Length)..].TrimStart();
+            if (after.StartsWith("mg", StringComparison.Ordinal) || after.StartsWith("毫克", StringComparison.Ordinal))
+            {
+                continue;
+            }
+            if (count > 5)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static ChatServices()
+    {
+        var sample = new ClinicMedicine[]
+        {
+            new("Paracetamol 500 mg tablets", "扑热息痛", "20 tablets", "20 片", "For fever or pain.", null, "1 to 2 tablets", null, 8.90m, false, true),
+            new("Vitamin C drops", "维生素C", "10 bottles", null, "A supplement.", null, "Once a day", null, 12m, false, true),
+        };
+        if (!TryAnswerClinicMedicine("can i buy 6 paracetamol", sample, out var over) || !over.StartsWith("No.", StringComparison.Ordinal) || !over.Contains("Paracetamol", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Medicine answer missed an over-limit catalog question.");
+        }
+        if (!TryAnswerClinicMedicine("can i buy 2 vitamin c", sample, out var added) || !added.Contains("Vitamin C", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Medicine answer missed an uploaded medicine.");
+        }
+        if (!TryAnswerClinicMedicine("what medicines do you have", sample, out var list) || !list.Contains("Vitamin C", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Medicine answer missed the uploaded list.");
+        }
+        if (TryAnswerClinicMedicine("where is the clinic", sample, out _))
+        {
+            throw new InvalidOperationException("Medicine answer matched an unrelated question.");
+        }
+        if (!AsksWhatCarePlusCanDo(NormalizeChatText("what do u do")) || !AsksWhatCarePlusCanDo(NormalizeChatText("wat can u do")))
+        {
+            throw new InvalidOperationException("Capability answer missed an informal what-can-you-do question.");
+        }
+        if (AsksWhatCarePlusCanDo(NormalizeChatText("what do you do for a headache")))
+        {
+            throw new InvalidOperationException("Capability answer matched a symptom question.");
+        }
+    }
+
+    private static string NormalizeChatText(string question)
+    {
+        var normalized = question.Trim().Trim('.', '!', '?', ',', '，', '。', '！', '？').ToLowerInvariant();
+        normalized = Regex.Replace(normalized, @"\b(wat|wut)\b", "what");
+        normalized = Regex.Replace(normalized, @"\bur\b", "your");
+        normalized = Regex.Replace(normalized, @"\bu\b", "you");
+        normalized = Regex.Replace(normalized, @"\br\b", "are");
+        return Regex.Replace(normalized, @"\s+", " ").Trim();
+    }
+
+    private static bool AsksWhatCarePlusCanDo(string normalized)
+    {
+        if (ContainsAny(normalized, "what can you do", "what can i do", "what can this", "what are you able to do", "how can you help", "你能做什么", "我可以做什么", "你能帮我什么", "这个网站能做什么", "你会做什么", "你是做什么的"))
+        {
+            return true;
+        }
+
+        var words = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length > 6)
+        {
+            return false;
+        }
+
+        return normalized is "what do you do" or "what you do" or "what does this do" or "who are you" or "what do you do here";
+    }
+
     private static string ExpandRetrievalQuery(string question)
     {
-        var normalized = question.ToLowerInvariant();
+        var normalized = NormalizeChatText(question);
         if (ContainsAny(normalized, "book", "booking", "appointment", "visit", "slot", "预约", "挂号", "看诊"))
         {
             return $"{question}\nCarePlus appointment booking: make a booking, book a visit, choose doctor, visit type, date and available time slot.";
@@ -180,7 +474,7 @@ public sealed class ChatServices : IChatServices
         {
             return $"{question}\nCarePlus bills, outstanding invoices, payment, late fees, payment history and receipts.";
         }
-        if (ContainsAny(normalized, "medicine", "medication", "cart", "checkout", "order", "delivery", "pickup", "药", "购物车", "订单", "配送", "取药"))
+        if (ContainsAny(normalized, "medicine", "medication", "cart", "checkout", "order", "delivery", "pickup", "buy", "purchase", "paracetamol", "panadol", "amoxicillin", "loratadine", "ibuprofen", "cetirizine", "cloxacillin", "药", "购物车", "订单", "配送", "取药", "买", "扑热息痛", "阿莫西林", "布洛芬"))
         {
             return $"{question}\nCarePlus prescribed medicine, cart, checkout, medicine order, clinic pickup, delivery and order tracking.";
         }
@@ -209,7 +503,7 @@ public sealed class ChatServices : IChatServices
 
     private static bool TryAnswerSmallTalk(string question, out ChatResponse response)
     {
-        var normalized = question.Trim().Trim('.', '!', '?', ',', '，', '。', '！', '？').ToLowerInvariant();
+        var normalized = NormalizeChatText(question);
         if (GreetingPhrases.Contains(normalized))
         {
             var isChinese = ContainsChinese(question);

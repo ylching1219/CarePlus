@@ -15,7 +15,7 @@ public record PersonalRecordView(string Id, string Type, string? Label, string? 
 [Route("api/PersonalHealthRecord")]
 public class PersonalHealthRecordController(AppDbContext db, IWebHostEnvironment environment) : ControllerBase
 {
-    private const long MaxPdfBytes = 10 * 1024 * 1024;
+    private const long MaxPdfBytes = 15 * 1024 * 1024;
     private string PdfDirectory => Path.Combine(environment.ContentRootPath, "private-uploads", "personal-records");
 
     private async Task<string?> PatientIdAsync()
@@ -118,7 +118,7 @@ public class PersonalHealthRecordController(AppDbContext db, IWebHostEnvironment
         var patientId = await PatientIdAsync();
         if (patientId == null) return Forbid();
         if (file == null || file.Length < 5 || file.Length > MaxPdfBytes || !Path.GetExtension(file.FileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(ApiResponse<object>.Fail("Choose a PDF smaller than 10 MB.", 400));
+            return BadRequest(ApiResponse<object>.Fail("Choose a PDF smaller than 15 MB.", 400));
         await using var input = file.OpenReadStream();
         var header = new byte[5];
         if (await input.ReadAsync(header) != 5 || !header.SequenceEqual("%PDF-"u8.ToArray()))

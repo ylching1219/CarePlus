@@ -50,5 +50,27 @@ namespace CarePlus.API.Controllers
 
             return Ok(await _stripe.CompleteCheckoutAsync(userId, request));
         }
+
+        [HttpPost("Setup/Card")]
+        public async Task<IActionResult> SetupCard(CreateCardSetupRequest request)
+        {
+            if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            {
+                return Unauthorized(ApiResponse<CardSetupResponse>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _stripe.CreateCardSetupAsync(userId, request));
+        }
+
+        [HttpPost("Setup/Card/Complete")]
+        public async Task<IActionResult> CompleteCard(CompleteCheckoutRequest request)
+        {
+            if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            {
+                return Unauthorized(ApiResponse<CompletedCheckoutResponse>.Fail("Invalid token.", 401));
+            }
+
+            return Ok(await _stripe.CompleteCardSetupAsync(userId, request));
+        }
     }
 }

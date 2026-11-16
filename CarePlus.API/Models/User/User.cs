@@ -41,6 +41,9 @@ namespace CarePlus.API.Models.User
 
         public DateTime? PasswordLockoutUntilUtc { get; set; }
 
+        // Bumped on password change. Tokens carry this value; older ones are signed out.
+        public int SessionVersion { get; set; }
+
 
     }
 }

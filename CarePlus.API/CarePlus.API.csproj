@@ -26,4 +26,8 @@
     <Folder Include="wwwroot\leave-documents\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="KnowledgeBase\**\*.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

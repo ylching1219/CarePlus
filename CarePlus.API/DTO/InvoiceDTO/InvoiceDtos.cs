@@ -18,6 +18,7 @@ namespace CarePlus.API.DTO.InvoiceDTO
     public class InvoicePayRequest
     {
         public string PaymentMethod { get; set; } = "";
+        public long CardId { get; set; }
     }
 
     public class PaidInvoiceResponse

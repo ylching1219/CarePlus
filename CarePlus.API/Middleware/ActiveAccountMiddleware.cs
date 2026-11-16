@@ -22,13 +22,22 @@ namespace CarePlus.API.Middleware
                 var account = await db.Users
                     .AsNoTracking()
                     .Where(user => user.UserId == userId)
-                    .Select(user => new { user.Status, user.PasswordLockoutUntilUtc })
+                    .Select(user => new { user.Status, user.PasswordLockoutUntilUtc, user.SessionVersion })
                     .FirstOrDefaultAsync();
 
                 if (!string.Equals(account?.Status, "Active", StringComparison.OrdinalIgnoreCase))
                 {
                     context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                     await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail("This account is not active.", 401));
+                    return;
+                }
+
+                var versionClaim = context.User.FindFirstValue("sv");
+                var tokenVersion = int.TryParse(versionClaim, out var parsed) ? parsed : 0;
+                if (account!.SessionVersion != tokenVersion)
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail("password-changed", 401));
                     return;
                 }
 

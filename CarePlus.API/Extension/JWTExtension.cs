@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
@@ -40,6 +41,18 @@ public static class JWTExtension
 
                         ValidateLifetime = true,
                         ClockSkew = TimeSpan.Zero,
+                        LifetimeValidator = (notBefore, expires, securityToken, _) =>
+                        {
+                            if (securityToken is JwtSecurityToken jwt
+                                && jwt.Claims.Any(claim => claim.Type == "remember" && claim.Value == "1"))
+                            {
+                                return true;
+                            }
+
+                            var now = DateTime.UtcNow;
+                            if (notBefore is DateTime start && now < start) return false;
+                            return expires is DateTime end && now < end;
+                        },
                         RoleClaimType = ClaimTypes.Role,
                         NameClaimType = ClaimTypes.Name
                     };

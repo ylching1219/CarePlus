@@ -8,5 +8,6 @@ namespace CarePlus.API.Services.InvoiceServices.Interface
         Task<ApiResponse<List<OutstandingInvoiceResponse>>> ListOutstandingAsync(long userId);
         Task<ApiResponse<List<PaidInvoiceResponse>>> ListPaidAsync(long userId);
         Task<ApiResponse<OutstandingInvoiceResponse>> PayAsync(long userId, string invoiceId, InvoicePayRequest request);
+        Task<ApiResponse<OutstandingInvoiceResponse>> PayWithSavedCardAsync(long userId, string invoiceId, long cardId);
     }
 }

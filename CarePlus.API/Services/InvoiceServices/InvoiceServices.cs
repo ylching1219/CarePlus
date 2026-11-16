@@ -1,9 +1,12 @@
 using CarePlus.API.Data;
 using CarePlus.API.DTO.InvoiceDTO;
 using CarePlus.API.Extension;
+using CarePlus.API.Options;
 using CarePlus.API.Services.CounterServices.Interface;
 using CarePlus.API.Services.InvoiceServices.Interface;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Stripe;
 using PaymentRow = CarePlus.API.Models.Payment.Payment;
 
 namespace CarePlus.API.Services.InvoiceServices
@@ -12,11 +15,13 @@ namespace CarePlus.API.Services.InvoiceServices
     {
         private readonly AppDbContext _db;
         private readonly ICounterServices _counters;
+        private readonly StripeOptions _stripe;
 
-        public InvoiceServices(AppDbContext db, ICounterServices counters)
+        public InvoiceServices(AppDbContext db, ICounterServices counters, IOptions<StripeOptions> stripe)
         {
             _db = db;
             _counters = counters;
+            _stripe = stripe.Value;
         }
 
         public async Task<ApiResponse<List<AdminBillingRecordResponse>>> ListForAdminAsync()
@@ -111,7 +116,7 @@ namespace CarePlus.API.Services.InvoiceServices
                 .Include(row => row.Invoice)
                     .ThenInclude(invoice => invoice.MedicalRecord)
                 .Where(row => row.Invoice.PatientId == patient.PatientId
-                    && row.Invoice.MedicalRecordId != null
+                    && row.Invoice.OrderId == null
                     && (row.Status == "Paid" || row.Status == "Completed"))
                 .OrderByDescending(row => row.TransactionDate)
                 .ToListAsync();
@@ -141,6 +146,73 @@ namespace CarePlus.API.Services.InvoiceServices
             }).ToList();
 
             return ApiResponse<List<PaidInvoiceResponse>>.Ok(result);
+        }
+
+        public async Task<ApiResponse<OutstandingInvoiceResponse>> PayWithSavedCardAsync(long userId, string invoiceId, long cardId)
+        {
+            var card = await _db.PaymentCards.AsNoTracking().FirstOrDefaultAsync(row => row.Id == cardId && row.UserId == userId);
+            if (card == null)
+            {
+                return ApiResponse<OutstandingInvoiceResponse>.Fail("Choose a saved card.", 400);
+            }
+
+            var parts = card.NumberHash.Split(':');
+            if (parts.Length != 3 || parts[0] != "stripe")
+            {
+                return ApiResponse<OutstandingInvoiceResponse>.Fail("Add this card again from your profile so Stripe can store it.", 400);
+            }
+
+            var patient = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(row => row.UserId == userId);
+            var invoice = patient == null
+                ? null
+                : await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(row => row.InvoiceId == invoiceId && row.PatientId == patient.PatientId);
+            if (invoice == null || invoice.DueDate == null || invoice.PaymentStatus.Equals("Paid", StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiResponse<OutstandingInvoiceResponse>.Fail("That invoice is not open.", 400);
+            }
+
+            var cents = (long)Math.Round(ToResponse(invoice, DateTimeHelper.MalaysiaNow().Date).AmountDue * 100m, MidpointRounding.AwayFromZero);
+            if (cents < 200)
+            {
+                return ApiResponse<OutstandingInvoiceResponse>.Fail("Amount is too small for Stripe.", 400);
+            }
+            if (string.IsNullOrWhiteSpace(_stripe.SecretKey))
+            {
+                return ApiResponse<OutstandingInvoiceResponse>.Fail("Stripe is not configured.", 503);
+            }
+
+            try
+            {
+                StripeConfiguration.ApiKey = _stripe.SecretKey;
+                var intent = await new PaymentIntentService().CreateAsync(new PaymentIntentCreateOptions
+                {
+                    Amount = cents,
+                    Currency = string.IsNullOrWhiteSpace(_stripe.Currency) ? "myr" : _stripe.Currency.Trim().ToLowerInvariant(),
+                    Customer = parts[1],
+                    PaymentMethod = parts[2],
+                    Confirm = true,
+                    OffSession = true,
+                    Description = $"CarePlus invoice {invoice.InvoiceId}",
+                    Metadata = new Dictionary<string, string>
+                    {
+                        ["invoiceId"] = invoice.InvoiceId,
+                        ["userId"] = userId.ToString(),
+                    },
+                });
+                if (!string.Equals(intent.Status, "succeeded", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ApiResponse<OutstandingInvoiceResponse>.Fail("Stripe could not charge this card. Try another card or FPX.", 402);
+                }
+            }
+            catch (StripeException)
+            {
+                return ApiResponse<OutstandingInvoiceResponse>.Fail("Stripe could not charge this card. Try another card or FPX.", 402);
+            }
+
+            return await PayAsync(userId, invoiceId, new InvoicePayRequest
+            {
+                PaymentMethod = $"{card.Brand} ···· {card.Last4}",
+            });
         }
 
         public async Task<ApiResponse<OutstandingInvoiceResponse>> PayAsync(long userId, string invoiceId, InvoicePayRequest request)
