@@ -17,6 +17,7 @@ namespace CarePlus.API.Services.AppointmentServices
         public const int ReschedulesPerDay = 3;
         public const int CancelsBeforeBookingCloses = 3;
         public const int MinimumChildSelfBookingAge = 12;
+        public const int MinimumBookingLeadMinutes = 30;
 
         private static readonly TimeSpan MalaysiaOffset = TimeSpan.FromHours(8);
         private static readonly TimeSpan MorningStart = TimeSpan.FromHours(6);
@@ -362,7 +363,7 @@ namespace CarePlus.API.Services.AppointmentServices
                 return ApiResponse<AppointmentResponse>.Fail("Pick a valid time slot.", 400);
             }
 
-            if (start < now.AddMinutes(30))
+            if (start < now.AddMinutes(MinimumBookingLeadMinutes))
             {
                 return ApiResponse<AppointmentResponse>.Fail("slot-too-soon", 400);
             }
@@ -591,7 +592,7 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             var now = DateTimeHelper.MalaysiaNow();
-            if (start < now.AddMinutes(30))
+            if (start < now.AddMinutes(MinimumBookingLeadMinutes))
             {
                 return ApiResponse<AppointmentResponse>.Fail("slot-too-soon", 400);
             }
@@ -883,7 +884,7 @@ namespace CarePlus.API.Services.AppointmentServices
                         break;
                     }
                 }
-                var booked = start <= now || !freeDoctor;
+                var booked = start < now.AddMinutes(MinimumBookingLeadMinutes) || !freeDoctor;
                 var item = new BookingSlotResponse { StartAt = startAt, Label = label, Booked = booked };
                 if (time.Hours < 18 && time.Hours >= 6)
                 {

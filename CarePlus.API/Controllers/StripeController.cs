@@ -56,7 +56,7 @@ namespace CarePlus.API.Controllers
         {
             if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             {
-                return Unauthorized(ApiResponse<CheckoutSessionResponse>.Fail("Invalid token.", 401));
+                return Unauthorized(ApiResponse<CardSetupResponse>.Fail("Invalid token.", 401));
             }
 
             return Ok(await _stripe.CreateCardSetupAsync(userId, request));

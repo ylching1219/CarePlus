@@ -1807,6 +1807,11 @@ namespace CarePlus.API.Migrations
                     b.Property<DateTime?>("PasswordLockoutUntilUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("SessionVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
@@ -1843,6 +1848,7 @@ namespace CarePlus.API.Migrations
                             Email = "admin@gmail.com",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
+                            SessionVersion = 0,
                             Name = "Admin One",
                             PasswordHash = "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==",
                             Status = "Active",
@@ -1854,6 +1860,7 @@ namespace CarePlus.API.Migrations
                             Email = "doctor001@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
+                            SessionVersion = 0,
                             Name = "Doctor One",
                             PasswordHash = "AQAAAAIAAYagAAAAEGoelPdTS08xnFMkc6zJXJral4MAdthS0khrTQFqxq2lLRXB300vh4F487u+CoAz8w==",
                             Status = "Active",
@@ -1865,6 +1872,7 @@ namespace CarePlus.API.Migrations
                             Email = "doctor002@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
+                            SessionVersion = 0,
                             Name = "Doctor Two",
                             PasswordHash = "AQAAAAIAAYagAAAAENVjvWCqRGeKqDx7qaMq0bZriP0cMVXCvq9/g6Uv8p8KilJeLVp9Lur77q1u6ke5Ig==",
                             Status = "Active",
@@ -1876,6 +1884,7 @@ namespace CarePlus.API.Migrations
                             Email = "doctor003@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
+                            SessionVersion = 0,
                             Name = "Doctor Three",
                             PasswordHash = "AQAAAAIAAYagAAAAEKiHgZFZkJy/7Wj4tG4liN16amXXAenFi7oZG2287Iu2mtbzAoFop17fiM5oig2pdQ==",
                             Status = "Active",
@@ -1887,6 +1896,7 @@ namespace CarePlus.API.Migrations
                             Email = "doctor004@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
+                            SessionVersion = 0,
                             Name = "Doctor Four",
                             PasswordHash = "AQAAAAIAAYagAAAAEPN2650fnLQvqDVcWyy2LH33rvWhntm6s7qfwifGVOMPgWEsjwDoR3fxgvdt/B3jcw==",
                             Status = "Active",
@@ -1898,6 +1908,7 @@ namespace CarePlus.API.Migrations
                             Email = "pharmacist001@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
+                            SessionVersion = 0,
                             Name = "Pharmacist One",
                             PasswordHash = "AQAAAAIAAYagAAAAEG3iHfNMaN+/igy9fme2UrMWqdHuMzctlQftjRzLxm2SzFWEbriRJ6mZG+fKpPyXOw==",
                             Status = "Active",
@@ -1909,6 +1920,7 @@ namespace CarePlus.API.Migrations
                             Email = "pharmacist002@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
+                            SessionVersion = 0,
                             Name = "Pharmacist Two",
                             PasswordHash = "AQAAAAIAAYagAAAAEJpqLtK3RlHlxiavCb2iWKGWgiF6Pm2HVlvek7ysaZb6SJ5NB4TLuGnTxVihBcGpRQ==",
                             Status = "Active",
@@ -1920,6 +1932,7 @@ namespace CarePlus.API.Migrations
                             Email = "pharmacist003@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
+                            SessionVersion = 0,
                             Name = "Pharmacist Three",
                             PasswordHash = "AQAAAAIAAYagAAAAEMlRRueMa8uoEWnmk+vArUsHppCKM4olXhEt5NpiqYBfXkDPH/4rLJ/cAEGNJTjcqQ==",
                             Status = "Active",
@@ -1931,6 +1944,7 @@ namespace CarePlus.API.Migrations
                             Email = "pharmacist004@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
+                            SessionVersion = 0,
                             Name = "Pharmacist Four",
                             PasswordHash = "AQAAAAIAAYagAAAAENKWTF+b0fTQnXoTV+20lfIYjoEhlZquB1pkymPpbza24sKPeXPEWx0NXQGUS8kHyw==",
                             Status = "Active",

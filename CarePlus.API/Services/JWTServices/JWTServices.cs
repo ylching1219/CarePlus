@@ -22,7 +22,8 @@ public class JWTServices : IJWTServices
         string role,
         string? patientId = null,
         string? staffId = null,
-        bool rememberMe = false)
+        bool rememberMe = false,
+        int sessionVersion = 0)
     {
         var settings = _configuration.GetSection("JwtSettings");
         var secretKey = settings["SecretKey"]?? throw new InvalidOperationException("JWT secret key is missing.");
@@ -32,7 +33,8 @@ public class JWTServices : IJWTServices
             new(ClaimTypes.NameIdentifier, userId.ToString()),
             new(ClaimTypes.Name, username),
             new(ClaimTypes.Role, role),
-            new("accountType", accountType)
+            new("accountType", accountType),
+            new("sv", sessionVersion.ToString())
         };
 
         if (patientId != null)

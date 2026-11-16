@@ -1,6 +1,6 @@
 # What you can do in CarePlus
 
-Use this when someone asks what can you do, what can I do, what can this website do, what are you able to do, how can you help, or what features are available. Chinese wording: 你能做什么、我可以做什么、这个网站能做什么、你能帮我什么。
+Use this when someone asks what can you do, what do you do, what can I do, what can this website do, what are you able to do, how can you help, or what features are available. Short wording such as "what do u do" and "wat can u do" means the same thing. Chinese wording: 你能做什么、我可以做什么、这个网站能做什么、你能帮我什么。
 
 After signing in, a patient can:
 

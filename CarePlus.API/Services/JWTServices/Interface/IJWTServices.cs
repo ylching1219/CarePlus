@@ -9,7 +9,8 @@
             string role, 
             string? patientId = null, 
             string? staffId = null,
-            bool rememberMe = false
+            bool rememberMe = false,
+            int sessionVersion = 0
         );
     }
 }

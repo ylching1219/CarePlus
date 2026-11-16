@@ -64,6 +64,19 @@ namespace CarePlus.API.Controllers
         }
 
         [Authorize]
+        [HttpPost("Refresh")]
+        public async Task<IActionResult> RefreshSession()
+        {
+            if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId))
+            {
+                return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+            }
+
+            var remember = User.FindFirstValue("remember") == "1";
+            return Ok(await _userServices.RefreshSessionAsync(userId, remember));
+        }
+
+        [Authorize]
         [HttpGet("Activity")]
         public async Task<IActionResult> LoginActivityRetrieve()
         {
@@ -126,7 +139,8 @@ namespace CarePlus.API.Controllers
                 return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
             }
 
-            return Ok(await _userServices.ChangePasswordAsync(userId, request));
+            var remember = User.FindFirstValue("remember") == "1";
+            return Ok(await _userServices.ChangePasswordAsync(userId, request, remember));
         }
 
         [Authorize]

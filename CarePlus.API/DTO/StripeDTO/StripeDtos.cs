@@ -39,6 +39,13 @@ namespace CarePlus.API.DTO.StripeDTO
         public string PublishableKey { get; set; } = "";
     }
 
+    public class CardSetupResponse
+    {
+        public string SetupIntentId { get; set; } = "";
+        public string ClientSecret { get; set; } = "";
+        public string PublishableKey { get; set; } = "";
+    }
+
     public class CompletedCheckoutResponse
     {
         public string Kind { get; set; } = "";

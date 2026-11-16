@@ -126,9 +126,9 @@ public sealed class ChatServices : IChatServices
 
     private bool TryAnswerCommonWebsiteQuestion(string question, out ChatResponse response)
     {
-        var normalized = question.Trim().Trim('.', '!', '?', ',', '，', '。', '！', '？').ToLowerInvariant();
+        var normalized = NormalizeChatText(question);
         var isChinese = ContainsChinese(question);
-        if (ContainsAny(normalized, "what can you do", "what can i do", "what can this", "what are you able to do", "how can you help", "你能做什么", "我可以做什么", "你能帮我什么", "这个网站能做什么"))
+        if (AsksWhatCarePlusCanDo(normalized))
         {
             response = new ChatResponse(
                 isChinese
@@ -261,7 +261,7 @@ public sealed class ChatServices : IChatServices
     private static bool TryAnswerClinicMedicine(string question, IReadOnlyList<ClinicMedicine> catalog, out string answer)
     {
         answer = "";
-        var normalized = question.Trim().Trim('.', '!', '?', ',', '，', '。', '！', '？').ToLowerInvariant();
+        var normalized = NormalizeChatText(question);
         var isChinese = ContainsChinese(question);
         var hits = catalog.Where(item => NameMatches(normalized, item.Name) || NameMatches(normalized, item.NameZh)).Take(3).ToList();
         var asksList = ContainsAny(normalized, "what medicine", "which medicine", "medicines do you", "medicines can i", "what can i buy", "list of medicine", "有什么药", "哪些药", "有哪些药", "可以买什么");
@@ -427,11 +427,45 @@ public sealed class ChatServices : IChatServices
         {
             throw new InvalidOperationException("Medicine answer matched an unrelated question.");
         }
+        if (!AsksWhatCarePlusCanDo(NormalizeChatText("what do u do")) || !AsksWhatCarePlusCanDo(NormalizeChatText("wat can u do")))
+        {
+            throw new InvalidOperationException("Capability answer missed an informal what-can-you-do question.");
+        }
+        if (AsksWhatCarePlusCanDo(NormalizeChatText("what do you do for a headache")))
+        {
+            throw new InvalidOperationException("Capability answer matched a symptom question.");
+        }
+    }
+
+    private static string NormalizeChatText(string question)
+    {
+        var normalized = question.Trim().Trim('.', '!', '?', ',', '，', '。', '！', '？').ToLowerInvariant();
+        normalized = Regex.Replace(normalized, @"\b(wat|wut)\b", "what");
+        normalized = Regex.Replace(normalized, @"\bur\b", "your");
+        normalized = Regex.Replace(normalized, @"\bu\b", "you");
+        normalized = Regex.Replace(normalized, @"\br\b", "are");
+        return Regex.Replace(normalized, @"\s+", " ").Trim();
+    }
+
+    private static bool AsksWhatCarePlusCanDo(string normalized)
+    {
+        if (ContainsAny(normalized, "what can you do", "what can i do", "what can this", "what are you able to do", "how can you help", "你能做什么", "我可以做什么", "你能帮我什么", "这个网站能做什么", "你会做什么", "你是做什么的"))
+        {
+            return true;
+        }
+
+        var words = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length > 6)
+        {
+            return false;
+        }
+
+        return normalized is "what do you do" or "what you do" or "what does this do" or "who are you" or "what do you do here";
     }
 
     private static string ExpandRetrievalQuery(string question)
     {
-        var normalized = question.ToLowerInvariant();
+        var normalized = NormalizeChatText(question);
         if (ContainsAny(normalized, "book", "booking", "appointment", "visit", "slot", "预约", "挂号", "看诊"))
         {
             return $"{question}\nCarePlus appointment booking: make a booking, book a visit, choose doctor, visit type, date and available time slot.";
@@ -469,7 +503,7 @@ public sealed class ChatServices : IChatServices
 
     private static bool TryAnswerSmallTalk(string question, out ChatResponse response)
     {
-        var normalized = question.Trim().Trim('.', '!', '?', ',', '，', '。', '！', '？').ToLowerInvariant();
+        var normalized = NormalizeChatText(question);
         if (GreetingPhrases.Contains(normalized))
         {
             var isChinese = ContainsChinese(question);

@@ -382,16 +382,10 @@ namespace CarePlus.API.Services.StripeServices
             return ApiResponse<CompletedCheckoutResponse>.Fail("Unknown Stripe checkout kind.", 400);
         }
 
-        public async Task<ApiResponse<CheckoutSessionResponse>> CreateCardSetupAsync(long userId, CreateCardSetupRequest request)
+        public async Task<ApiResponse<CardSetupResponse>> CreateCardSetupAsync(long userId, CreateCardSetupRequest request)
         {
-            var setup = EnsureConfigured();
+            var setup = EnsureCardSetupConfigured();
             if (setup != null) return setup;
-
-            var origin = ResolveOrigin(request.ReturnOrigin);
-            if (origin == null)
-            {
-                return ApiResponse<CheckoutSessionResponse>.Fail("Return origin is not allowed.", 400);
-            }
 
             try
             {
@@ -399,7 +393,7 @@ namespace CarePlus.API.Services.StripeServices
                 var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(row => row.UserId == userId);
                 if (user == null)
                 {
-                    return ApiResponse<CheckoutSessionResponse>.Fail("Account was not found.", 404);
+                    return ApiResponse<CardSetupResponse>.Fail("Account was not found.", 404);
                 }
 
                 var customerId = await StripeCustomerIdAsync(userId);
@@ -414,14 +408,11 @@ namespace CarePlus.API.Services.StripeServices
                     customerId = customer.Id;
                 }
 
-                var session = await new SessionService().CreateAsync(new SessionCreateOptions
+                var intent = await new SetupIntentService().CreateAsync(new SetupIntentCreateOptions
                 {
-                    Mode = "setup",
                     Customer = customerId,
-                    ClientReferenceId = userId.ToString(),
-                    PaymentMethodTypes = new List<string> { "card" },
-                    SuccessUrl = $"{origin}/account?card_setup={{CHECKOUT_SESSION_ID}}",
-                    CancelUrl = $"{origin}/account",
+                    Usage = "off_session",
+                    PaymentMethodTypes = ["card"],
                     Metadata = new Dictionary<string, string>
                     {
                         ["kind"] = "card-setup",
@@ -429,21 +420,21 @@ namespace CarePlus.API.Services.StripeServices
                     },
                 });
 
-                if (string.IsNullOrWhiteSpace(session.Url))
+                if (string.IsNullOrWhiteSpace(intent.ClientSecret))
                 {
-                    return ApiResponse<CheckoutSessionResponse>.Fail("Stripe did not return a checkout URL.", 502);
+                    return ApiResponse<CardSetupResponse>.Fail("Stripe did not return a card form.", 502);
                 }
 
-                return ApiResponse<CheckoutSessionResponse>.Ok(new CheckoutSessionResponse
+                return ApiResponse<CardSetupResponse>.Ok(new CardSetupResponse
                 {
-                    SessionId = session.Id,
-                    Url = session.Url,
+                    SetupIntentId = intent.Id,
+                    ClientSecret = intent.ClientSecret,
                     PublishableKey = _stripe.PublishableKey,
                 });
             }
             catch (StripeException)
             {
-                return ApiResponse<CheckoutSessionResponse>.Fail("Payment provider error.", 502);
+                return ApiResponse<CardSetupResponse>.Fail("Payment provider error.", 502);
             }
         }
 
@@ -461,6 +452,31 @@ namespace CarePlus.API.Services.StripeServices
             try
             {
                 StripeConfiguration.ApiKey = _stripe.SecretKey;
+                if (sessionId.StartsWith("seti_", StringComparison.Ordinal))
+                {
+                    var intent = await new SetupIntentService().GetAsync(sessionId, new SetupIntentGetOptions
+                    {
+                        Expand = ["payment_method"],
+                    });
+                    if (intent.Metadata == null
+                        || !intent.Metadata.TryGetValue("userId", out var intentOwner)
+                        || intentOwner != userId.ToString())
+                    {
+                        return ApiResponse<CompletedCheckoutResponse>.Fail("This card setup belongs to another account.", 403);
+                    }
+                    if (!string.Equals(intent.Status, "succeeded", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ApiResponse<CompletedCheckoutResponse>.Fail("Card setup is not complete yet.", 400);
+                    }
+
+                    var intentMethod = intent.PaymentMethod;
+                    if (intentMethod == null && !string.IsNullOrWhiteSpace(intent.PaymentMethodId))
+                    {
+                        intentMethod = await new PaymentMethodService().GetAsync(intent.PaymentMethodId);
+                    }
+                    return await SaveStripeCardAsync(userId, intent.CustomerId, intentMethod);
+                }
+
                 var session = await new SessionService().GetAsync(sessionId, new SessionGetOptions
                 {
                     Expand = new List<string> { "setup_intent.payment_method" },
@@ -482,45 +498,81 @@ namespace CarePlus.API.Services.StripeServices
                 {
                     method = await new PaymentMethodService().GetAsync(setupIntent.PaymentMethodId);
                 }
-                if (method?.Card == null || string.IsNullOrWhiteSpace(method.Id) || string.IsNullOrWhiteSpace(session.CustomerId))
-                {
-                    return ApiResponse<CompletedCheckoutResponse>.Fail("Stripe did not return a saved card.", 502);
-                }
-
-                var marker = $"stripe:{session.CustomerId}:{method.Id}";
-                var existing = await _db.PaymentCards.Where(card => card.UserId == userId).ToListAsync();
-                if (existing.Any(card => card.NumberHash == marker))
-                {
-                    return ApiResponse<CompletedCheckoutResponse>.Ok(new CompletedCheckoutResponse { Kind = "card-setup", Paid = true });
-                }
-
-                var brand = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(method.Card.Brand ?? "card");
-                if (brand.Length > 20) brand = brand[..20];
-                var holder = method.BillingDetails?.Name?.Trim() ?? "";
-                if (holder.Length == 0)
-                {
-                    holder = await _db.Users.Where(row => row.UserId == userId).Select(row => row.Name).FirstAsync();
-                }
-                if (holder.Length > 26) holder = holder[..26];
-
-                _db.PaymentCards.Add(new PaymentCard
-                {
-                    UserId = userId,
-                    Brand = brand,
-                    Last4 = method.Card.Last4 ?? "",
-                    Expiry = $"{method.Card.ExpMonth:00}/{method.Card.ExpYear % 100:00}",
-                    HolderName = holder,
-                    NumberHash = marker,
-                    CvvHash = "stripe",
-                    IsDefault = existing.Count == 0,
-                });
-                await _db.SaveChangesAsync();
-                return ApiResponse<CompletedCheckoutResponse>.Ok(new CompletedCheckoutResponse { Kind = "card-setup", Method = "card", Paid = true });
+                return await SaveStripeCardAsync(userId, session.CustomerId, method);
             }
             catch (StripeException)
             {
                 return ApiResponse<CompletedCheckoutResponse>.Fail("Payment provider error.", 502);
             }
+        }
+
+        private async Task<ApiResponse<CompletedCheckoutResponse>> SaveStripeCardAsync(long userId, string? customerId, PaymentMethod? method)
+        {
+            if (method?.Card == null || string.IsNullOrWhiteSpace(method.Id) || string.IsNullOrWhiteSpace(customerId))
+            {
+                return ApiResponse<CompletedCheckoutResponse>.Fail("Stripe did not return a saved card.", 502);
+            }
+
+            var marker = $"stripe:{customerId}:{method.Id}";
+            var existing = await _db.PaymentCards.Where(card => card.UserId == userId).ToListAsync();
+            if (existing.Any(card => card.NumberHash == marker))
+            {
+                return ApiResponse<CompletedCheckoutResponse>.Ok(new CompletedCheckoutResponse { Kind = "card-setup", Paid = true });
+            }
+
+            var last4 = method.Card.Last4 ?? "";
+            var expiry = $"{method.Card.ExpMonth:00}/{method.Card.ExpYear % 100:00}";
+            var fingerprint = method.Card.Fingerprint ?? "";
+            if (existing.Any(card =>
+                (card.Last4 == last4 && card.Expiry == expiry)
+                || (fingerprint.Length > 0 && card.CvvHash == "fp:" + fingerprint)))
+            {
+                try
+                {
+                    await new PaymentMethodService().DetachAsync(method.Id);
+                }
+                catch (StripeException)
+                {
+                    // The local account still rejects the duplicate if Stripe keeps the extra method.
+                }
+
+                return ApiResponse<CompletedCheckoutResponse>.Fail("This card is already saved.", 400);
+            }
+
+            var brand = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(method.Card.Brand ?? "card");
+            if (brand.Length > 20) brand = brand[..20];
+            var holder = method.BillingDetails?.Name?.Trim() ?? "";
+            if (holder.Length == 0)
+            {
+                holder = await _db.Users.Where(row => row.UserId == userId).Select(row => row.Name).FirstAsync();
+            }
+            if (holder.Length > 26) holder = holder[..26];
+
+            _db.PaymentCards.Add(new PaymentCard
+            {
+                UserId = userId,
+                Brand = brand,
+                Last4 = method.Card.Last4 ?? "",
+                Expiry = $"{method.Card.ExpMonth:00}/{method.Card.ExpYear % 100:00}",
+                HolderName = holder,
+                NumberHash = marker,
+                CvvHash = fingerprint.Length > 0 ? "fp:" + fingerprint : "stripe",
+                IsDefault = existing.Count == 0,
+            });
+            await _db.SaveChangesAsync();
+            return ApiResponse<CompletedCheckoutResponse>.Ok(new CompletedCheckoutResponse { Kind = "card-setup", Method = "card", Paid = true });
+        }
+
+        private ApiResponse<CardSetupResponse>? EnsureCardSetupConfigured()
+        {
+            if (string.IsNullOrWhiteSpace(_stripe.SecretKey) || string.IsNullOrWhiteSpace(_stripe.PublishableKey))
+            {
+                return ApiResponse<CardSetupResponse>.Fail(
+                    "Stripe is not configured. Add Stripe:SecretKey and Stripe:PublishableKey.",
+                    503);
+            }
+
+            return null;
         }
 
         private async Task<string?> StripeCustomerIdAsync(long userId)
