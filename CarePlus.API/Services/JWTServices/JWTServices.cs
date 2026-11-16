@@ -41,6 +41,9 @@ public class JWTServices : IJWTServices
         if (staffId != null)
             claims.Add(new Claim("staffId", staffId));
 
+        if (rememberMe)
+            claims.Add(new Claim("remember", "1"));
+
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(secretKey));
 
@@ -48,8 +51,10 @@ public class JWTServices : IJWTServices
             key,
             SecurityAlgorithms.HmacSha256);
 
+        // ponytail: Remember Me has no session timer. Logout clears the token.
+        // The exp claim is only there because JWT validation expects one; remember tokens skip it.
         var expiryMinutes = rememberMe
-            ? settings.GetValue("RememberMeExpiryMinutes", 60 * 24 * 30)
+            ? 60 * 24 * 365 * 10
             : settings.GetValue("AccessTokenExpiryMinutes", 60);
 
         var token = new JwtSecurityToken(
