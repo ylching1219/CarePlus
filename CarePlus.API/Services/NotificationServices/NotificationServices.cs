@@ -5,6 +5,7 @@ using CarePlus.API.DTO.NotificationDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.Notification;
 using CarePlus.API.Models.Payment;
+using CarePlus.API.Models.Prescription;
 using CarePlus.API.Services.NotificationServices.Interface;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
@@ -496,7 +497,7 @@ public class NotificationServices : INotificationServices
 
         var invoices = await _db.Invoices
             .AsNoTracking()
-            .Where(row => row.PatientId == patientId && row.PaymentStatus != "Paid")
+            .Where(row => row.PatientId == patientId && row.DueDate != null && row.PaymentStatus != "Paid")
             .ToListAsync();
         foreach (var invoice in invoices)
         {
@@ -554,23 +555,25 @@ public class NotificationServices : INotificationServices
             ? new Dictionary<string, DateTime>(StringComparer.Ordinal)
             : await _db.DispenseRecords.AsNoTracking()
                 .Where(row => prescriptionIds.Contains(row.PrescriptionId))
-                .ToDictionaryAsync(row => row.PrescriptionId, row => row.DispenseAt);
+                .GroupBy(row => row.PrescriptionId)
+                .Select(group => new { PrescriptionId = group.Key, At = group.Max(row => row.DispenseAt) })
+                .ToDictionaryAsync(row => row.PrescriptionId, row => row.At);
         foreach (var prescription in prescriptions)
         {
             var status = prescription.Status?.Trim().ToLowerInvariant();
-            if (status == "preparing")
+            if (string.Equals(status, Prescription.ReadyForPickupStatus, StringComparison.OrdinalIgnoreCase))
             {
                 Add(drafts, new NotificationDraft(
-                    $"prescription-ready:{prescription.PrescriptionId}",
-                    "Come and pick up your medicine",
-                    $"Your prescription {prescription.PrescriptionId} is being prepared. Come and pick it up at the clinic pharmacy.",
-                    "请来领取药物",
-                    $"处方 {prescription.PrescriptionId} 正在准备，请到诊所药房领取。",
+                    $"prescription-ready:pickup:{prescription.PrescriptionId}",
+                    "Prescription ready for pickup",
+                    $"Your prescription {prescription.PrescriptionId} is ready to collect at the clinic pharmacy.",
+                    "处方药已备好",
+                    $"处方 {prescription.PrescriptionId} 的药物已备好，请到诊所药房领取。",
                     "CarePlus Pharmacy",
                     "CP",
                     "medicine_update",
                     "/notifications",
-                    prescription.CreatedAt));
+                    now));
                 continue;
             }
 
@@ -638,9 +641,16 @@ public class NotificationServices : INotificationServices
                 announcement.CreatedAt));
         }
 
-        var ids = drafts.Keys.ToList();
         var existing = await _db.Notifications.Where(row => row.UserId == userId).ToListAsync();
         var byId = existing.ToDictionary(row => row.NotificationId, StringComparer.Ordinal);
+        foreach (var prescriptionId in prescriptionIds)
+        {
+            if (byId.TryGetValue($"prescription-ready:{prescriptionId}", out var oldPreparationNotice))
+            {
+                oldPreparationNotice.Status = "Deleted";
+            }
+        }
+
         foreach (var draft in drafts.Values)
         {
             if (!byId.TryGetValue(draft.Id, out var row))

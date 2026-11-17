@@ -9,6 +9,8 @@ namespace CarePlus.API.Models.Prescription
     [Table("Prescriptions")]
     public class Prescription
     {
+        public const string ReadyForPickupStatus = "ReadyForPickup";
+
         [Key]
         public string PrescriptionId { get; set; } = null!;
 
@@ -26,6 +28,7 @@ namespace CarePlus.API.Models.Prescription
 
         public DateTime CreatedAt { get; set; } = DateTimeHelper.MalaysiaNow();
 
-        public string Status { get; set; } = "Pending"; 
+        [ConcurrencyCheck]
+        public string Status { get; set; } = "Pending";
     }
 }

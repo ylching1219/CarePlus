@@ -2,6 +2,10 @@ namespace CarePlus.API.Extension;
 
 public static class InvoiceVisitLabel
 {
+    public const string PrescriptionMedicines = "Prescription medicines";
+
+    public static bool IsPrescription(string? value) => Read(value).Visit == PrescriptionMedicines;
+
     static InvoiceVisitLabel()
     {
         var (visit, name) = Read(Pack("General consultation", "Aina Tan"));

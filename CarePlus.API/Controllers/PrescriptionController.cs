@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using CarePlus.API.DTO.PrescriptionDTO;
+using CarePlus.API.Extension;
 using CarePlus.API.Services.PrescriptionServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -48,7 +49,7 @@ public class PrescriptionController(PrescriptionServices prescriptions) : Contro
             return Unauthorized(ApiResponse<PrescriptionSummaryResponse>.Fail("Invalid token.", 401));
         }
 
-        return Ok(await prescriptions.CompleteDispensingAsync(userId, prescriptionId, cancellationToken));
+        return this.ApiResult(await prescriptions.CompleteDispensingAsync(userId, prescriptionId, cancellationToken));
     }
 
     [Authorize(Roles = "Admin,Pharmacist")]
@@ -60,7 +61,19 @@ public class PrescriptionController(PrescriptionServices prescriptions) : Contro
             return Unauthorized(ApiResponse<PrescriptionSummaryResponse>.Fail("Invalid token.", 401));
         }
 
-        return Ok(await prescriptions.MarkPreparingAsync(userId, prescriptionId, cancellationToken));
+        return this.ApiResult(await prescriptions.MarkPreparingAsync(userId, prescriptionId, cancellationToken));
+    }
+
+    [Authorize(Roles = "Admin,Pharmacist")]
+    [HttpPatch("{prescriptionId}/ReadyForPickup")]
+    public async Task<IActionResult> MarkReadyForPickup(string prescriptionId, CancellationToken cancellationToken)
+    {
+        if (!TryUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<PrescriptionSummaryResponse>.Fail("Invalid token.", 401));
+        }
+
+        return this.ApiResult(await prescriptions.MarkReadyForPickupAsync(userId, prescriptionId, cancellationToken));
     }
 
     [HttpGet("Dispensed")]

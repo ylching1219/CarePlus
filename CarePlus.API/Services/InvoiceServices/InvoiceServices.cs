@@ -7,6 +7,7 @@ using CarePlus.API.Services.InvoiceServices.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Stripe;
+using InvoiceRow = CarePlus.API.Models.Invoice.Invoice;
 using PaymentRow = CarePlus.API.Models.Payment.Payment;
 
 namespace CarePlus.API.Services.InvoiceServices
@@ -31,6 +32,7 @@ namespace CarePlus.API.Services.InvoiceServices
                 .AsNoTracking()
                 .Include(row => row.Patient)
                     .ThenInclude(patient => patient.User)
+                .Where(row => row.PaymentStatus != InvoiceRow.AwaitingPickupStatus)
                 .OrderByDescending(row => row.IssueAt)
                 .ToListAsync();
 
@@ -67,7 +69,9 @@ namespace CarePlus.API.Services.InvoiceServices
                     PatientId = invoice.PatientId,
                     PatientName = invoice.Patient?.User?.Name ?? "Unknown patient",
                     PatientUsername = invoice.Patient?.User?.Username ?? "",
-                    Source = invoice.OrderId != null ? "Medicine order" : "Consultation",
+                    Source = invoice.OrderId != null ? "Medicine order"
+                        : InvoiceVisitLabel.IsPrescription(invoice.VisitType) ? "Prescription"
+                        : "Consultation",
                     RecordId = invoice.RecordRef ?? invoice.MedicalRecordId ?? invoice.OrderId ?? "",
                     DoctorName = invoice.DoctorName ?? "",
                     VisitType = InvoiceVisitLabel.Read(invoice.VisitType).Visit,
@@ -132,7 +136,7 @@ namespace CarePlus.API.Services.InvoiceServices
                 return new PaidInvoiceResponse
                 {
                     Id = row.PaymentId,
-                    RecordId = invoice.RecordRef ?? invoice.MedicalRecordId ?? "",
+                    RecordId = InvoiceVisitLabel.IsPrescription(invoice.VisitType) ? "" : invoice.RecordRef ?? invoice.MedicalRecordId ?? "",
                     IssuedAt = ToMalaysiaOffset(invoice.IssueAt),
                     PaidAt = ToMalaysiaOffset(row.TransactionDate),
                     Method = row.PaymentMethod,
@@ -275,7 +279,7 @@ namespace CarePlus.API.Services.InvoiceServices
             return new OutstandingInvoiceResponse
             {
                 Id = invoice.InvoiceId,
-                RecordId = invoice.RecordRef ?? "",
+                RecordId = InvoiceVisitLabel.IsPrescription(invoice.VisitType) ? "" : invoice.RecordRef ?? "",
                 IssuedAt = issued.ToString("yyyy-MM-ddTHH:mm:sszzz"),
                 DueAt = dueAt.ToString("yyyy-MM-ddTHH:mm:sszzz"),
                 Status = days > 0 ? "overdue" : "due",
