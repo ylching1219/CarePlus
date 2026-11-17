@@ -2079,7 +2079,7 @@ namespace CarePlus.API.Migrations
                             Role = "Doctor",
                             UserId = 2L,
                             LicenseNumber = "DOC-LIC-0001",
-                            ProfilePicture = "profiles/doctor-stf000002.jpg",
+                            ProfilePicture = "profiles/doctor-doctor001.png",
                             Qualification = "MBBS",
                             Specialization = "General Medicine",
                             YearsOfExperience = 5
@@ -2090,7 +2090,7 @@ namespace CarePlus.API.Migrations
                             Role = "Doctor",
                             UserId = 3L,
                             LicenseNumber = "DOC-LIC-0002",
-                            ProfilePicture = "profiles/doctor-stf000003.jpg",
+                            ProfilePicture = "profiles/doctor-doctor002.jpg",
                             Qualification = "MBBS",
                             Specialization = "Family Medicine",
                             YearsOfExperience = 7
@@ -2101,7 +2101,7 @@ namespace CarePlus.API.Migrations
                             Role = "Doctor",
                             UserId = 4L,
                             LicenseNumber = "DOC-LIC-0003",
-                            ProfilePicture = "profiles/doctor-stf000004.jpg",
+                            ProfilePicture = "profiles/doctor-doctor003.jpg",
                             Qualification = "MD",
                             Specialization = "Internal Medicine",
                             YearsOfExperience = 9
@@ -2112,7 +2112,7 @@ namespace CarePlus.API.Migrations
                             Role = "Doctor",
                             UserId = 5L,
                             LicenseNumber = "DOC-LIC-0004",
-                            ProfilePicture = "profiles/doctor-stf000005.png",
+                            ProfilePicture = "profiles/doctor-doctor004.jpg",
                             Qualification = "MBBS, Paediatrics",
                             Specialization = "Paediatrics",
                             YearsOfExperience = 4

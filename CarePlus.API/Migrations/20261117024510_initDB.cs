@@ -1169,10 +1169,10 @@ namespace CarePlus.API.Migrations
                 columns: new[] { "StaffId", "LicenseNumber", "ProfilePicture", "Qualification", "Specialization", "YearsOfExperience" },
                 values: new object[,]
                 {
-                    { "STF000002", "DOC-LIC-0001", "profiles/doctor-stf000002.jpg", "MBBS", "General Medicine", 5 },
-                    { "STF000003", "DOC-LIC-0002", "profiles/doctor-stf000003.jpg", "MBBS", "Family Medicine", 7 },
-                    { "STF000004", "DOC-LIC-0003", "profiles/doctor-stf000004.jpg", "MD", "Internal Medicine", 9 },
-                    { "STF000005", "DOC-LIC-0004", "profiles/doctor-stf000005.png", "MBBS, Paediatrics", "Paediatrics", 4 }
+                    { "STF000002", "DOC-LIC-0001", "profiles/doctor-doctor001.png", "MBBS", "General Medicine", 5 },
+                    { "STF000003", "DOC-LIC-0002", "profiles/doctor-doctor002.jpg", "MBBS", "Family Medicine", 7 },
+                    { "STF000004", "DOC-LIC-0003", "profiles/doctor-doctor003.jpg", "MD", "Internal Medicine", 9 },
+                    { "STF000005", "DOC-LIC-0004", "profiles/doctor-doctor004.jpg", "MBBS, Paediatrics", "Paediatrics", 4 }
                 });
 
             migrationBuilder.InsertData(
