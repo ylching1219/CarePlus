@@ -491,7 +491,7 @@ public class NotificationServices : INotificationServices
                 Initials(doctor),
                 "queue_update",
                 "/queue",
-                entry.CheckInTime));
+                now));
         }
 
         var invoices = await _db.Invoices
@@ -656,6 +656,9 @@ public class NotificationServices : INotificationServices
                 byId[draft.Id] = row;
             }
 
+            var queueTextChanged = draft.Id.StartsWith("queue-update:", StringComparison.Ordinal)
+                && (!string.Equals(row.Message, draft.Message, StringComparison.Ordinal)
+                    || !string.Equals(row.MessageZh, draft.MessageZh, StringComparison.Ordinal));
             row.Title = draft.Title;
             row.Message = draft.Message;
             row.TitleZh = draft.TitleZh;
@@ -664,6 +667,10 @@ public class NotificationServices : INotificationServices
             row.Initials = draft.Initials;
             row.Type = draft.Type;
             row.Href = draft.Href;
+            if (queueTextChanged)
+            {
+                row.CreatedAt = now;
+            }
         }
 
         var preference = await _db.AppSettings.AsNoTracking().Where(row => row.UserId == userId).Select(row => row.Notification).FirstOrDefaultAsync() ?? "all";
