@@ -546,6 +546,48 @@ public class NotificationServices : INotificationServices
                 order.OrderDate));
         }
 
+        var prescriptions = await _db.Prescriptions.AsNoTracking()
+            .Where(row => row.PatientId == patientId)
+            .ToListAsync();
+        var prescriptionIds = prescriptions.Select(row => row.PrescriptionId).ToList();
+        var dispensedAt = prescriptionIds.Count == 0
+            ? new Dictionary<string, DateTime>(StringComparer.Ordinal)
+            : await _db.DispenseRecords.AsNoTracking()
+                .Where(row => prescriptionIds.Contains(row.PrescriptionId))
+                .ToDictionaryAsync(row => row.PrescriptionId, row => row.DispenseAt);
+        foreach (var prescription in prescriptions)
+        {
+            var status = prescription.Status?.Trim().ToLowerInvariant();
+            if (status == "preparing")
+            {
+                Add(drafts, new NotificationDraft(
+                    $"prescription-ready:{prescription.PrescriptionId}",
+                    "Come and pick up your medicine",
+                    $"Your prescription {prescription.PrescriptionId} is being prepared. Come and pick it up at the clinic pharmacy.",
+                    "请来领取药物",
+                    $"处方 {prescription.PrescriptionId} 正在准备，请到诊所药房领取。",
+                    "CarePlus Pharmacy",
+                    "CP",
+                    "medicine_update",
+                    "/notifications",
+                    prescription.CreatedAt));
+                continue;
+            }
+
+            if (status is not ("completed" or "dispensed" or "picked_up")) continue;
+            Add(drafts, new NotificationDraft(
+                $"prescription-picked-up:{prescription.PrescriptionId}",
+                "You've picked up your prescription",
+                $"Prescription {prescription.PrescriptionId} has been dispensed.",
+                "处方已领取",
+                $"处方 {prescription.PrescriptionId} 已发药。",
+                "CarePlus Pharmacy",
+                "CP",
+                "medicine_update",
+                "/dispensing-history",
+                dispensedAt.GetValueOrDefault(prescription.PrescriptionId, prescription.CreatedAt)));
+        }
+
         var invitations = await _db.FamilyMembers
             .AsNoTracking()
             .Include(row => row.FamilyGroup).ThenInclude(row => row.Patient).ThenInclude(row => row.User)
@@ -680,6 +722,8 @@ public class NotificationServices : INotificationServices
         || id.StartsWith("queue-update:", StringComparison.Ordinal)
         || id.StartsWith("payment-reminder:", StringComparison.Ordinal)
         || id.StartsWith("medicine-update:", StringComparison.Ordinal)
+        || id.StartsWith("prescription-ready:", StringComparison.Ordinal)
+        || id.StartsWith("prescription-picked-up:", StringComparison.Ordinal)
         || id.StartsWith("family-invite:", StringComparison.Ordinal)
         || id.StartsWith("staff-schedule:", StringComparison.Ordinal)
         || id.StartsWith("staff-leave:", StringComparison.Ordinal)

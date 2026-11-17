@@ -188,6 +188,11 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 return ApiResponse<MedicineOrderResponse>.Fail("This account is not a patient account.", 400);
             }
 
+            if (PatientAge.UnderTwelve(patient.DateOfBirth, DateTimeHelper.MalaysiaNow().Date))
+            {
+                return ApiResponse<MedicineOrderResponse>.Fail("Children under 12 cannot buy medicine.", 403);
+            }
+
             var fulfilment = request.Fulfilment?.Trim().ToLowerInvariant() ?? "";
             if (fulfilment != "pickup" && fulfilment != "delivery")
             {
@@ -421,14 +426,28 @@ namespace CarePlus.API.Services.MedicineOrderServices
                 return ApiResponse<MedicineOrderResponse>.Fail("This order is not waiting for payment.", 400);
             }
 
-            var stripePaid = await VerifyStripeMedicinePaymentAsync(userId, request?.StripeSessionId, order.TotalAmount, order.OrderId);
-            if (stripePaid != null)
+            string? chargedWith = null;
+            if (request?.CardId is > 0)
             {
-                return stripePaid;
+                var charged = await ChargeSavedCardAsync(userId, order, request.CardId.Value);
+                if (!charged.IsSuccess)
+                {
+                    return ApiResponse<MedicineOrderResponse>.Fail(charged.RespMessage, charged.RespCode);
+                }
+
+                chargedWith = charged.Data;
+            }
+            else
+            {
+                var stripePaid = await VerifyStripeMedicinePaymentAsync(userId, request?.StripeSessionId, order.TotalAmount, order.OrderId);
+                if (stripePaid != null)
+                {
+                    return stripePaid;
+                }
             }
 
             order.Status = "paid";
-            order.PaymentMethod = StripePaymentLabel(order.PaymentMethod, request?.StripeSessionId);
+            order.PaymentMethod = chargedWith ?? StripePaymentLabel(order.PaymentMethod, request?.StripeSessionId);
             var invoice = await _db.Invoices.FirstOrDefaultAsync(row => row.OrderId == order.OrderId);
             if (invoice != null)
             {
@@ -444,6 +463,64 @@ namespace CarePlus.API.Services.MedicineOrderServices
 
             await _db.SaveChangesAsync();
             return ApiResponse<MedicineOrderResponse>.Ok(ToResponse(order, items));
+        }
+
+        private async Task<ApiResponse<string>> ChargeSavedCardAsync(long userId, OrderRow order, long cardId)
+        {
+            var card = await _db.PaymentCards.AsNoTracking().FirstOrDefaultAsync(row => row.Id == cardId && row.UserId == userId);
+            if (card == null)
+            {
+                return ApiResponse<string>.Fail("Choose a saved card.", 400);
+            }
+
+            var parts = card.NumberHash.Split(':');
+            if (parts.Length != 3 || parts[0] != "stripe")
+            {
+                return ApiResponse<string>.Fail("Add this card again from your profile so Stripe can store it.", 400);
+            }
+
+            var cents = (long)Math.Round(order.TotalAmount * 100m, MidpointRounding.AwayFromZero);
+            if (cents < 200)
+            {
+                return ApiResponse<string>.Fail("Amount is too small for Stripe.", 400);
+            }
+
+            if (string.IsNullOrWhiteSpace(_stripe.SecretKey))
+            {
+                return ApiResponse<string>.Fail("Stripe is not configured.", 503);
+            }
+
+            try
+            {
+                StripeConfiguration.ApiKey = _stripe.SecretKey;
+                var intent = await new PaymentIntentService().CreateAsync(new PaymentIntentCreateOptions
+                {
+                    Amount = cents,
+                    Currency = string.IsNullOrWhiteSpace(_stripe.Currency) ? "myr" : _stripe.Currency.Trim().ToLowerInvariant(),
+                    Customer = parts[1],
+                    PaymentMethod = parts[2],
+                    Confirm = true,
+                    OffSession = true,
+                    Description = $"CarePlus medicine order {order.OrderId}",
+                    Metadata = new Dictionary<string, string>
+                    {
+                        ["kind"] = "medicine",
+                        ["orderId"] = order.OrderId,
+                        ["userId"] = userId.ToString(),
+                    },
+                });
+                if (!string.Equals(intent.Status, "succeeded", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ApiResponse<string>.Fail("Stripe could not charge this card. Try another card or FPX.", 402);
+                }
+            }
+            catch (StripeException)
+            {
+                return ApiResponse<string>.Fail("Stripe could not charge this card. Try another card or FPX.", 402);
+            }
+
+            var brand = string.IsNullOrWhiteSpace(card.Brand) ? "Card" : card.Brand.Trim();
+            return ApiResponse<string>.Ok($"{brand} ···· {card.Last4}");
         }
 
         /// <summary>
