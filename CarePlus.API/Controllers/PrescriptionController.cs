@@ -7,10 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 namespace CarePlus.API.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin,Doctor,Pharmacist")]
+[Authorize]
 [Route("api/[controller]")]
 public class PrescriptionController(PrescriptionServices prescriptions) : ControllerBase
 {
+    [Authorize(Roles = "Admin,Doctor,Pharmacist")]
     [HttpGet("Retrieve")]
     public async Task<IActionResult> Retrieve(CancellationToken cancellationToken)
     {
@@ -23,6 +24,7 @@ public class PrescriptionController(PrescriptionServices prescriptions) : Contro
         return Ok(ApiResponse<List<PrescriptionSummaryResponse>>.Ok(rows));
     }
 
+    [Authorize(Roles = "Admin,Doctor,Pharmacist")]
     [HttpGet("{prescriptionId}/Items")]
     public async Task<IActionResult> RetrieveItems(string prescriptionId, CancellationToken cancellationToken)
     {
@@ -37,7 +39,7 @@ public class PrescriptionController(PrescriptionServices prescriptions) : Contro
             : Ok(ApiResponse<List<PrescriptionItemResponse>>.Ok(items));
     }
 
-    [Authorize(Roles = "Pharmacist")]
+    [Authorize(Roles = "Admin,Pharmacist")]
     [HttpPatch("{prescriptionId}/Complete")]
     public async Task<IActionResult> CompleteDispensing(string prescriptionId, CancellationToken cancellationToken)
     {
@@ -47,6 +49,30 @@ public class PrescriptionController(PrescriptionServices prescriptions) : Contro
         }
 
         return Ok(await prescriptions.CompleteDispensingAsync(userId, prescriptionId, cancellationToken));
+    }
+
+    [Authorize(Roles = "Admin,Pharmacist")]
+    [HttpPatch("{prescriptionId}/Preparing")]
+    public async Task<IActionResult> MarkPreparing(string prescriptionId, CancellationToken cancellationToken)
+    {
+        if (!TryUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<PrescriptionSummaryResponse>.Fail("Invalid token.", 401));
+        }
+
+        return Ok(await prescriptions.MarkPreparingAsync(userId, prescriptionId, cancellationToken));
+    }
+
+    [HttpGet("Dispensed")]
+    public async Task<IActionResult> Dispensed(CancellationToken cancellationToken)
+    {
+        if (!TryUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<List<DispensedPrescriptionResponse>>.Fail("Invalid token.", 401));
+        }
+
+        var rows = await prescriptions.ListDispensedForPatientAsync(userId, cancellationToken);
+        return Ok(ApiResponse<List<DispensedPrescriptionResponse>>.Ok(rows));
     }
 
     private bool TryUserId(out long userId) =>

@@ -53,7 +53,12 @@ namespace CarePlus.API.Services.QueueServices
             }
 
             var active = await QueueQuery()
-                .Where(row => row.PatientId == patientId && ActiveStatuses.Contains(row.Status))
+                .Where(row => row.PatientId == patientId
+                    && (row.Status == "Waiting" || row.Status == "Called" || row.Status == "InConsultation")
+                    && row.Appointment != null
+                    && row.Appointment.Status != "Completed"
+                    && row.Appointment.Status != "Cancelled"
+                    && row.Appointment.Status != "Missed")
                 .OrderByDescending(row => row.CheckInTime)
                 .FirstOrDefaultAsync();
 
@@ -84,7 +89,9 @@ namespace CarePlus.API.Services.QueueServices
             return ApiResponse<QueueOverviewResponse>.Ok(new QueueOverviewResponse
             {
                 ActiveQueue = active == null ? null : await ToStatusAsync(active, await ResolveQueueRoomAsync(active)),
-                CheckIn = active == null && appointment != null ? ToCheckIn(appointment, now) : null,
+                CheckIn = active == null && appointment != null && appointment.Status == "Scheduled"
+                    ? ToCheckIn(appointment, now)
+                    : null,
             });
         }
 
@@ -113,6 +120,12 @@ namespace CarePlus.API.Services.QueueServices
                 .FirstOrDefaultAsync(row => row.AppointmentId == appointment.AppointmentId);
             if (existing != null)
             {
+                if (!ActiveStatuses.Contains(existing.Status)
+                    || !appointment.Status.Equals("Scheduled", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ApiResponse<QueueStatusResponse>.Fail("This visit is already finished.", 400);
+                }
+
                 await transaction.CommitAsync();
                 return ApiResponse<QueueStatusResponse>.Ok(
                     await ToStatusAsync(existing, await ResolveQueueRoomAsync(existing)),

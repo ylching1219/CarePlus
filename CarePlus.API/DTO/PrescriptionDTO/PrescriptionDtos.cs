@@ -8,6 +8,12 @@ public record PrescriptionSummaryResponse(
     DateTimeOffset CreatedAt,
     string Status);
 
+public record DispensedPrescriptionResponse(
+    string PrescriptionId,
+    DateTimeOffset DispensedAt,
+    string Status,
+    List<PrescriptionItemResponse> Items);
+
 public record PrescriptionItemResponse(
     string PrescriptionItemId,
     string MedicineName,
