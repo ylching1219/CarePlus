@@ -19,6 +19,7 @@ namespace CarePlus.API.DTO.MedicineOrderDTO
     public class MedicineOrderPayRequest
     {
         public string? StripeSessionId { get; set; }
+        public long? CardId { get; set; }
     }
 
     public class MedicineOrderLineRequest

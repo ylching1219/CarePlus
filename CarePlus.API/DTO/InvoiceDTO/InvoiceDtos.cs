@@ -9,6 +9,7 @@ namespace CarePlus.API.DTO.InvoiceDTO
         public string Status { get; set; } = "";
         public string DoctorName { get; set; } = "";
         public string VisitType { get; set; } = "";
+        public string? BilledForName { get; set; }
         public decimal Total { get; set; }
         public int DaysOverdue { get; set; }
         public decimal LateFee { get; set; }
@@ -31,6 +32,7 @@ namespace CarePlus.API.DTO.InvoiceDTO
         public string DoctorId { get; set; } = "";
         public string DoctorName { get; set; } = "";
         public string VisitType { get; set; } = "";
+        public string? BilledForName { get; set; }
         public decimal Bill { get; set; }
         public decimal LateFee { get; set; }
         public int DaysOverdue { get; set; }
@@ -47,6 +49,7 @@ namespace CarePlus.API.DTO.InvoiceDTO
         public string RecordId { get; set; } = "";
         public string DoctorName { get; set; } = "";
         public string VisitType { get; set; } = "";
+        public string? BilledForName { get; set; }
         public string IssuedAt { get; set; } = "";
         public string? DueAt { get; set; }
         public string Status { get; set; } = "";

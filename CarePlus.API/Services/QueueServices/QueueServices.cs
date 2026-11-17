@@ -3,6 +3,7 @@ using CarePlus.API.DTO.MedicalRecordDTO;
 using CarePlus.API.DTO.QueueDTO;
 using CarePlus.API.Extension;
 using CarePlus.API.Models.Appointment;
+using CarePlus.API.Models.Invoice;
 using CarePlus.API.Models.Prescription;
 using CarePlus.API.Models.PrescriptionItem;
 using CarePlus.API.Models.Queue;
@@ -386,12 +387,67 @@ namespace CarePlus.API.Services.QueueServices
                 }
             }
 
+            await AddConsultationInvoiceAsync(appointment, record.Data.MedicalRecordId, consultationDate);
+
             var result = await SaveStatusAsync(entry, appointment, "Completed");
             if (result.IsSuccess)
             {
                 await transaction.CommitAsync();
             }
             return result;
+        }
+
+        private async Task AddConsultationInvoiceAsync(Appointment appointment, string medicalRecordId, DateTime issuedAt)
+        {
+            if (await _db.Invoices.AnyAsync(row => row.MedicalRecordId == medicalRecordId)) return;
+
+            var patient = await _db.Patients.AsNoTracking()
+                .Include(row => row.User)
+                .FirstOrDefaultAsync(row => row.PatientId == appointment.PatientId);
+            if (patient == null) return;
+
+            var billPatientId = patient.PatientId;
+            string? billedFor = null;
+            if (PatientAge.UnderTwelve(patient.DateOfBirth, issuedAt.Date))
+            {
+                var groupId = await _db.FamilyMembers.AsNoTracking()
+                    .Where(row => row.PatientId == patient.PatientId && row.Status == "Active")
+                    .Select(row => (long?)row.FamilyGroupId)
+                    .FirstOrDefaultAsync();
+                var parentId = groupId == null
+                    ? null
+                    : await _db.FamilyMembers.AsNoTracking()
+                        .Where(row => row.FamilyGroupId == groupId && row.Status == "Active" && row.Relationship == "parent")
+                        .OrderBy(row => row.JoinAt)
+                        .Select(row => row.PatientId)
+                        .FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(parentId) && parentId != patient.PatientId)
+                {
+                    billPatientId = parentId;
+                    billedFor = string.IsNullOrWhiteSpace(patient.User?.Name) ? patient.PatientId : patient.User.Name.Trim();
+                }
+            }
+
+            var typeKey = (appointment.VisitType ?? "").Trim();
+            var visit = string.IsNullOrWhiteSpace(typeKey)
+                ? null
+                : await _db.VisitTypes.AsNoTracking().FirstOrDefaultAsync(row => row.VisitTypeId == typeKey || row.Name == typeKey);
+            var doctorName = DoctorName(appointment);
+            if (doctorName.Length > 120) doctorName = doctorName[..120];
+
+            _db.Invoices.Add(new Invoice
+            {
+                InvoiceId = await _counters.GenerateNextIdAsync("InvoiceId"),
+                PatientId = billPatientId,
+                MedicalRecordId = medicalRecordId,
+                TotalAmount = visit?.Price ?? 50m,
+                IssueAt = issuedAt,
+                DueDate = issuedAt.Date.AddDays(7),
+                DoctorName = doctorName,
+                VisitType = InvoiceVisitLabel.Pack(visit?.Name ?? "General consultation", billedFor),
+                RecordRef = medicalRecordId,
+                PaymentStatus = "Pending",
+            });
         }
 
         private async Task<ApiResponse<QueueStatusResponse>> SaveStatusAsync(
