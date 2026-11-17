@@ -212,8 +212,7 @@ namespace CarePlus.API.Services.AppointmentServices
             string? endDate = null)
         {
             if (!string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(role, "Pharmacist", StringComparison.OrdinalIgnoreCase))
+                && !string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase))
             {
                 return ApiResponse<List<StaffAppointmentResponse>>.Fail(
                     "This account is not a staff account.", 403);
@@ -812,22 +811,25 @@ namespace CarePlus.API.Services.AppointmentServices
 
         private async Task<bool> HasAppointmentInDaySessionAsync(string patientId, DateTime start, string? ignoreAppointmentId)
         {
-            var dayEnd = start.Date.AddDays(1);
+            var appointmentDate = start.Date;
+            var dayEnd = appointmentDate.AddDays(1);
             var rows = await _db.Appointments.AsNoTracking()
                 .Where(row =>
                     row.PatientId == patientId
                     && row.Status == "Scheduled"
-                    && row.AppointmentDate >= start.Date
+                    && row.AppointmentDate >= appointmentDate
                     && row.AppointmentDate < dayEnd
                     && (ignoreAppointmentId == null || row.AppointmentId != ignoreAppointmentId))
-                .Select(row => row.AppointmentTime)
+                .Select(row => new { row.AppointmentDate, row.AppointmentTime })
                 .ToListAsync();
 
             var requestedIsNight = IsNightSession(start.TimeOfDay);
-            return rows.Count(time => IsNightSession(time) == requestedIsNight) >= MaxAppointmentsPerDaySession;
+            return rows.Count(row =>
+                row.AppointmentDate.Date == appointmentDate
+                && IsNightSession(row.AppointmentTime) == requestedIsNight) >= MaxAppointmentsPerDaySession;
         }
 
-        private static bool IsNightSession(TimeSpan time) => time.Hours >= 18 || time.Hours < 6;
+        private static bool IsNightSession(TimeSpan time) => time >= NightStart || time < NightEnd;
 
         private async Task<BookingSlotsResponse> BuildSlotsAsync(DateTime day, string doctorId, DateTime now)
         {
@@ -855,8 +857,11 @@ namespace CarePlus.API.Services.AppointmentServices
                 .ToListAsync();
 
             var taken = await _db.Appointments.AsNoTracking()
-                .Where(row => activeIds.Contains(row.DoctorId) && row.AppointmentDate == day && row.Status == "Scheduled")
-                .Select(row => new { row.DoctorId, row.AppointmentTime })
+                .Where(row => activeIds.Contains(row.DoctorId)
+                    && row.AppointmentDate >= day
+                    && row.AppointmentDate < day.AddDays(1)
+                    && row.Status == "Scheduled")
+                .Select(row => new { row.DoctorId, row.AppointmentDate, row.AppointmentTime })
                 .ToListAsync();
 
             var openTimes = new SortedSet<TimeSpan>();
@@ -870,15 +875,15 @@ namespace CarePlus.API.Services.AppointmentServices
 
             foreach (var time in openTimes)
             {
-                var start = day + time;
+                var start = day.Date + time;
                 var startAt = ToOffset(start).ToString("yyyy-MM-ddTHH:mm:sszzz");
                 var label = ToOffset(start).ToString("h:mm tt", CultureInfo.GetCultureInfo("en-MY"));
                 var freeDoctor = false;
                 foreach (var id in activeIds)
                 {
                     if (schedules.Any(schedule => schedule.StaffId == id && IsTimeWithinShift(time, schedule.Shift))
-                        && !taken.Any(row => row.DoctorId == id && row.AppointmentTime == time)
-                        && await FindRoomIdForSlotAsync(id, day, time) != null)
+                        && !taken.Any(row => row.DoctorId == id && row.AppointmentDate == start.Date && row.AppointmentTime == time)
+                        && await FindRoomIdForSlotAsync(id, start.Date, time) != null)
                     {
                         freeDoctor = true;
                         break;
@@ -886,7 +891,7 @@ namespace CarePlus.API.Services.AppointmentServices
                 }
                 var booked = start < now.AddMinutes(MinimumBookingLeadMinutes) || !freeDoctor;
                 var item = new BookingSlotResponse { StartAt = startAt, Label = label, Booked = booked };
-                if (time.Hours < 18 && time.Hours >= 6)
+                if (time >= MorningStart && time < MorningEnd)
                 {
                     morning.Add(item);
                 }
@@ -966,12 +971,13 @@ namespace CarePlus.API.Services.AppointmentServices
                 return "Choose a future time.";
             }
 
-            if ((await StaffOnLeaveAsync([doctorId], day)).Contains(doctorId))
+            var appointmentDate = day.Date;
+            if ((await StaffOnLeaveAsync([doctorId], appointmentDate)).Contains(doctorId))
             {
-                return $"The doctor is on leave on {day:dd MMM yyyy}.";
+                return $"The doctor is on leave on {appointmentDate:dd MMM yyyy}.";
             }
 
-            var scheduleDate = DateOnly.FromDateTime(day);
+            var scheduleDate = DateOnly.FromDateTime(appointmentDate);
             var requiredShift = IsNightSession(time) ? "Night" : "Morning";
             var onDuty = await _db.WorkSchedules.AsNoTracking().AnyAsync(row =>
                 row.StaffId == doctorId
@@ -980,7 +986,7 @@ namespace CarePlus.API.Services.AppointmentServices
                 && row.Shift == requiredShift);
             if (!onDuty)
             {
-                return $"The doctor has no active {requiredShift.ToLowerInvariant()} schedule on {day:dd MMM yyyy}.";
+                    return $"The doctor has no active {requiredShift.ToLowerInvariant()} schedule on {appointmentDate:dd MMM yyyy}.";
             }
 
             if (!IsTimeWithinShift(time, requiredShift))
@@ -990,7 +996,7 @@ namespace CarePlus.API.Services.AppointmentServices
 
             if (await FindRoomIdForSlotAsync(doctorId, day, time) == null)
             {
-                return $"No clinic room is assigned to the doctor at {FormatAppointmentTime(time)} on {day:dd MMM yyyy}.";
+                return $"No clinic room is assigned to the doctor at {FormatAppointmentTime(time)} on {appointmentDate:dd MMM yyyy}.";
             }
 
             var taken = await _db.Appointments.AsNoTracking().AnyAsync(row =>

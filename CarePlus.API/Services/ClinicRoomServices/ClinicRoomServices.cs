@@ -15,7 +15,6 @@ public class ClinicRoomServices : IClinicRoomServices
     private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
     {
         "Available",
-        "Occupied",
         "Maintenance",
         "Inactive",
     };
@@ -60,7 +59,7 @@ public class ClinicRoomServices : IClinicRoomServices
         if (status == null)
         {
             return ApiResponse<ClinicRoomResponse>.Fail(
-                "Status must be Available, Occupied, Maintenance, or Inactive.", 400);
+                "Status must be Available, Maintenance, or Inactive.", 400);
         }
 
         if (await _roomRepo.RoomNameExistsAsync(roomName))
@@ -100,7 +99,7 @@ public class ClinicRoomServices : IClinicRoomServices
         if (status == null)
         {
             return ApiResponse<ClinicRoomResponse>.Fail(
-                "Status must be Available, Occupied, Maintenance, or Inactive.", 400);
+                "Status must be Available, Maintenance, or Inactive.", 400);
         }
 
         if (await _roomRepo.RoomNameExistsAsync(roomName, room.RoomId))

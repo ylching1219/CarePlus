@@ -150,9 +150,21 @@ public class PersonalHealthRecordController(AppDbContext db, IWebHostEnvironment
     [HttpGet("{id}/pdf")]
     public async Task<IActionResult> GetPdf(string id)
     {
-        var patientId = await PatientIdAsync();
-        if (patientId == null) return Forbid();
-        var row = await db.PersonalHealthRecords.AsNoTracking().FirstOrDefaultAsync(r => r.HealthRecId == id && r.PatientId == patientId && r.RecordType == "medical");
+        var role = User.FindFirstValue(ClaimTypes.Role);
+        var isStaffViewer = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase);
+        var query = db.PersonalHealthRecords
+            .AsNoTracking()
+            .Where(r => r.HealthRecId == id && r.RecordType == "medical");
+
+        if (!isStaffViewer)
+        {
+            var patientId = await PatientIdAsync();
+            if (patientId == null) return Forbid();
+            query = query.Where(r => r.PatientId == patientId);
+        }
+
+        var row = await query.FirstOrDefaultAsync();
         if (row?.PdfStorageName == null) return NotFound();
         var path = Path.Combine(PdfDirectory, row.PdfStorageName);
         if (!System.IO.File.Exists(path)) return NotFound();

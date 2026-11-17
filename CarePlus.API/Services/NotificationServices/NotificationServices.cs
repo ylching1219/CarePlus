@@ -195,7 +195,6 @@ public class NotificationServices : INotificationServices
             .ToListAsync();
         foreach (var schedule in schedules)
         {
-            var date = schedule.WorkingDate.ToDateTime(TimeOnly.MinValue);
             Add(drafts, new NotificationDraft(
                 $"staff-schedule:{schedule.ScheduleId}:user:{userId}",
                 "Upcoming schedule",
@@ -206,7 +205,7 @@ public class NotificationServices : INotificationServices
                 "CC",
                 "schedule_update",
                 "/staff/schedules",
-                date));
+                now));
         }
 
         var ownLeaves = await _db.LeaveApplications
@@ -335,7 +334,7 @@ public class NotificationServices : INotificationServices
                 announcement.Actor,
                 announcement.Initials,
                 "announcement",
-                $"/announcements#{announcement.NotificationId}",
+                $"/staff/announcements#{announcement.NotificationId}",
                 announcement.CreatedAt));
         }
 

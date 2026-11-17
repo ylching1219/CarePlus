@@ -2,6 +2,7 @@ using CarePlus.API.DTO.StaffDTO;
 using CarePlus.API.Services.StaffService.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace CarePlus.API.Controllers
 {
@@ -41,6 +42,21 @@ namespace CarePlus.API.Controllers
         public async Task<IActionResult> UpdatePharmacist(
             PharmacistUpdateRequest request)
         {
+            if (!User.IsInRole("Admin"))
+            {
+                var staffId = User.FindFirstValue("staffId");
+                if (string.IsNullOrWhiteSpace(staffId))
+                {
+                    return Unauthorized(ApiResponse<object>.Fail("Invalid token.", 401));
+                }
+
+                if (!string.Equals(request.StaffId, staffId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        ApiResponse<object>.Fail("You can only update your own pharmacist profile.", 403));
+                }
+            }
+
             return Ok(await _pharmacistServices.UpdatePharmacistAsync(request));
         }
     }

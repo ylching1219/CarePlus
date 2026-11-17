@@ -204,7 +204,7 @@ namespace CarePlus.API.Services.QueueServices
                     QueueId = row.QueueId,
                     QueueNumber = numbers[row.QueueId],
                     AppointmentId = appointment.AppointmentId,
-                    PatientId = row.PatientId,
+                    PatientId = string.IsNullOrWhiteSpace(row.PatientId) ? appointment.PatientId : row.PatientId,
                     PatientName = string.IsNullOrWhiteSpace(appointment.ForName) ? row.Patient.User.Name : appointment.ForName,
                     DoctorName = DoctorName(appointment),
                     VisitType = visitTypes.GetValueOrDefault(appointment.VisitType, appointment.VisitType),
@@ -511,7 +511,8 @@ namespace CarePlus.API.Services.QueueServices
 
         private async Task<ClinicRoom?> GetAssignedRoomAsync(Appointment appointment)
         {
-            var assignments = await LoadRoomAssignmentsAsync(appointment.AppointmentDate, [appointment.DoctorId]);
+            var shiftDate = appointment.AppointmentDate.Date;
+            var assignments = await LoadRoomAssignmentsAsync(shiftDate, [appointment.DoctorId]);
             return FindAssignedRoom(appointment, assignments);
         }
 
@@ -550,7 +551,14 @@ namespace CarePlus.API.Services.QueueServices
             "Cancelled" => "Cancelled",
             _ => entry.Status,
         };
-        private static string QueueType(Appointment row) => $"appointment:{row.DoctorId}:{row.AppointmentDate:yyyyMMdd}:{(row.AppointmentTime < TimeSpan.FromHours(18) ? "morning" : "night")}";
+        private static string QueueType(Appointment row)
+        {
+            var shiftDate = row.AppointmentDate.Date;
+            var shift = row.AppointmentTime >= TimeSpan.FromHours(6) && row.AppointmentTime < TimeSpan.FromHours(18)
+                ? "morning"
+                : "night";
+            return $"appointment:{row.DoctorId}:{shiftDate:yyyyMMdd}:{shift}";
+        }
         private static string DoctorName(Appointment row) => string.IsNullOrWhiteSpace(row.Doctor?.User?.Name) ? "CarePlus doctor" : $"Dr {row.Doctor.User.Name.Trim().Replace("Dr ", "", StringComparison.OrdinalIgnoreCase)}";
         private static string ToIso(DateTime value) => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Unspecified), MalaysiaOffset).ToString("yyyy-MM-ddTHH:mm:sszzz", CultureInfo.InvariantCulture);
 

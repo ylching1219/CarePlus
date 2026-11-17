@@ -19,6 +19,7 @@ namespace CarePlus.API.Controllers
         }
 
         [HttpPost("Create")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateWorkSchedule(
             WorkScheduleCreateRequest request)
         {

@@ -83,7 +83,7 @@ namespace CarePlus.API.Controllers
             return Ok(await _appointments.ListHistoryAsync(userId));
         }
 
-        [Authorize(Roles = "Admin,Doctor,Pharmacist")]
+        [Authorize(Roles = "Admin,Doctor")]
         [HttpGet("Staff")]
         public async Task<IActionResult> StaffAppointments(
             [FromQuery] string? date,

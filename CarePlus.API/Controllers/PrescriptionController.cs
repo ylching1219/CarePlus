@@ -37,6 +37,18 @@ public class PrescriptionController(PrescriptionServices prescriptions) : Contro
             : Ok(ApiResponse<List<PrescriptionItemResponse>>.Ok(items));
     }
 
+    [Authorize(Roles = "Pharmacist")]
+    [HttpPatch("{prescriptionId}/Complete")]
+    public async Task<IActionResult> CompleteDispensing(string prescriptionId, CancellationToken cancellationToken)
+    {
+        if (!TryUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<PrescriptionSummaryResponse>.Fail("Invalid token.", 401));
+        }
+
+        return Ok(await prescriptions.CompleteDispensingAsync(userId, prescriptionId, cancellationToken));
+    }
+
     private bool TryUserId(out long userId) =>
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
 }

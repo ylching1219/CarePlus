@@ -334,15 +334,19 @@ namespace CarePlus.API.Services.StaffService
                     "doctor",
                     doctor.User.Username ?? doctor.StaffId,
                     extension);
+                var newProfilePicture = $"profiles/{fileName}";
 
                 await using (var stream = File.Create(Path.Combine(folder, fileName)))
                 {
                     await file.CopyToAsync(stream);
                 }
 
-                doctor.ProfilePicture = $"profiles/{fileName}";
+                doctor.ProfilePicture = newProfilePicture;
                 await _doctorRepo.UpdateDoctorAsync(doctor);
-                DeleteProfilePictureFile(oldProfilePicture);
+                if (!string.Equals(oldProfilePicture, newProfilePicture, StringComparison.OrdinalIgnoreCase))
+                {
+                    DeleteProfilePictureFile(oldProfilePicture);
+                }
 
                 return ApiResponse<object>.Ok(ToDoctorResponse(doctor));
             }

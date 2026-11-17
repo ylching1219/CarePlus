@@ -78,7 +78,10 @@ public class ClinicRoomRepository : IClinicRoomRepository
     {
         var query = _context.RoomAssignments
             .Include(assignment => assignment.Room)
-            .Where(assignment => assignment.RoomId == roomId)
+            .Include(assignment => assignment.Schedule)
+            .Where(assignment => assignment.RoomId == roomId
+                && assignment.Schedule != null
+                && assignment.Schedule.Status == WorkScheduleStatus.Active)
             .AsQueryable();
 
         if (!trackChanges)
@@ -93,7 +96,9 @@ public class ClinicRoomRepository : IClinicRoomRepository
     {
         return _context.RoomAssignments
             .AsNoTracking()
-            .Where(assignment => assignment.RoomId != roomId)
+            .Where(assignment => assignment.RoomId != roomId
+                && assignment.Schedule != null
+                && assignment.Schedule.Status == WorkScheduleStatus.Active)
             .ToListAsync();
     }
 

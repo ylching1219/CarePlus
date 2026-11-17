@@ -633,7 +633,7 @@ namespace CarePlus.API.Data
                     Specialization = "General Medicine",
                     Qualification = "MBBS",
                     YearsOfExperience = 5,
-                    ProfilePicture = "profiles/doctor-stf000002.jpg"
+                    ProfilePicture = "profiles/doctor-doctor001.png"
                 },
                 new Doctor
                 {
@@ -644,7 +644,7 @@ namespace CarePlus.API.Data
                     Specialization = "Family Medicine",
                     Qualification = "MBBS",
                     YearsOfExperience = 7,
-                    ProfilePicture = "profiles/doctor-stf000003.jpg"
+                    ProfilePicture = "profiles/doctor-doctor002.jpg"
                 },
                 new Doctor
                 {
@@ -655,7 +655,7 @@ namespace CarePlus.API.Data
                     Specialization = "Internal Medicine",
                     Qualification = "MD",
                     YearsOfExperience = 9,
-                    ProfilePicture = "profiles/doctor-stf000004.jpg"
+                    ProfilePicture = "profiles/doctor-doctor003.jpg"
                 },
                 new Doctor
                 {
@@ -666,7 +666,7 @@ namespace CarePlus.API.Data
                     Specialization = "Paediatrics",
                     Qualification = "MBBS, Paediatrics",
                     YearsOfExperience = 4,
-                    ProfilePicture = "profiles/doctor-stf000005.png"
+                    ProfilePicture = "profiles/doctor-doctor004.jpg"
                 }
             );
 

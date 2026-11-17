@@ -1,5 +1,7 @@
 using CarePlus.API.Data;
 using CarePlus.API.DTO.PrescriptionDTO;
+using CarePlus.API.Extension;
+using CarePlus.API.Models.DispenseRec;
 using CarePlus.API.Models.Prescription;
 using Microsoft.EntityFrameworkCore;
 
@@ -56,6 +58,66 @@ public class PrescriptionServices(AppDbContext db)
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<ApiResponse<PrescriptionSummaryResponse>> CompleteDispensingAsync(
+        long userId, string prescriptionId, CancellationToken cancellationToken)
+    {
+        var pharmacistId = await db.Pharmacists
+            .AsNoTracking()
+            .Where(row => row.UserId == userId)
+            .Select(row => row.StaffId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(pharmacistId))
+        {
+            return ApiResponse<PrescriptionSummaryResponse>.Fail(
+                "Only an active pharmacist can complete prescription dispensing.", 403);
+        }
+
+        var id = (prescriptionId ?? string.Empty).Trim();
+        if (id.Length == 0)
+        {
+            return ApiResponse<PrescriptionSummaryResponse>.Fail("Prescription is required.", 400);
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var prescription = await db.Prescriptions
+            .Include(row => row.Patient)
+                .ThenInclude(row => row.User)
+            .Include(row => row.Doctor)
+                .ThenInclude(row => row.User)
+            .FirstOrDefaultAsync(row => row.PrescriptionId == id, cancellationToken);
+        if (prescription == null)
+        {
+            return ApiResponse<PrescriptionSummaryResponse>.Fail("Prescription not found.", 404);
+        }
+
+        if (IsClosedStatus(prescription.Status))
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return ApiResponse<PrescriptionSummaryResponse>.Ok(
+                ToSummary(prescription), "Prescription is already completed.");
+        }
+
+        var existingRecord = await db.DispenseRecords
+            .FirstOrDefaultAsync(row => row.PrescriptionId == id, cancellationToken);
+        if (existingRecord == null)
+        {
+            db.DispenseRecords.Add(new DispenseRec
+            {
+                DispensingId = $"DISP-{Guid.NewGuid():N}",
+                PrescriptionId = id,
+                PharmacistId = pharmacistId,
+                DispenseAt = DateTimeHelper.MalaysiaNow(),
+                Status = "Dispensed",
+            });
+        }
+
+        prescription.Status = "Completed";
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return ApiResponse<PrescriptionSummaryResponse>.Ok(
+            ToSummary(prescription), "Prescription dispensing completed.");
+    }
+
     private IQueryable<Prescription> AccessiblePrescriptions(long userId, bool isPharmacist, bool isAdmin)
     {
         var prescriptions = db.Prescriptions.AsNoTracking();
@@ -65,4 +127,15 @@ public class PrescriptionServices(AppDbContext db)
             ? prescriptions.Where(_ => db.Pharmacists.Any(pharmacist => pharmacist.UserId == userId))
             : prescriptions.Where(row => row.Doctor.UserId == userId);
     }
+
+    private static bool IsClosedStatus(string? status) =>
+        status?.Trim().ToLowerInvariant() is "completed" or "dispensed" or "picked_up" or "cancelled";
+
+    private static PrescriptionSummaryResponse ToSummary(Prescription row) => new(
+        row.PrescriptionId,
+        row.PatientId,
+        row.Patient.User.Name ?? row.PatientId,
+        row.Doctor.User.Name ?? row.Doctor.StaffId,
+        new DateTimeOffset(DateTime.SpecifyKind(row.CreatedAt, DateTimeKind.Unspecified), TimeSpan.FromHours(8)),
+        row.Status);
 }

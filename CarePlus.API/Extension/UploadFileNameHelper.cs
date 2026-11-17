@@ -38,8 +38,7 @@ namespace CarePlus.API.Extension
                 ? ".bin"
                 : $".{extensionBody}";
 
-            var uploadTime = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmssfff");
-            return $"{safeModule}-{safeUsername}-{uploadTime}{safeExtension}";
+            return $"{safeModule}-{safeUsername}{safeExtension}";
         }
 
         public static string GenerateForIdentifier(string identifier, string extension)
