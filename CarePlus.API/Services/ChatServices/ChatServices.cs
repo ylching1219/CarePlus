@@ -263,7 +263,7 @@ public sealed class ChatServices : IChatServices
         answer = "";
         var normalized = NormalizeChatText(question);
         var isChinese = ContainsChinese(question);
-        var hits = catalog.Where(item => NameMatches(normalized, item.Name) || NameMatches(normalized, item.NameZh)).Take(3).ToList();
+        var hits = catalog.Where(item => NameMatches(normalized, item.Name) || NameMatches(normalized, item.NameZh)).ToList();
         var asksList = ContainsAny(normalized, "what medicine", "which medicine", "medicines do you", "medicines can i", "what can i buy", "list of medicine", "有什么药", "哪些药", "有哪些药", "可以买什么");
         var asksBuy = ContainsAny(normalized, "buy", "purchase", "买", "购买");
         var asksLimit = ContainsAny(normalized, "how many", "limit", "maximum", "最多", "几盒", "多少");
@@ -285,9 +285,16 @@ public sealed class ChatServices : IChatServices
             return true;
         }
 
-        var overLimit = OverMonthlyLimit(normalized, hits);
+        var shown = hits.Take(8).ToList();
+        var overLimit = OverMonthlyLimit(normalized, shown);
 
-        var lines = hits.Select(item => DescribeMedicine(item, isChinese, overLimit, asksDose)).ToArray();
+        var lines = shown.Select(item => DescribeMedicine(item, isChinese, overLimit, asksDose)).ToList();
+        if (hits.Count > shown.Count)
+        {
+            lines.Add(isChinese
+                ? $"还有 {hits.Count - shown.Count} 种相符的药。请打开 [药品](/medicine) 查看诊所目前上传的全部药品。"
+                : $"{hits.Count - shown.Count} more matches are on [Medicine](/medicine). That page uses the medicines uploaded for the clinic, including new ones.");
+        }
         var lead = overLimit
             ? (isChinese ? "不可以。同一个月内，同一种药最多买 5 个单位。" : "No. The same patient can buy at most 5 units of the same medicine in one calendar month.")
             : "";
@@ -363,13 +370,25 @@ public sealed class ChatServices : IChatServices
             return true;
         }
 
-        foreach (var token in lower.Split([' ', '-', '/', ',', '(', ')'], StringSplitOptions.RemoveEmptyEntries))
+        var nameTokens = lower.Split([' ', '-', '/', ',', '(', ')'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(IsUsefulMedicineToken)
+            .ToArray();
+        foreach (var token in nameTokens)
         {
-            if (token.Length < 4 || MedicineNameSkip.Contains(token) || int.TryParse(token, out _))
+            if (normalized.Contains(token, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        foreach (var asked in normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!IsUsefulMedicineToken(asked))
             {
                 continue;
             }
-            if (normalized.Contains(token, StringComparison.Ordinal))
+
+            if (nameTokens.Any(token => token.Contains(asked, StringComparison.Ordinal)))
             {
                 return true;
             }
@@ -377,6 +396,12 @@ public sealed class ChatServices : IChatServices
 
         return false;
     }
+
+    private static bool IsUsefulMedicineToken(string token) =>
+        token.Length > 0
+        && !MedicineNameSkip.Contains(token)
+        && !int.TryParse(token, out _)
+        && (token.Any(ch => ch > 127) ? token.Length >= 2 : token.Length >= 4);
 
     private static bool OverMonthlyLimit(string normalized, IReadOnlyList<ClinicMedicine> hits)
     {
@@ -410,10 +435,23 @@ public sealed class ChatServices : IChatServices
         {
             new("Paracetamol 500 mg tablets", "扑热息痛", "20 tablets", "20 片", "For fever or pain.", null, "1 to 2 tablets", null, 8.90m, false, true),
             new("Vitamin C drops", "维生素C", "10 bottles", null, "A supplement.", null, "Once a day", null, 12m, false, true),
+            new("Losartan 50 mg tablets", "氯沙坦", "30 tablets", null, "For blood pressure.", null, "Once a day", null, 15m, false, true),
         };
         if (!TryAnswerClinicMedicine("can i buy 6 paracetamol", sample, out var over) || !over.StartsWith("No.", StringComparison.Ordinal) || !over.Contains("Paracetamol", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Medicine answer missed an over-limit catalog question.");
+        }
+        if (!TryAnswerClinicMedicine("para", sample, out var shortName) || !shortName.Contains("Paracetamol", StringComparison.Ordinal) || shortName.Contains("Vitamin C", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Medicine answer missed a short medicine name.");
+        }
+        if (!TryAnswerClinicMedicine("losa", sample, out var uploaded) || !uploaded.Contains("Losartan", StringComparison.Ordinal) || uploaded.Contains("Paracetamol", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Medicine answer missed another uploaded medicine.");
+        }
+        if (!TryAnswerClinicMedicine("沙坦", sample, out var uploadedZh) || !uploadedZh.Contains("氯沙坦", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Medicine answer missed a Chinese medicine name.");
         }
         if (!TryAnswerClinicMedicine("can i buy 2 vitamin c", sample, out var added) || !added.Contains("Vitamin C", StringComparison.Ordinal))
         {
