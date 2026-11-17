@@ -105,7 +105,9 @@ namespace CarePlus.API.Services.AppointmentServices
             }
 
             var rangeDays = Math.Clamp(days, 7, 180);
-            var today = DateOnly.FromDateTime(DateTimeHelper.MalaysiaNow());
+            var now = DateTimeHelper.MalaysiaNow();
+            var earliest = now.AddMinutes(MinimumBookingLeadMinutes);
+            var today = DateOnly.FromDateTime(now);
             var lastDay = today.AddDays(rangeDays);
             var schedules = _db.WorkSchedules
                 .AsNoTracking()
@@ -116,17 +118,95 @@ namespace CarePlus.API.Services.AppointmentServices
                 schedules = schedules.Where(row => row.StaffId == doctorKey);
             }
 
-            var dates = await schedules
-                .Where(schedule => _db.RoomAssignments.Any(assignment =>
-                    assignment.ScheduleId == schedule.ScheduleId
-                    || (assignment.DoctorId == schedule.StaffId
-                        && assignment.AssignmentDate == schedule.WorkingDate)))
-                .Select(row => row.WorkingDate)
-                .Distinct()
-                .OrderBy(day => day)
+            var rows = await schedules
+                .Select(row => new { row.StaffId, row.WorkingDate, row.Shift })
+                .ToListAsync();
+            if (rows.Count == 0)
+            {
+                return ApiResponse<List<string>>.Ok([]);
+            }
+
+            var staffIds = rows.Select(row => row.StaffId).Distinct().ToList();
+            var firstInstant = today.ToDateTime(TimeOnly.MinValue);
+            var afterLast = lastDay.AddDays(1).ToDateTime(TimeOnly.MinValue);
+            var assignments = await _db.RoomAssignments
+                .AsNoTracking()
+                .Where(row => staffIds.Contains(row.DoctorId)
+                    && row.AssignmentDate >= today
+                    && row.AssignmentDate <= lastDay
+                    && row.Schedule != null
+                    && row.Schedule.Status == "Active")
+                .Select(row => new
+                {
+                    row.DoctorId,
+                    row.AssignmentDate,
+                    row.StartTime,
+                    row.EndTime,
+                    RoomStatus = row.Room.Status,
+                })
+                .ToListAsync();
+            var leave = await _db.LeaveApplications
+                .AsNoTracking()
+                .Where(row => staffIds.Contains(row.StaffId)
+                    && row.Status == "Approved"
+                    && row.StartDate < afterLast
+                    && row.EndDate >= firstInstant)
+                .Select(row => new { row.StaffId, row.StartDate, row.EndDate })
+                .ToListAsync();
+            var taken = await _db.Appointments
+                .AsNoTracking()
+                .Where(row => staffIds.Contains(row.DoctorId)
+                    && row.Status == "Scheduled"
+                    && row.AppointmentDate >= firstInstant
+                    && row.AppointmentDate < afterLast)
+                .Select(row => new { row.DoctorId, row.AppointmentDate, row.AppointmentTime })
                 .ToListAsync();
 
-            return ApiResponse<List<string>>.Ok(dates.Select(day => day.ToString("yyyy-MM-dd")).ToList());
+            var openDates = new SortedSet<DateOnly>();
+            foreach (var schedule in rows)
+            {
+                var dayStart = schedule.WorkingDate.ToDateTime(TimeOnly.MinValue);
+                var dayEnd = dayStart.AddDays(1);
+                if (leave.Any(row =>
+                    row.StaffId == schedule.StaffId
+                    && row.StartDate < dayEnd
+                    && row.EndDate >= dayStart))
+                {
+                    continue;
+                }
+
+                foreach (var time in ShiftTimes(schedule.Shift))
+                {
+                    if (dayStart + time < earliest)
+                    {
+                        continue;
+                    }
+
+                    if (taken.Any(row =>
+                        row.DoctorId == schedule.StaffId
+                        && row.AppointmentDate.Date == dayStart
+                        && row.AppointmentTime == time))
+                    {
+                        continue;
+                    }
+
+                    var slot = TimeOnly.FromTimeSpan(time);
+                    var hasRoom = assignments.Any(row =>
+                        row.DoctorId == schedule.StaffId
+                        && row.AssignmentDate == schedule.WorkingDate
+                        && string.Equals(row.RoomStatus, "Available", StringComparison.OrdinalIgnoreCase)
+                        && IsTimeWithinAssignment(slot, row.StartTime, row.EndTime));
+                    if (!hasRoom)
+                    {
+                        continue;
+                    }
+
+                    openDates.Add(schedule.WorkingDate);
+                    break;
+                }
+            }
+
+            return ApiResponse<List<string>>.Ok(openDates.Select(day => day.ToString("yyyy-MM-dd")).ToList());
         }
 
         public async Task<ApiResponse<List<BookingDoctorResponse>>> GetAvailableDoctorsAsync(

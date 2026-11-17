@@ -543,7 +543,7 @@ public class NotificationServices : INotificationServices
                 "CarePlus Pharmacy",
                 "CP",
                 "medicine_update",
-                "/orders",
+                status == "ready_pickup" ? "" : "/orders",
                 order.OrderDate));
         }
 
@@ -572,7 +572,7 @@ public class NotificationServices : INotificationServices
                     "CarePlus Pharmacy",
                     "CP",
                     "medicine_update",
-                    "/notifications",
+                    "",
                     now));
                 continue;
             }

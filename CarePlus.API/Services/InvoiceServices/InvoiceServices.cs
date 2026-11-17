@@ -169,6 +169,11 @@ namespace CarePlus.API.Services.InvoiceServices
             }
 
             var patient = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(row => row.UserId == userId);
+            if (patient != null && PatientAge.UnderTwelve(patient.DateOfBirth, DateTimeHelper.MalaysiaNow().Date))
+            {
+                return ApiResponse<OutstandingInvoiceResponse>.Fail("Children under 12 cannot pay clinic bills.", 403);
+            }
+
             var invoice = patient == null
                 ? null
                 : await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(row => row.InvoiceId == invoiceId && row.PatientId == patient.PatientId);
@@ -227,6 +232,11 @@ namespace CarePlus.API.Services.InvoiceServices
             if (patient == null)
             {
                 return ApiResponse<OutstandingInvoiceResponse>.Fail("This account is not a patient account.", 400);
+            }
+
+            if (PatientAge.UnderTwelve(patient.DateOfBirth, DateTimeHelper.MalaysiaNow().Date))
+            {
+                return ApiResponse<OutstandingInvoiceResponse>.Fail("Children under 12 cannot pay clinic bills.", 403);
             }
 
             var method = request.PaymentMethod?.Trim() ?? "";

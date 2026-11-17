@@ -53,33 +53,42 @@ namespace CarePlus.API.Services.QueueServices
                 return ApiResponse<QueueOverviewResponse>.Fail("This account is not a patient account.", 403);
             }
 
-            var active = await QueueQuery()
-                .Where(row => row.PatientId == patientId
-                    && (row.Status == "Waiting" || row.Status == "Called" || row.Status == "InConsultation")
-                    && row.Appointment != null
-                    && row.Appointment.Status != "Completed"
-                    && row.Appointment.Status != "Cancelled"
-                    && row.Appointment.Status != "Missed")
-                .OrderByDescending(row => row.CheckInTime)
-                .FirstOrDefaultAsync();
-
+            var visibleIds = await VisiblePatientIdsAsync(patientId);
             var now = DateTimeHelper.MalaysiaNow();
             Appointment? appointment = null;
             if (!string.IsNullOrWhiteSpace(appointmentId))
             {
+                var requestedId = appointmentId.Trim();
                 appointment = await AppointmentQuery()
-                    .FirstOrDefaultAsync(row => row.AppointmentId == appointmentId.Trim() && row.PatientId == patientId);
+                    .FirstOrDefaultAsync(row => row.AppointmentId == requestedId && visibleIds.Contains(row.PatientId));
                 if (appointment == null)
                 {
                     return ApiResponse<QueueOverviewResponse>.Fail("Appointment was not found.", 404);
                 }
             }
-            else if (active == null)
+
+            var activeQuery = QueueQuery()
+                .Where(row => visibleIds.Contains(row.PatientId)
+                    && (row.Status == "Waiting" || row.Status == "Called" || row.Status == "InConsultation")
+                    && row.Appointment != null
+                    && row.Appointment.Status != "Completed"
+                    && row.Appointment.Status != "Cancelled"
+                    && row.Appointment.Status != "Missed");
+            if (appointment != null)
+            {
+                activeQuery = activeQuery.Where(row => row.AppointmentId == appointment.AppointmentId);
+            }
+
+            var active = await activeQuery
+                .OrderByDescending(row => row.CheckInTime)
+                .FirstOrDefaultAsync();
+
+            if (appointment == null && active == null)
             {
                 var lower = now.AddMinutes(-CheckInMinutesAfter);
                 var upper = now.AddDays(1);
                 var candidates = await AppointmentQuery()
-                    .Where(row => row.PatientId == patientId && row.Status == "Scheduled")
+                    .Where(row => visibleIds.Contains(row.PatientId) && row.Status == "Scheduled")
                     .ToListAsync();
                 appointment = candidates
                     .Where(row => StartAt(row) >= lower && StartAt(row) <= upper)
@@ -109,9 +118,10 @@ namespace CarePlus.API.Services.QueueServices
                 return ApiResponse<QueueStatusResponse>.Fail("Appointment is required.", 400);
             }
 
+            var visibleIds = await VisiblePatientIdsAsync(patientId);
             await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var appointment = await AppointmentQuery(tracking: true)
-                .FirstOrDefaultAsync(row => row.AppointmentId == appointmentId.Trim() && row.PatientId == patientId);
+                .FirstOrDefaultAsync(row => row.AppointmentId == appointmentId.Trim() && visibleIds.Contains(row.PatientId));
             if (appointment == null)
             {
                 return ApiResponse<QueueStatusResponse>.Fail("Appointment was not found.", 404);
@@ -156,7 +166,7 @@ namespace CarePlus.API.Services.QueueServices
             var entry = new QueueEntry
             {
                 QueueId = $"QUEUE-{appointment.AppointmentId}",
-                PatientId = patientId,
+                PatientId = appointment.PatientId,
                 AppointmentId = appointment.AppointmentId,
                 QueueType = QueueType(appointment),
                 Status = "Waiting",
@@ -537,6 +547,7 @@ namespace CarePlus.API.Services.QueueServices
                 AppointmentAt = ToIso(StartAt(appointment)),
                 DoctorName = DoctorName(appointment),
                 VisitType = appointment.VisitType,
+                ForName = appointment.ForName,
                 RoomId = room?.RoomId,
                 RoomName = room?.RoomName,
                 PeopleAhead = peopleAhead,
@@ -563,11 +574,32 @@ namespace CarePlus.API.Services.QueueServices
                 AppointmentAt = ToIso(start),
                 DoctorName = DoctorName(appointment),
                 VisitType = appointment.VisitType,
+                ForName = appointment.ForName,
                 CheckInOpensAt = ToIso(opens),
                 CheckInClosesAt = ToIso(closes),
                 CanCheckIn = canCheckIn,
                 Message = message,
             };
+        }
+
+        // Parents can open the queue for any active family member. Children only see their own.
+        private async Task<List<string>> VisiblePatientIdsAsync(string patientId)
+        {
+            var membership = await _db.FamilyMembers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(row => row.PatientId == patientId && row.Status == "Active");
+            if (membership == null
+                || !string.Equals(membership.Relationship, "parent", StringComparison.OrdinalIgnoreCase))
+            {
+                return [patientId];
+            }
+
+            return await _db.FamilyMembers
+                .AsNoTracking()
+                .Where(row => row.FamilyGroupId == membership.FamilyGroupId && row.Status == "Active")
+                .Select(row => row.PatientId)
+                .Distinct()
+                .ToListAsync();
         }
 
         private async Task<string?> PatientIdAsync(long userId) => await _db.Patients.AsNoTracking()
