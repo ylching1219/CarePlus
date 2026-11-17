@@ -1070,17 +1070,17 @@ namespace CarePlus.API.Migrations
                 columns: new[] { "Id", "IsActive", "Key", "Length", "PaddingChar", "Prefix", "Step", "Value", "Version" },
                 values: new object[,]
                 {
-                    { 1L, true, "PatientId", 6, "0", "P", 1, 0L, 0L },
-                    { 2L, true, "MedicineId", 4, "0", "MED", 1, 6L, 0L },
+                    { 1L, true, "PatientId", 6, "0", "P", 1, 9L, 9L },
+                    { 2L, true, "MedicineId", 4, "0", "MED", 1, 6L, 6L },
                     { 3L, true, "CartId", 4, "0", "CART", 1, 0L, 0L },
                     { 4L, true, "CartItemId", 4, "0", "CARTI", 1, 0L, 0L },
                     { 5L, true, "OrderId", 4, "0", "ORD", 1, 0L, 0L },
                     { 6L, true, "OrderItemId", 4, "0", "ORDI", 1, 0L, 0L },
-                    { 7L, true, "InvoiceId", 4, "0", "INV", 1, 0L, 0L },
+                    { 7L, true, "InvoiceId", 4, "0", "INV", 1, 1L, 1L },
                     { 8L, true, "PaymentId", 4, "0", "PAY", 1, 0L, 0L },
-                    { 9L, true, "StaffId", 6, "0", "STF", 1, 9L, 0L },
+                    { 9L, true, "StaffId", 6, "0", "STF", 1, 9L, 9L },
                     { 10L, true, "AppointmentId", 4, "0", "APT", 1, 0L, 0L },
-                    { 11L, true, "ScheduleId", 6, "0", "SCH", 1, 0L, 0L },
+                    { 11L, true, "ScheduleId", 6, "0", "SCH", 1, 9L, 9L },
                     { 12L, true, "RoomId", 4, "0", "RM-", 1, 5L, 0L },
                     { 13L, true, "PrescriptionId", 4, "0", "RX", 1, 0L, 0L },
                     { 14L, true, "PrescriptionItemId", 4, "0", "RXI", 1, 0L, 0L }
@@ -1104,15 +1104,24 @@ namespace CarePlus.API.Migrations
                 columns: new[] { "UserId", "Email", "EmailVerified", "Name", "PasswordHash", "PasswordLockoutUntilUtc", "Phone", "SessionVersion", "Status", "Username" },
                 values: new object[,]
                 {
-                    { 1L, "admin@gmail.com", true, "Admin One", "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==", null, null, 0, "Active", "admin001" },
-                    { 2L, "doctor001@careplus.local", true, "Doctor One", "AQAAAAIAAYagAAAAEGoelPdTS08xnFMkc6zJXJral4MAdthS0khrTQFqxq2lLRXB300vh4F487u+CoAz8w==", null, null, 0, "Active", "doctor001" },
-                    { 3L, "doctor002@careplus.local", true, "Doctor Two", "AQAAAAIAAYagAAAAENVjvWCqRGeKqDx7qaMq0bZriP0cMVXCvq9/g6Uv8p8KilJeLVp9Lur77q1u6ke5Ig==", null, null, 0, "Active", "doctor002" },
-                    { 4L, "doctor003@careplus.local", true, "Doctor Three", "AQAAAAIAAYagAAAAEKiHgZFZkJy/7Wj4tG4liN16amXXAenFi7oZG2287Iu2mtbzAoFop17fiM5oig2pdQ==", null, null, 0, "Active", "doctor003" },
-                    { 5L, "doctor004@careplus.local", true, "Doctor Four", "AQAAAAIAAYagAAAAEPN2650fnLQvqDVcWyy2LH33rvWhntm6s7qfwifGVOMPgWEsjwDoR3fxgvdt/B3jcw==", null, null, 0, "Active", "doctor004" },
-                    { 6L, "pharmacist001@careplus.local", true, "Pharmacist One", "AQAAAAIAAYagAAAAEG3iHfNMaN+/igy9fme2UrMWqdHuMzctlQftjRzLxm2SzFWEbriRJ6mZG+fKpPyXOw==", null, null, 0, "Active", "pharmacist001" },
-                    { 7L, "pharmacist002@careplus.local", true, "Pharmacist Two", "AQAAAAIAAYagAAAAEJpqLtK3RlHlxiavCb2iWKGWgiF6Pm2HVlvek7ysaZb6SJ5NB4TLuGnTxVihBcGpRQ==", null, null, 0, "Active", "pharmacist002" },
-                    { 8L, "pharmacist003@careplus.local", true, "Pharmacist Three", "AQAAAAIAAYagAAAAEMlRRueMa8uoEWnmk+vArUsHppCKM4olXhEt5NpiqYBfXkDPH/4rLJ/cAEGNJTjcqQ==", null, null, 0, "Active", "pharmacist003" },
-                    { 9L, "pharmacist004@careplus.local", true, "Pharmacist Four", "AQAAAAIAAYagAAAAENKWTF+b0fTQnXoTV+20lfIYjoEhlZquB1pkymPpbza24sKPeXPEWx0NXQGUS8kHyw==", null, null, 0, "Active", "pharmacist004" }
+                    { 1L, "admin@careplus.local", true, "Nurul Aisyah Rahman", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123001001", 0, "Active", "admin" },
+                    { 2L, "lim.weijie@careplus.local", true, "Lim Wei Jie", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123001002", 0, "Active", "drlim" },
+                    { 3L, "siti.aminah@careplus.local", true, "Siti Aminah Hassan", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123001003", 0, "Active", "drsiti" },
+                    { 4L, "arjun.menon@careplus.local", true, "Arjun Menon", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123001004", 0, "Active", "drarjun" },
+                    { 5L, "tan.meiling@careplus.local", true, "Tan Mei Ling", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123001005", 0, "Active", "drtan" },
+                    { 6L, "hafiz.osman@careplus.local", true, "Hafiz bin Osman", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123001006", 0, "Active", "hafiz" },
+                    { 7L, "chloe.ng@careplus.local", true, "Chloe Ng", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123001007", 0, "Active", "chloe" },
+                    { 8L, "priya.krishnan@careplus.local", true, "Priya Krishnan", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123001008", 0, "Active", "priya" },
+                    { 9L, "daniel.chong@careplus.local", true, "Daniel Chong", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123001009", 0, "Active", "daniel" },
+                    { 10L, "ahmad.farid@careplus.local", true, "Ahmad Farid bin Zulkifli", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123002001", 0, "Active", "ahmad" },
+                    { 11L, "lina.teoh@careplus.local", true, "Lina Teoh", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123002002", 0, "Active", "lina" },
+                    { 12L, "kumar.rajan@careplus.local", true, "Kumar a/l Rajan", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123002003", 0, "Active", "kumar" },
+                    { 13L, "grace.wong@careplus.local", true, "Grace Wong", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123002004", 0, "Active", "grace" },
+                    { 14L, "aina.ahmad@careplus.local", true, "Aina Ahmad", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123002005", 0, "Active", "aina" },
+                    { 15L, "adam.ahmad@careplus.local", true, "Adam Ahmad", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123002006", 0, "Active", "adam" },
+                    { 16L, "hana.kumar@careplus.local", true, "Hana Kumar", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123002007", 0, "Active", "hana" },
+                    { 17L, "lucas.teoh@careplus.local", true, "Lucas Teoh", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123002008", 0, "Active", "lucas" },
+                    { 18L, "farah.ismail@careplus.local", true, "Farah Ismail", "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==", null, "0123002009", 0, "Active", "farah" }
                 });
 
             migrationBuilder.InsertData(
@@ -1169,10 +1178,10 @@ namespace CarePlus.API.Migrations
                 columns: new[] { "StaffId", "LicenseNumber", "ProfilePicture", "Qualification", "Specialization", "YearsOfExperience" },
                 values: new object[,]
                 {
-                    { "STF000002", "DOC-LIC-0001", "profiles/doctor-doctor001.png", "MBBS", "General Medicine", 5 },
-                    { "STF000003", "DOC-LIC-0002", "profiles/doctor-doctor002.jpg", "MBBS", "Family Medicine", 7 },
-                    { "STF000004", "DOC-LIC-0003", "profiles/doctor-doctor003.jpg", "MD", "Internal Medicine", 9 },
-                    { "STF000005", "DOC-LIC-0004", "profiles/doctor-doctor004.jpg", "MBBS, Paediatrics", "Paediatrics", 4 }
+                    { "STF000002", "DOC-LIC-0001", "profiles/doctor-doctor001.png", "MBBS", "General Medicine", 8 },
+                    { "STF000003", "DOC-LIC-0002", "profiles/doctor-doctor002.jpg", "MBBS", "Family Medicine", 11 },
+                    { "STF000004", "DOC-LIC-0003", "profiles/doctor-doctor003.jpg", "MD", "Internal Medicine", 14 },
+                    { "STF000005", "DOC-LIC-0004", "profiles/doctor-doctor004.jpg", "MBBS", "Paediatrics", 6 }
                 });
 
             migrationBuilder.InsertData(
@@ -1180,11 +1189,80 @@ namespace CarePlus.API.Migrations
                 columns: new[] { "StaffId", "Certification", "LicenseNumber", "Qualification", "YearsOfExperience" },
                 values: new object[,]
                 {
-                    { "STF000006", "Registered Pharmacist", "PHA-LIC-0001", "Bachelor of Pharmacy", 5 },
-                    { "STF000007", "Registered Pharmacist", "PHA-LIC-0002", "Bachelor of Pharmacy", 6 },
+                    { "STF000006", "Registered Pharmacist", "PHA-LIC-0001", "Bachelor of Pharmacy", 7 },
+                    { "STF000007", "Registered Pharmacist", "PHA-LIC-0002", "Bachelor of Pharmacy", 5 },
                     { "STF000008", "Registered Pharmacist", "PHA-LIC-0003", "Diploma in Pharmacy", 3 },
-                    { "STF000009", "Registered Pharmacist", "PHA-LIC-0004", "Bachelor of Pharmacy", 8 }
+                    { "STF000009", "Registered Pharmacist", "PHA-LIC-0004", "Bachelor of Pharmacy", 9 }
                 });
+
+            migrationBuilder.InsertData(
+                table: "Patients",
+                columns: new[] { "PatientId", "UserId", "IdentityCardNumber", "DateOfBirth", "Gender", "Address", "ProfilePicture", "AnnouncementStartAt" },
+                values: new object[,]
+                {
+                    { "P000001", 10L, "880412145521", new DateTime(1988, 4, 12, 0, 0, 0, 0, DateTimeKind.Unspecified), "M", "12 Jalan Genting Kelang, Setapak, 53300 Kuala Lumpur", null, null },
+                    { "P000002", 11L, "900903105588", new DateTime(1990, 9, 3, 0, 0, 0, 0, DateTimeKind.Unspecified), "F", "12 Jalan Genting Kelang, Setapak, 53300 Kuala Lumpur", null, null },
+                    { "P000003", 12L, "850120085511", new DateTime(1985, 1, 20, 0, 0, 0, 0, DateTimeKind.Unspecified), "M", "88 Jalan Gombak, 53000 Kuala Lumpur", null, null },
+                    { "P000004", 13L, "921108145533", new DateTime(1992, 11, 8, 0, 0, 0, 0, DateTimeKind.Unspecified), "F", "21 Jalan Ampang, 50450 Kuala Lumpur", null, null },
+                    { "P000005", 14L, "180615145001", new DateTime(2018, 6, 15, 0, 0, 0, 0, DateTimeKind.Unspecified), "F", "12 Jalan Genting Kelang, Setapak, 53300 Kuala Lumpur", null, null },
+                    { "P000006", 15L, "200202145002", new DateTime(2020, 2, 2, 0, 0, 0, 0, DateTimeKind.Unspecified), "M", "12 Jalan Genting Kelang, Setapak, 53300 Kuala Lumpur", null, null },
+                    { "P000007", 16L, "170821085003", new DateTime(2017, 8, 21, 0, 0, 0, 0, DateTimeKind.Unspecified), "F", "88 Jalan Gombak, 53000 Kuala Lumpur", null, null },
+                    { "P000008", 17L, "191201145004", new DateTime(2019, 12, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), "M", "21 Jalan Ampang, 50450 Kuala Lumpur", null, null },
+                    { "P000009", 18L, "910325105599", new DateTime(1991, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified), "F", "5 Jalan Pahang, 53000 Kuala Lumpur", null, null }
+                });
+
+            migrationBuilder.InsertData(
+                table: "FamilyGroups",
+                columns: new[] { "FamilyGroupId", "GroupName", "MemberCount", "CreatedBy", "CreatedAt" },
+                values: new object[] { 1L, "Ahmad family", 4, "P000001", new DateTime(2026, 11, 1, 9, 0, 0, 0, DateTimeKind.Unspecified) });
+
+            migrationBuilder.InsertData(
+                table: "FamilyMembers",
+                columns: new[] { "FamilyMemberId", "FamilyGroupId", "PatientId", "Relationship", "AccessLevel", "DisplayName", "JoinAt", "Status" },
+                values: new object[,]
+                {
+                    { 1L, 1L, "P000001", "parent", "Parent", "Ahmad Farid", new DateTime(2026, 11, 1, 9, 0, 0, 0, DateTimeKind.Unspecified), "Active" },
+                    { 2L, 1L, "P000002", "parent", "Parent", "Lina Teoh", new DateTime(2026, 11, 1, 9, 5, 0, 0, DateTimeKind.Unspecified), "Active" },
+                    { 3L, 1L, "P000005", "child", "Child", "Aina Ahmad", new DateTime(2026, 11, 1, 9, 10, 0, 0, DateTimeKind.Unspecified), "Active" },
+                    { 4L, 1L, "P000006", "child", "Child", "Adam Ahmad", new DateTime(2026, 11, 1, 9, 10, 0, 0, DateTimeKind.Unspecified), "Active" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "WorkingSchedules",
+                columns: new[] { "ScheduleId", "StaffId", "WorkingDate", "Shift", "Status" },
+                values: new object[,]
+                {
+                    { "SCH000001", "STF000002", new DateTime(2026, 11, 17, 0, 0, 0, 0, DateTimeKind.Unspecified), "Morning", "Active" },
+                    { "SCH000002", "STF000002", new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Unspecified), "Morning", "Active" },
+                    { "SCH000003", "STF000002", new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Unspecified), "Morning", "Active" },
+                    { "SCH000004", "STF000002", new DateTime(2026, 11, 20, 0, 0, 0, 0, DateTimeKind.Unspecified), "Morning", "Active" },
+                    { "SCH000005", "STF000002", new DateTime(2026, 11, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), "Morning", "Active" },
+                    { "SCH000006", "STF000002", new DateTime(2026, 11, 24, 0, 0, 0, 0, DateTimeKind.Unspecified), "Morning", "Active" },
+                    { "SCH000007", "STF000002", new DateTime(2026, 11, 25, 0, 0, 0, 0, DateTimeKind.Unspecified), "Morning", "Active" },
+                    { "SCH000008", "STF000002", new DateTime(2026, 11, 26, 0, 0, 0, 0, DateTimeKind.Unspecified), "Morning", "Active" },
+                    { "SCH000009", "STF000002", new DateTime(2026, 11, 27, 0, 0, 0, 0, DateTimeKind.Unspecified), "Morning", "Active" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "RoomAssignments",
+                columns: new[] { "AssignmentId", "RoomId", "ScheduleId", "DoctorId", "AssignmentDate", "StartTime", "EndTime" },
+                values: new object[,]
+                {
+                    { "RA-00000001", "RM-0001", "SCH000001", "STF000002", new DateTime(2026, 11, 17, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(6, 0, 0), new TimeSpan(18, 0, 0) },
+                    { "RA-00000002", "RM-0001", "SCH000002", "STF000002", new DateTime(2026, 11, 18, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(6, 0, 0), new TimeSpan(18, 0, 0) },
+                    { "RA-00000003", "RM-0001", "SCH000003", "STF000002", new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(6, 0, 0), new TimeSpan(18, 0, 0) },
+                    { "RA-00000004", "RM-0001", "SCH000004", "STF000002", new DateTime(2026, 11, 20, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(6, 0, 0), new TimeSpan(18, 0, 0) },
+                    { "RA-00000005", "RM-0001", "SCH000005", "STF000002", new DateTime(2026, 11, 23, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(6, 0, 0), new TimeSpan(18, 0, 0) },
+                    { "RA-00000006", "RM-0001", "SCH000006", "STF000002", new DateTime(2026, 11, 24, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(6, 0, 0), new TimeSpan(18, 0, 0) },
+                    { "RA-00000007", "RM-0001", "SCH000007", "STF000002", new DateTime(2026, 11, 25, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(6, 0, 0), new TimeSpan(18, 0, 0) },
+                    { "RA-00000008", "RM-0001", "SCH000008", "STF000002", new DateTime(2026, 11, 26, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(6, 0, 0), new TimeSpan(18, 0, 0) },
+                    { "RA-00000009", "RM-0001", "SCH000009", "STF000002", new DateTime(2026, 11, 27, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(6, 0, 0), new TimeSpan(18, 0, 0) }
+                });
+
+            migrationBuilder.InsertData(
+                table: "Invoices",
+                columns: new[] { "InvoiceId", "PatientId", "MedicalRecordId", "OrderId", "TotalAmount", "IssueAt", "DueDate", "DoctorName", "VisitType", "RecordRef", "PaymentStatus" },
+                values: new object[] { "INV0001", "P000009", null, null, 50.00m, new DateTime(2026, 10, 31, 10, 0, 0, 0, DateTimeKind.Unspecified), new DateTime(2026, 11, 7, 0, 0, 0, 0, DateTimeKind.Unspecified), "Lim Wei Jie", "General consultation", null, "Pending" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Appointments_DoctorId",

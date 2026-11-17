@@ -353,8 +353,8 @@ namespace CarePlus.API.Migrations
                             PaddingChar = "0",
                             Prefix = "P",
                             Step = 1,
-                            Value = 0L,
-                            Version = 0L
+                            Value = 9L,
+                            Version = 9L
                         },
                         new
                         {
@@ -366,7 +366,7 @@ namespace CarePlus.API.Migrations
                             Prefix = "STF",
                             Step = 1,
                             Value = 9L,
-                            Version = 0L
+                            Version = 9L
                         },
                         new
                         {
@@ -378,7 +378,7 @@ namespace CarePlus.API.Migrations
                             Prefix = "MED",
                             Step = 1,
                             Value = 6L,
-                            Version = 0L
+                            Version = 6L
                         },
                         new
                         {
@@ -437,8 +437,8 @@ namespace CarePlus.API.Migrations
                             PaddingChar = "0",
                             Prefix = "INV",
                             Step = 1,
-                            Value = 0L,
-                            Version = 0L
+                            Value = 1L,
+                            Version = 1L
                         },
                         new
                         {
@@ -473,8 +473,8 @@ namespace CarePlus.API.Migrations
                             PaddingChar = "0",
                             Prefix = "SCH",
                             Step = 1,
-                            Value = 0L,
-                            Version = 0L
+                            Value = 9L,
+                            Version = 9L
                         },
                         new
                         {
@@ -1887,110 +1887,119 @@ namespace CarePlus.API.Migrations
                         new
                         {
                             UserId = 1L,
-                            Email = "admin@gmail.com",
+                            Email = "admin@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
-                            Name = "Admin One",
-                            PasswordHash = "AQAAAAIAAYagAAAAEEQ6VRirUgPngfMyDkSNSIioHowbRblZirJ2BvwvD82I5jOQ3d6i7IbtcvgdHCv/Qg==",
+                            Name = "Nurul Aisyah Rahman",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==",
+                            Phone = "0123001001",
                             SessionVersion = 0,
                             Status = "Active",
-                            Username = "admin001"
+                            Username = "admin"
                         },
                         new
                         {
                             UserId = 2L,
-                            Email = "doctor001@careplus.local",
+                            Email = "lim.weijie@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
-                            Name = "Doctor One",
-                            PasswordHash = "AQAAAAIAAYagAAAAEGoelPdTS08xnFMkc6zJXJral4MAdthS0khrTQFqxq2lLRXB300vh4F487u+CoAz8w==",
+                            Name = "Lim Wei Jie",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==",
+                            Phone = "0123001002",
                             SessionVersion = 0,
                             Status = "Active",
-                            Username = "doctor001"
+                            Username = "drlim"
                         },
                         new
                         {
                             UserId = 3L,
-                            Email = "doctor002@careplus.local",
+                            Email = "siti.aminah@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
-                            Name = "Doctor Two",
-                            PasswordHash = "AQAAAAIAAYagAAAAENVjvWCqRGeKqDx7qaMq0bZriP0cMVXCvq9/g6Uv8p8KilJeLVp9Lur77q1u6ke5Ig==",
+                            Name = "Siti Aminah Hassan",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==",
+                            Phone = "0123001003",
                             SessionVersion = 0,
                             Status = "Active",
-                            Username = "doctor002"
+                            Username = "drsiti"
                         },
                         new
                         {
                             UserId = 4L,
-                            Email = "doctor003@careplus.local",
+                            Email = "arjun.menon@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
-                            Name = "Doctor Three",
-                            PasswordHash = "AQAAAAIAAYagAAAAEKiHgZFZkJy/7Wj4tG4liN16amXXAenFi7oZG2287Iu2mtbzAoFop17fiM5oig2pdQ==",
+                            Name = "Arjun Menon",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==",
+                            Phone = "0123001004",
                             SessionVersion = 0,
                             Status = "Active",
-                            Username = "doctor003"
+                            Username = "drarjun"
                         },
                         new
                         {
                             UserId = 5L,
-                            Email = "doctor004@careplus.local",
+                            Email = "tan.meiling@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
-                            Name = "Doctor Four",
-                            PasswordHash = "AQAAAAIAAYagAAAAEPN2650fnLQvqDVcWyy2LH33rvWhntm6s7qfwifGVOMPgWEsjwDoR3fxgvdt/B3jcw==",
+                            Name = "Tan Mei Ling",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==",
+                            Phone = "0123001005",
                             SessionVersion = 0,
                             Status = "Active",
-                            Username = "doctor004"
+                            Username = "drtan"
                         },
                         new
                         {
                             UserId = 6L,
-                            Email = "pharmacist001@careplus.local",
+                            Email = "hafiz.osman@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
-                            Name = "Pharmacist One",
-                            PasswordHash = "AQAAAAIAAYagAAAAEG3iHfNMaN+/igy9fme2UrMWqdHuMzctlQftjRzLxm2SzFWEbriRJ6mZG+fKpPyXOw==",
+                            Name = "Hafiz bin Osman",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==",
+                            Phone = "0123001006",
                             SessionVersion = 0,
                             Status = "Active",
-                            Username = "pharmacist001"
+                            Username = "hafiz"
                         },
                         new
                         {
                             UserId = 7L,
-                            Email = "pharmacist002@careplus.local",
+                            Email = "chloe.ng@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
-                            Name = "Pharmacist Two",
-                            PasswordHash = "AQAAAAIAAYagAAAAEJpqLtK3RlHlxiavCb2iWKGWgiF6Pm2HVlvek7ysaZb6SJ5NB4TLuGnTxVihBcGpRQ==",
+                            Name = "Chloe Ng",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==",
+                            Phone = "0123001007",
                             SessionVersion = 0,
                             Status = "Active",
-                            Username = "pharmacist002"
+                            Username = "chloe"
                         },
                         new
                         {
                             UserId = 8L,
-                            Email = "pharmacist003@careplus.local",
+                            Email = "priya.krishnan@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
-                            Name = "Pharmacist Three",
-                            PasswordHash = "AQAAAAIAAYagAAAAEMlRRueMa8uoEWnmk+vArUsHppCKM4olXhEt5NpiqYBfXkDPH/4rLJ/cAEGNJTjcqQ==",
+                            Name = "Priya Krishnan",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==",
+                            Phone = "0123001008",
                             SessionVersion = 0,
                             Status = "Active",
-                            Username = "pharmacist003"
+                            Username = "priya"
                         },
                         new
                         {
                             UserId = 9L,
-                            Email = "pharmacist004@careplus.local",
+                            Email = "daniel.chong@careplus.local",
                             EmailVerified = true,
                             FailedPasswordAttempts = 0,
-                            Name = "Pharmacist Four",
-                            PasswordHash = "AQAAAAIAAYagAAAAENKWTF+b0fTQnXoTV+20lfIYjoEhlZquB1pkymPpbza24sKPeXPEWx0NXQGUS8kHyw==",
+                            Name = "Daniel Chong",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN7npY5nsp8JgmC7oobqdViptrmJ0wM0pHgSu40u8GhflW/Ol8TjEPTZchg3CgdBMg==",
+                            Phone = "0123001009",
                             SessionVersion = 0,
                             Status = "Active",
-                            Username = "pharmacist004"
+                            Username = "daniel"
                         });
                 });
 
@@ -2082,7 +2091,7 @@ namespace CarePlus.API.Migrations
                             ProfilePicture = "profiles/doctor-doctor001.png",
                             Qualification = "MBBS",
                             Specialization = "General Medicine",
-                            YearsOfExperience = 5
+                            YearsOfExperience = 8
                         },
                         new
                         {
@@ -2093,7 +2102,7 @@ namespace CarePlus.API.Migrations
                             ProfilePicture = "profiles/doctor-doctor002.jpg",
                             Qualification = "MBBS",
                             Specialization = "Family Medicine",
-                            YearsOfExperience = 7
+                            YearsOfExperience = 11
                         },
                         new
                         {
@@ -2104,7 +2113,7 @@ namespace CarePlus.API.Migrations
                             ProfilePicture = "profiles/doctor-doctor003.jpg",
                             Qualification = "MD",
                             Specialization = "Internal Medicine",
-                            YearsOfExperience = 9
+                            YearsOfExperience = 14
                         },
                         new
                         {
@@ -2113,9 +2122,9 @@ namespace CarePlus.API.Migrations
                             UserId = 5L,
                             LicenseNumber = "DOC-LIC-0004",
                             ProfilePicture = "profiles/doctor-doctor004.jpg",
-                            Qualification = "MBBS, Paediatrics",
+                            Qualification = "MBBS",
                             Specialization = "Paediatrics",
-                            YearsOfExperience = 4
+                            YearsOfExperience = 6
                         });
                 });
 
@@ -2154,7 +2163,7 @@ namespace CarePlus.API.Migrations
                             Certification = "Registered Pharmacist",
                             LicenseNumber = "PHA-LIC-0001",
                             Qualification = "Bachelor of Pharmacy",
-                            YearsOfExperience = 5
+                            YearsOfExperience = 7
                         },
                         new
                         {
@@ -2164,7 +2173,7 @@ namespace CarePlus.API.Migrations
                             Certification = "Registered Pharmacist",
                             LicenseNumber = "PHA-LIC-0002",
                             Qualification = "Bachelor of Pharmacy",
-                            YearsOfExperience = 6
+                            YearsOfExperience = 5
                         },
                         new
                         {
@@ -2184,7 +2193,7 @@ namespace CarePlus.API.Migrations
                             Certification = "Registered Pharmacist",
                             LicenseNumber = "PHA-LIC-0004",
                             Qualification = "Bachelor of Pharmacy",
-                            YearsOfExperience = 8
+                            YearsOfExperience = 9
                         });
                 });
 
