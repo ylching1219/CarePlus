@@ -762,9 +762,34 @@ namespace CarePlus.API.Services.UserServices
                 }
 
                 var patient = await _patientRepo.GetPatientByUserIdAsync(userId);
-                if (patient == null)
+                var staff = await _staffRepo.GetStaffByUserIdAsync(userId);
+                if (patient == null && staff == null)
                 {
-                    return ApiResponse<object>.Fail("This account is not a patient account.", 400);
+                    return ApiResponse<object>.Fail("User profile was not found.", 404);
+                }
+
+                if (patient != null && staff != null)
+                {
+                    return ApiResponse<object>.Fail("This account has multiple profiles.", 409);
+                }
+
+                if (request.Username != null)
+                {
+                    var username = request.Username.Trim();
+                    if (username.Length < 3 || username.Length > 100)
+                    {
+                        return ApiResponse<object>.Fail("Username must be between 3 and 100 characters.", 400);
+                    }
+
+                    var usernameKey = username.ToUpperInvariant();
+                    var taken = await _userRepo.GetAllUsersByAsync(match =>
+                        match.Username.ToUpper() == usernameKey);
+                    if (taken.Any(match => match.UserId != user.UserId))
+                    {
+                        return ApiResponse<object>.Fail("Username already exists.", 400);
+                    }
+
+                    user.Username = username;
                 }
 
                 if (request.Name != null)
@@ -812,25 +837,31 @@ namespace CarePlus.API.Services.UserServices
                     user.Phone = phone;
                 }
 
-                var derivedGender = GenderFromIdentityCard(patient.IdentityCardNumber);
-                if (derivedGender != null)
+                if (patient != null)
                 {
-                    patient.Gender = derivedGender.Value;
-                }
-
-                if (request.Address != null)
-                {
-                    var address = request.Address.Trim();
-                    if (address.Length < 5 || address.Length > 200)
+                    var derivedGender = GenderFromIdentityCard(patient.IdentityCardNumber);
+                    if (derivedGender != null)
                     {
-                        return ApiResponse<object>.Fail("Address must be between 5 and 200 characters.", 400);
+                        patient.Gender = derivedGender.Value;
                     }
 
-                    patient.Address = address;
+                    if (request.Address != null)
+                    {
+                        var address = request.Address.Trim();
+                        if (address.Length < 5 || address.Length > 200)
+                        {
+                            return ApiResponse<object>.Fail("Address must be between 5 and 200 characters.", 400);
+                        }
+
+                        patient.Address = address;
+                    }
                 }
 
                 await _userRepo.UpdateUserAsync(user);
-                await _patientRepo.UpdatePatientAsync(patient);
+                if (patient != null)
+                {
+                    await _patientRepo.UpdatePatientAsync(patient);
+                }
                 return await RetrieveCurrentUserAsync(userId);
             }
             catch (Exception)
