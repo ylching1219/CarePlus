@@ -8,6 +8,8 @@ namespace CarePlus.API.Models.Invoice
     [Table("Invoices")]
     public class Invoice
     {
+        public const string AwaitingPickupStatus = "AwaitingPickup";
+
         [Key]
         public string InvoiceId { get; set; } = null!;
 

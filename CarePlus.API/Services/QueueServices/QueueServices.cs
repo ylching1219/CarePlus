@@ -387,7 +387,8 @@ namespace CarePlus.API.Services.QueueServices
                 }
             }
 
-            await AddConsultationInvoiceAsync(appointment, record.Data.MedicalRecordId, consultationDate);
+            await AddConsultationInvoiceAsync(
+                appointment, record.Data.MedicalRecordId, consultationDate, prescriptionItems.Count > 0);
 
             var result = await SaveStatusAsync(entry, appointment, "Completed");
             if (result.IsSuccess)
@@ -397,7 +398,8 @@ namespace CarePlus.API.Services.QueueServices
             return result;
         }
 
-        private async Task AddConsultationInvoiceAsync(Appointment appointment, string medicalRecordId, DateTime issuedAt)
+        private async Task AddConsultationInvoiceAsync(
+            Appointment appointment, string medicalRecordId, DateTime issuedAt, bool awaitsPickup)
         {
             if (await _db.Invoices.AnyAsync(row => row.MedicalRecordId == medicalRecordId)) return;
 
@@ -442,11 +444,11 @@ namespace CarePlus.API.Services.QueueServices
                 MedicalRecordId = medicalRecordId,
                 TotalAmount = visit?.Price ?? 50m,
                 IssueAt = issuedAt,
-                DueDate = issuedAt.Date.AddDays(7),
+                DueDate = awaitsPickup ? null : issuedAt.Date.AddDays(7),
                 DoctorName = doctorName,
                 VisitType = InvoiceVisitLabel.Pack(visit?.Name ?? "General consultation", billedFor),
                 RecordRef = medicalRecordId,
-                PaymentStatus = "Pending",
+                PaymentStatus = awaitsPickup ? Invoice.AwaitingPickupStatus : "Pending",
             });
         }
 

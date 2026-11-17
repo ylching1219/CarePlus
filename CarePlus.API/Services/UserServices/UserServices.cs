@@ -16,6 +16,7 @@ using CarePlus.API.Services.TwoFactorServices.Interface;
 using CarePlus.API.Services.UserServices.Interface;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using InvoiceRow = CarePlus.API.Models.Invoice.Invoice;
 
 
 namespace CarePlus.API.Services.UserServices
@@ -660,10 +661,19 @@ namespace CarePlus.API.Services.UserServices
             }
 
             var hasUnpaidInvoice = await _db.Invoices.AnyAsync(row =>
-                row.PatientId == patient.PatientId && row.PaymentStatus != "Paid");
+                row.PatientId == patient.PatientId
+                && row.PaymentStatus != "Paid"
+                && row.PaymentStatus != InvoiceRow.AwaitingPickupStatus);
             if (hasUnpaidInvoice)
             {
                 return ApiResponse<object>.Fail("Pay all outstanding invoices before deleting your account.", 409);
+            }
+
+            var hasPendingPickupBill = await _db.Invoices.AnyAsync(row =>
+                row.PatientId == patient.PatientId && row.PaymentStatus == InvoiceRow.AwaitingPickupStatus);
+            if (hasPendingPickupBill)
+            {
+                return ApiResponse<object>.Fail("A prescription bill is awaiting pickup. Complete pickup and settle the bill before deleting the account.", 409);
             }
 
             var ownedGroup = await _db.FamilyGroups.FirstOrDefaultAsync(group => group.CreatedBy == patient.PatientId);

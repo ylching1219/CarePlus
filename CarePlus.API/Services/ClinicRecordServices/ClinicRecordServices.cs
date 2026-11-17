@@ -1,5 +1,6 @@
 using CarePlus.API.Data;
 using CarePlus.API.DTO.ClinicRecordDTO;
+using CarePlus.API.Extension;
 using CarePlus.API.Models.Appointment;
 using CarePlus.API.Models.MedicalRecord;
 using CarePlus.API.Models.PrescriptionItem;
@@ -133,7 +134,8 @@ namespace CarePlus.API.Services.ClinicRecordServices
                 patient.Gender,
                 patient.DateOfBirth,
                 FindAppointment(record, appointments),
-                invoices.FirstOrDefault(row => row.MedicalRecordId == record.MedicalRecordId),
+                invoices.FirstOrDefault(row => row.MedicalRecordId == record.MedicalRecordId
+                    && !InvoiceVisitLabel.IsPrescription(row.VisitType)),
                 prescriptionItems.Where(row => row.Prescription.MedicalRecordId == record.MedicalRecordId).ToList(),
                 visitTypes,
                 isChinese,
